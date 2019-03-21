@@ -1073,7 +1073,7 @@ static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
 static struct sysret handle_irq_table_alloc_dest_cap(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
-    return SYSRET(irq_table_alloc_dest_cap(args[0],args[1],args[2]));
+    return SYSRET(irq_table_alloc_dest_cap(args[0],args[1],args[2], args[3]));
 }
 
 

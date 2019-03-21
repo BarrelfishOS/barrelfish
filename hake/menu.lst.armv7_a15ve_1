@@ -28,14 +28,17 @@ module /armv7/sbin/proc_mgmt boot
 module /armv7/sbin/startd boot
 
 # Device drivers
-# module /armv7/sbin/serial_pl011 auto
-module /armv7/sbin/serial_kernel irq=37
+module /armv7/sbin/serial_kernel auto
+module /armv7/sbin/serial_pl011 auto
+module /armv7/sbin/driverdomain auto
+module /armv7/sbin/driverdomain_pl390 auto
 module /armv7/sbin/corectrl auto
 
 # General user domains
 module /armv7/sbin/angler serial0.terminal dumb
 module /armv7/sbin/fish nospawn
 
+module /armv7/sbin/int_route 
 module /armv7/sbin/memtest
 
 # gem5 simulates 512MB of RAM starting at 0x80000000

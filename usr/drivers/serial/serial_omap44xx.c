@@ -6,38 +6,65 @@
 #include <dev/omap/omap44xx_uart3_dev.h>
 #include <arch/arm/omap44xx/device_registers.h>
 #include <maps/omap44xx_map.h>
+#include <pci/pci.h>
+#include <int_route/int_route_client.h>
 
 /* XXX */
 #define UART_IRQ (32+74)
 
 #define DEFAULT_MEMBASE OMAP44XX_MAP_L4_PER_UART3
 
-static omap44xx_uart3_t port;
+struct serial_omap {
+    struct serial_common m;
+    omap44xx_uart3_t port;
+};
 
-static void serial_poll(omap44xx_uart3_t *uart)
+/** output a single character */
+static void
+serial_putchar(struct serial_omap *so, char c)
+{
+    // Wait until FIFO can hold more characters
+    while (!omap44xx_uart3_lsr_tx_fifo_e_rdf(&so->port));
+    // Write character
+    omap44xx_uart3_thr_thr_wrf(&so->port, c);
+}
+
+/** write string to serial port */
+static void
+serial_write(void *m, const char *c, size_t len)
+{
+    struct serial_omap * so = m;
+    for (int i = 0; i < len; i++) {
+        serial_putchar(so, c[i]);
+    }
+}
+
+
+static void serial_poll(struct serial_omap * so)
 {
     // Read while we can
-    while(omap44xx_uart3_lsr_rx_fifo_e_rdf(uart)) {
-        char c = omap44xx_uart3_rhr_rhr_rdf(uart);
-        serial_input(&c, 1);
+    while(omap44xx_uart3_lsr_rx_fifo_e_rdf(&so->port)) {
+        char c = omap44xx_uart3_rhr_rhr_rdf(&so->port);
+        serial_input(&so->m, &c, 1);
     }
 }
 
 static void serial_interrupt(void *arg)
 {
+    struct serial_omap *so = arg;
     // get type
-    omap44xx_uart3_iir_t iir= omap44xx_uart3_iir_rd(&port);
+    omap44xx_uart3_iir_t iir= omap44xx_uart3_iir_rd(&so->port);
 
     if (omap44xx_uart3_iir_it_pending_extract(iir) == 0) {
         omap44xx_uart3_it_type_status_t it_type=
             omap44xx_uart3_iir_it_type_extract(iir);
         switch(it_type) {
             case omap44xx_uart3_it_modem:
-                omap44xx_uart3_msr_rd(&port);
+                omap44xx_uart3_msr_rd(&so->port);
                 break;
             case omap44xx_uart3_it_rxtimeout:
             case omap44xx_uart3_it_rhr:
-                serial_poll(&port);
+                serial_poll(so);
                 break;
             default:
                 debug_printf("serial_interrupt: unhandled irq: %d\n", it_type);
@@ -197,66 +224,97 @@ static void omap44xx_uart3_init(omap44xx_uart3_t *uart, lvaddr_t base)
 
 
 static
-errval_t real_init(uint32_t membase) {
+errval_t hw_init(struct capref mem, struct serial_omap * so) {
     // XXX: TODO: figure this out --> kaluga magic?
     errval_t err;
-    lvaddr_t vbase;
-    err = map_device_register(membase, BASE_PAGE_SIZE, &vbase);
+    void *vbase;
+    struct frame_identity id;
+
+    err = invoke_frame_identify(mem, &id);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "map_device_register failed\n");
-        return err;
+        USER_PANIC_ERR(err, "vspace_map_one_frame_attr failed\n");
+    }
+
+    err = vspace_map_one_frame_attr(&vbase, id.bytes, mem,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL,
+                                    NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vspace_map_one_frame_attr failed\n");
     }
     assert(vbase);
 
     // paging_map_device returns an address pointing to the beginning of
     // a section, need to add the offset for within the section again
     debug_printf("omap serial_init base = 0x%"PRIxLVADDR"\n", vbase);
-    omap44xx_uart3_init(&port, vbase);
-    debug_printf("omap serial_init[%d]: done.\n", port);
+    omap44xx_uart3_init(&so->port, (lvaddr_t) vbase);
+    debug_printf("omap serial_init[%d]: done.\n", so->port);
     return SYS_ERR_OK;
 }
 
-errval_t serial_init(struct serial_params *params)
+static errval_t
+init(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
 {
-    uint32_t membase= DEFAULT_MEMBASE;
-    if(params->membase != SERIAL_MEMBASE_INVALID)
-        membase= (uint32_t)params->membase;
+    errval_t err;
+    struct serial_omap *so = malloc(sizeof(struct serial_omap));
+    init_serial_common(&so->m);
 
-    uint8_t irq= UART_IRQ;
-    if(params->irq != SERIAL_IRQ_INVALID)
-        irq= params->irq;
+    bfi->dstate = so;
+
+    struct capref irq;
+    irq.cnode = bfi->argcn;
+    irq.slot = PCIARG_SLOT_INT;
+
+    struct capref mem;
+    mem.cnode = bfi->argcn;
+    mem.slot = PCIARG_SLOT_BAR0;
+
+    so->m.output = serial_write;
+    so->m.output_arg = so;
 
     // initialize hardware
-    errval_t err = real_init(membase);
+    err = hw_init(mem, so);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "serial_init failed\n");
         return -1;
     }
 
     // register interrupt
-    err = inthandler_setup_arm(serial_interrupt, NULL, irq);
+    err = int_route_client_route_and_connect(irq, 0, get_default_waitset(),
+            serial_interrupt, so);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "interrupt setup failed.");
     }
 
     // offer service now we're up
-    start_service();
+    start_service(&so->m);
     return SYS_ERR_OK;
 }
 
-/** output a single character */
-static void serial_putchar(char c)
-{
-    // Wait until FIFO can hold more characters
-    while (!omap44xx_uart3_lsr_tx_fifo_e_rdf(&port));
-    // Write character
-    omap44xx_uart3_thr_thr_wrf(&port, c);
+static errval_t attach(struct bfdriver_instance* bfi) {
+    return SYS_ERR_OK;
 }
 
-/** write string to serial port */
-void serial_write(const char *c, size_t len)
-{
-    for (int i = 0; i < len; i++) {
-        serial_putchar(c[i]);
-    }
+static errval_t detach(struct bfdriver_instance* bfi) {
+    return SYS_ERR_OK;
 }
+
+static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
+    return SYS_ERR_OK;
+}
+
+static errval_t destroy(struct bfdriver_instance* bfi) {
+    struct serial_omap44xx * spc = bfi->dstate;
+    free(spc);
+    bfi->dstate = NULL;
+    // XXX: Tear-down the service
+    bfi->device = 0x0;
+    return SYS_ERR_OK;
+}
+
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{   
+    USER_PANIC("NIY \n");
+    return SYS_ERR_OK;
+}
+
+DEFINE_MODULE(serial_omap44xx, init, attach, detach, set_sleep_level, destroy, get_ep);

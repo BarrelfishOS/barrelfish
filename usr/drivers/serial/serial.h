@@ -27,20 +27,40 @@ struct serial_buffer {
 #define SERIAL_IRQ_INVALID      0xffffffff
 #define SERIAL_MEMBASE_INVALID  0xffffffffffffffffULL
 
-struct serial_params {
-    uint32_t portbase;
+struct serial_common;
+
+typedef void (*serial_input_fn_t)
+    (void *arg, char *data, size_t length);
+typedef void (*serial_output_fn_t)
+    (void * arg, const char *c, size_t length);
+
+// Returned from init functions
+struct serial_common {
     uint32_t irq;
     uint64_t membase;
+    char *driver_name;
+    struct serial_buffer buffer;
+
+    // Handler for input from the serial line. Set in main.
+    // Module should call serial_input(..) to perform buffering.
+    serial_input_fn_t input_consumer;      
+    void *input_consumer_arg;      
+
+    // Output on the serial line. Set in module, called from main 
+    serial_output_fn_t output;     
+    void *output_arg;      
 };
 
-typedef void serial_input_fn_t(char *data, size_t length);
+errval_t init_serial_common(struct serial_common *m);
 
-void serial_write(const char *c, size_t len);
-errval_t serial_init(struct serial_params *params);
-void start_service(void);
-void start_basic_service(char *driver_name);
-void start_terminal_service(char *driver_name);
-void serial_input(char *data, size_t length);
-void set_new_input_consumer(serial_input_fn_t fn);
+// Generic interface
+void serial_input(struct serial_common *main, char *data, size_t length);
+void serial_set_new_input_consumer(struct serial_common *main,
+        serial_input_fn_t fn, void *fn_arg);
+
+// Service interface
+void start_service(struct serial_common *main);
+void start_basic_service(struct serial_common *main);
+void start_terminal_service(struct serial_common *main);
 
 #endif

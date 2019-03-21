@@ -370,7 +370,8 @@ static void check_first_client_connected(struct term_server *server)
         return;
     }
 
-    TERM_DEBUG("First client successfully connected to terminal server.\n");
+    TERM_DEBUG("First client successfully connected to terminal server."
+            "server=%p, server->st=%p\n", server, server->st);
 
     /* new session callback */
     server->new_session_cb(server->st, server->session_id);

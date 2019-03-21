@@ -11,44 +11,99 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build application { target = "serial_pc16550d",
-                      cFiles = [ "serial_pc16550d.c", "main.c",
+[ 
+ --  build application { target = "serial_omap44xx",
+ --                      cFiles = [ "serial_omap44xx.c", "main.c", "main_common.c"
+ --                                 "basic_service.c", "terminal_service.c" ],
+ --                      flounderBindings = [ "serial" ],
+ --                      flounderDefs = [ "terminal" , "terminal_config",
+ --                                       "terminal_session" ],
+ --                      mackerelDevices = [ "omap/omap44xx_uart3" ],
+ --                      addLibraries = [ "driverkit", "term_server" ],
+ --                      architectures = [ "armv7" ]
+ --                    },
+ --  build application { target = "serial_pl011",
+ --                      cFiles = [ "serial_pl011.c", "main.c", "main_common.c"
+ --                                 "basic_service.c", "terminal_service.c" ],
+ --                      flounderBindings = [ "serial" ],
+ --                      flounderDefs = [ "terminal" , "terminal_config",
+ --                                       "terminal_session" ],
+ --                      mackerelDevices = [ "pl011_uart" ],
+ --                      addLibraries = [ "driverkit", "term_server" ],
+ --                      architectures = [ "armv7", "armv8" ]
+ --                    },
+
+
+  build library { target = "serial_kernel_module",
+                      cFiles = [ "serial_kernel.c",
+                                 "main_common.c",
                                  "basic_service.c", "terminal_service.c" ],
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      mackerelDevices = [ "pc16550d" ],
-                      addLibraries = [ "pci", "term_server" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64", "armv7", "armv8" ]
                     },
-  build application { target = "serial_omap44xx",
-                      cFiles = [ "serial_omap44xx.c", "main.c",
+  build application {
+        target = "serial_kernel",
+        cFiles = [ "main_ddomain.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
+        addModules = ["serial_kernel_module"],
+        architectures = ["x86_64", "armv7", "armv8"]
+  },
+
+  build library { target = "serial_pc16550d_module",
+                      cFiles = [ "serial_pc16550d.c",
+                                 "main_common.c",
                                  "basic_service.c", "terminal_service.c" ],
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      mackerelDevices = [ "omap/omap44xx_uart3" ],
-                      addLibraries = [ "driverkit", "term_server" ],
-                      architectures = [ "armv7" ]
+                      architectures = [ "x86_32", "x86_64"]
                     },
-  build application { target = "serial_pl011",
-                      cFiles = [ "serial_pl011.c", "main.c",
+
+  build application {
+        target = "serial_pc16550d",
+        cFiles = [ "main_ddomain.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
+        addModules = ["serial_pc16550d_module"],
+        architectures = ["x86_64"]
+  },
+
+  build library { target = "serial_pl011_module",
+                      cFiles = [ "serial_pl011.c",
+                                 "main_common.c",
                                  "basic_service.c", "terminal_service.c" ],
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      mackerelDevices = [ "pl011_uart" ],
-                      addLibraries = [ "driverkit", "term_server" ],
-                      architectures = [ "armv7", "armv8" ]
+                      architectures = ["armv7"]
                     },
-  build application { target = "serial_kernel",
-                      cFiles = [ "serial_kernel.c", "main.c",
+  build application {
+        target = "serial_pl011",
+        cFiles = [ "main_ddomain.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
+        addModules = ["serial_pl011_module"],
+        architectures = ["armv7"]
+  },
+
+  build library { target = "serial_omap44xx_module",
+                      cFiles = [ "serial_omap44xx.c",
+                                 "main_common.c",
                                  "basic_service.c", "terminal_service.c" ],
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      addLibraries = [ "term_server", "driverkit" ],
-                      architectures = [ "x86_32", "x86_64",
-                                        "armv7", "armv8" ]
-                    }
+                      architectures = ["armv7"]
+                    },
+  build application {
+        target = "serial_omap44xx",
+        cFiles = [ "main_ddomain.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
+        addModules = ["serial_omap44xx_module"],
+        architectures = ["armv7"]
+  }
 ]

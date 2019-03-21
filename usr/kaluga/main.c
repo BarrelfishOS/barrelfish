@@ -55,6 +55,7 @@ static void add_start_function_overrides(void)
 
 #ifdef __X86_64__
     set_start_function("iommu", start_iommu_driver);
+    set_start_function("serial_pc16550d", default_start_function_pure);
 #endif
 #ifndef __ARM_ARCH_7A__
     //X86 and ARMv8
@@ -66,6 +67,10 @@ static void add_start_function_overrides(void)
     set_start_function("xeon_phi", default_start_function_new);
 #else
     set_start_function("driverdomain", default_start_function_new);
+    set_start_function("serial_kernel", default_start_function_pure);
+    set_start_function("serial_pl011", default_start_function_pure);
+    set_start_function("serial_omap44xx", default_start_function_pure);
+    set_start_function("driverdomain_pl390", default_start_function_pure);
 #endif
 
 

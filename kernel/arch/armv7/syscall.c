@@ -787,6 +787,64 @@ INVOCATION_HANDLER(monitor_identify_domains_cap)
     return sys_monitor_identify_cap(root, cptr, level, retbuf);
 }
 
+static struct sysret handle_irqsrc_get_vec_start(struct capability *to,
+        arch_registers_state_t* context,
+        int argc)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqsrc.vec_start;
+    return ret;
+}
+
+static struct sysret handle_irqsrc_get_vec_end(struct capability *to,
+        arch_registers_state_t* context,
+        int argc)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqsrc.vec_end;
+    return ret;
+}
+
+static struct sysret handle_irqdest_connect(struct capability* to,
+        arch_registers_state_t* context,
+        int argc)
+
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+    return SYSRET(irq_connect(to, sa->arg2));
+}
+
+static struct sysret handle_irqdest_get_vector(struct capability *to,
+        arch_registers_state_t* context,
+        int argc)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqdest.vector;
+    return ret;
+}
+
+static struct sysret handle_irqdest_get_cpu(struct capability *to,
+        arch_registers_state_t* context,
+        int argc)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqdest.cpu;
+    return ret;
+}
+
+static struct sysret handle_irq_table_alloc_dest_cap(struct capability* to,
+        arch_registers_state_t* context,
+        int argc
+        )
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+    return SYSRET(irq_table_alloc_dest_cap(sa->arg2, sa->arg3, sa->arg4, sa->arg5));
+}
+
 static struct sysret handle_irq_table_set( struct capability* to,
         arch_registers_state_t* context,
         int argc
@@ -1035,7 +1093,17 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },
+	[ObjType_IRQSrc] = {
+        [IRQSrcCmd_GetVecStart] = handle_irqsrc_get_vec_start,
+        [IRQSrcCmd_GetVecEnd] = handle_irqsrc_get_vec_end
+	},
+	[ObjType_IRQDest] = {
+        [IRQDestCmd_Connect] = handle_irqdest_connect,
+        [IRQDestCmd_GetVector] = handle_irqdest_get_vector,
+        [IRQDestCmd_GetCpu] = handle_irqdest_get_cpu
+	},
     [ObjType_IRQTable] = {
+            [IRQTableCmd_AllocDestCap] = handle_irq_table_alloc_dest_cap,
             [IRQTableCmd_Set] = handle_irq_table_set,
             [IRQTableCmd_Delete] = handle_irq_table_delete,
         },
@@ -1223,7 +1291,6 @@ static struct sysret handle_debug_syscall(struct registers_arm_syscall_args* sa)
     int msg = sa->arg1;
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
-
         case DEBUG_FLUSH_CACHE:
             invalidate_data_caches_pouu(true);
             break;

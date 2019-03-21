@@ -116,7 +116,7 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
         inst->argv[3] = NULL;
     }
 
-    strncpy(inst->name, name, sizeof(inst->name));
+    strncpy(inst->name, name, 256);
 
     err = slot_alloc(&inst->ctrl);
     if (err_is_fail(err)){
@@ -218,6 +218,8 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         free(inst);
         goto send_reply;
     }
+
+    strncpy(inst->name, name, 256);
 
     DRIVERKIT_DEBUG("Instantiate driver\n");
     err = driverkit_create_driver(cls, inst, flags, &dev, &inst->ctrl);

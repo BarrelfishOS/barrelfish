@@ -251,8 +251,8 @@ arch_init(struct arm_core_data *boot_core_data,
     MSG("Debug port initialized.\n");
 
 
+    platform_revision_init();
     if (cpu_is_bsp()) {
-        platform_revision_init();
 	    MSG("%"PRIu32" cores in system\n", platform_get_core_count());
         MSG("Initializing the interrupt controller\n");
         platform_init_ic_bsp();

@@ -512,9 +512,15 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
-errval_t irq_table_alloc_dest_cap(uint8_t dcn_level, capaddr_t dcn, capaddr_t out_cap_addr)
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_level, capaddr_t dcn,
+                                  capaddr_t out_cap_addr, int vec_hint)
 {
     errval_t err;
+
+    if(vec_hint >= 0){
+        printk(LOG_WARN, "irq: vec_hint not supported on x86\n");
+        return SYS_ERR_IRQ_INVALID;
+    }
 
     int i;
     bool i_usable = false;

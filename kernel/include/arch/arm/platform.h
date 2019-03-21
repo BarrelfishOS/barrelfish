@@ -80,12 +80,12 @@ extern size_t platform_uart_size[];
 /*
  * Interrupt controller interface
  */
- errval_t platform_init_ic_bsp(void);
- errval_t platform_init_ic_app(void);
- uint32_t platform_get_active_irq(void);
- void     platform_acknowledge_irq(uint32_t irq);
- void     platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
-                               bool edge_triggered, bool one_to_n);
+errval_t platform_init_ic_bsp(void);
+errval_t platform_init_ic_app(void);
+uint32_t platform_get_active_irq(void);
+void     platform_acknowledge_irq(uint32_t irq);
+errval_t  platform_enable_interrupt(uint32_t int_id, uint16_t prio,
+                              bool edge_triggered, bool one_to_n);
 
 /*
 * Timers

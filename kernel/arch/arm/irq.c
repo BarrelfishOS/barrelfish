@@ -60,23 +60,22 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
     if (nidt < NDISPATCH) {
         // check that we don't overwrite someone else's handler
         if (irq_dispatch[nidt].cap.type != ObjType_Null) {
-            printf("kernel: installing new handler for IRQ %d\n", nidt);
+            printf("kernel: replacing handler for IRQ %d\n", nidt);
         }
         err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
 
-        // Route the interrupt to this CPU, as we're the only CPU driver that
-        // knows where to send it.  XXX - this should change once we have more
-        // sophisticated interrupt routing.
-        //
-        // The mapping of interrupt interfaces to cores doesn't seem to be
-        // documented anywhere for the A9, and this will have to be different
-        // if we're using affinity routing on GICv3+ systems.
-        platform_enable_interrupt(nidt, BIT(my_core_id), 0,
-                IRQ_EDGE_TRIGGERED, IRQ_N_TO_N);
+        // Correct interrupt forwarding by the distributor must be ensured
+        // in userspace.
+        
         return err;
     }
 
     return SYS_ERR_IRQ_INVALID;
+}
+
+errval_t irq_connect(struct capability *irq_dest, capaddr_t endpoint) {
+    assert(irq_dest->type == ObjType_IRQDest);
+    return irq_table_set(irq_dest->u.irqdest.vector, endpoint);
 }
 
 errval_t irq_table_delete(unsigned int nidt)
@@ -89,6 +88,36 @@ errval_t irq_table_delete(unsigned int nidt)
         return SYS_ERR_OK;
     }
     return SYS_ERR_IRQ_INVALID;
+}
+
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_level, capaddr_t dcn,
+                                  capaddr_t out_cap_addr, int vec_hint)
+{
+    errval_t err;
+    if(vec_hint < 0){
+        printk(LOG_WARN, "irq: vec_hint must be provided on ARM\n", vec_hint);
+        return SYS_ERR_IRQ_INVALID;
+    }
+    if(vec_hint >= NDISPATCH){
+        printk(LOG_WARN, "irq: vec_hint invalid\n", vec_hint);
+        return SYS_ERR_IRQ_INVALID;
+    }
+
+    // TODO: Keep track of allocations 
+    struct cte * cn;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_level,
+                           &cn, CAPRIGHTS_WRITE);
+    if(err_is_fail(err)){
+        return err;
+    }
+
+    struct cte out_cap;
+    memset(&out_cap, 0, sizeof(struct cte));
+    out_cap.cap.type = ObjType_IRQDest;
+    out_cap.cap.u.irqdest.cpu = my_core_id;
+    out_cap.cap.u.irqdest.vector = vec_hint;
+    caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+    return  SYS_ERR_OK;
 }
 
 errval_t irq_table_notify_domains(struct kcb *kcb)

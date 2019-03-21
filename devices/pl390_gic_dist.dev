@@ -8,13 +8,13 @@
  */
 
 /*
- * pl130_gic.dev
+ * pl390_gic.dev
  *
- * DESCRIPTION: PrimeCell PL130 Generic Interrupt Controller
+ * DESCRIPTION: PrimeCell PL390 Generic Interrupt Controller
  *
  * This is derived from:
  *
- * [1] PrimeCell Generic Interrupt Controller PL130
+ * [1] PrimeCell Generic Interrupt Controller PL390
  *     (DDI0416B_gic_pl390_r0p0_trm.pdf)
  * [2] ARM Cortex A9 MPCore TRM r2p0
  * [3] ARM Generic Interrupt Controller v1.0
@@ -25,8 +25,8 @@
  * Register map for CPU interface: [3], chp 4.1.3
  */
 
-device pl130_gic msbfirst (addr dist_base, addr cpu_base)
-    "PrimeCell PL130 Generic Interrupt Controller"
+device pl390_gic_dist msbfirst (addr dist_base)
+    "PrimeCell PL390 Generic Interrupt Controller Distributor"
 {
     //
     // Distributor register map
@@ -202,59 +202,4 @@ device pl130_gic msbfirst (addr dist_base, addr cpu_base)
         _               24;
         component_id    8;
     };
-
-
-    //
-    // CPU interface register map
-    //
-
-    register ICCICR addr(cpu_base, 0x0) "CPU Interface Control" {
-        _               31;
-        enable          1       "en. fwding to connected processors";
-    };
-
-    register ICCPMR addr(cpu_base, 0x4) "Interrupt Priority Mask" {
-        _               24;
-        priority        8       "Priority mask level for CPU Interface";
-    };
-
-    register ICCBPR addr(cpu_base, 0x8) "Binary Point" {
-        _               29;
-        binary_point    3       "Split Group- and subpriority";
-    };
-
-    register ICCIAR ro addr(cpu_base, 0xc) "Interrupt Acknowledge" {
-        _               19;
-        cpu_id          3       "Processor ID of interrupting processor";
-        ack_int_id      10      "Interrupt ID";
-    };
-
-    register ICCEOIR wo addr(cpu_base, 0x10) "End of Interrupt" {
-        _               19 mbz;
-        cpu_id          3       "Proc ID of ICCIAR access";
-        eoi_int_id      10      "ACKINTID of ICCIAR access";
-    };
-
-    register ICCRPR ro addr(cpu_base, 0x14) "Running Priority" {
-        _               24;
-        priority        8       "Highest priority active interrupt";
-    };
-
-    register ICCHPIR ro addr(cpu_base, 0x18) "Highest Pending Interrupt" {
-        _               19;
-        cpu_id          3       "ID of interrupting processor";
-        pend_int_id     10      "ID of highest pri. pending int.";
-    };
-
-    register ICCABPR addr(cpu_base, 0x1c) "Aliased Binary Point" {
-        _               29 rsvd;
-        binary_point    3       "Split Group- and subpriority";
-    };
-
-    register ICCIIDR ro addr(cpu_base, 0xfc) "CPU Interface Identification" {
-        product_id      12      "Product ID";
-        arch_version    4       "Implemented GIC architecture version";
-        revision        4       "Revision number for the CPU Interface";
-        implementer     12      "JEP106 code of the implementer";
-    };
- };
+};

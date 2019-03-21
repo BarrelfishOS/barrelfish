@@ -480,12 +480,20 @@ static inline errval_t invoke_irqsrc_get_vec_end(struct capref irqcap, uint64_t 
     return ret.error;
 }
 
-static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, struct capref dest_cap)
+/**
+ * Allocate a free entry in the vector table and return it as dest_cap.
+ * Set vec_hint to a positive value, and the allocator will force 
+ * that vector to be allocated.
+ */
+static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap,
+                                                      struct capref dest_cap,
+                                                      int vec_hint
+                                                      )
 {
     uint8_t dcn_level = get_cnode_level(dest_cap);
     capaddr_t dcn_addr = get_cnode_addr(dest_cap);
-    struct sysret ret = cap_invoke4(irqcap, IRQTableCmd_AllocDestCap,
-                                    dcn_level, dcn_addr, dest_cap.slot);
+    struct sysret ret = cap_invoke5(irqcap, IRQTableCmd_AllocDestCap,
+                                    dcn_level, dcn_addr, dest_cap.slot, vec_hint);
     return ret.error;
 }
 

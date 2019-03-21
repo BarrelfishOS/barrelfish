@@ -72,6 +72,13 @@ void user_panic_fn(const char *file, const char *func, int line,
 } while (0)
 
 /**
+ * \brief If err is an error, panic
+ */
+#define USER_PANIC_ON_ERR(err, msg...) do {               \
+    if(err_is_fail(err)) USER_PANIC_ERR(err, msg);     \
+} while (0)
+
+/**
  * \brief Prints out a string and abort the domain
  */
 #define USER_PANIC(msg...)                                 \

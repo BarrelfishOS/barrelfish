@@ -79,6 +79,7 @@ static cortex_a9_pit_t tsc;
 
 void platform_timer_init(int timeslice)
 {
+    errval_t err;
     /* Time slice counter: use the Cortex-A9 Local Timer
        (see Cortex-A9 MPCore TRM 4.1). */
     lvaddr_t lcl_base =
@@ -88,7 +89,11 @@ void platform_timer_init(int timeslice)
     /* Global timer: use the Cortex-A9 Global Timer
        (see Cortex-A9 MPCore TRM 4.3). */
     a9_gt_init(platform_get_gt_address());
-    platform_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0, 0);
+    err = platform_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0);
+    if(err_is_fail(err)){
+        printk(LOG_ERR,
+                "Failed to enable timer interrupt. Will continue without...");
+    }
     /* Discover the clock rate. */
     a9_probe_tsc();
     assert(systime_frequency != 0);
