@@ -84,25 +84,25 @@ kernelLibs arch =
     [ In InstallTree arch "/lib/libcompiler-rt.a" ]
 
 -- Libraries that are linked to all applications.
+stdLibDeps =
+  [
+    "c",
+    "collections",
+    "compiler-rt",
+    "octopus_parser",
+    "term_client",
+    "errno"
+  ]
+
+stdCxxLibDeps = ["cxx"] ++ stdLibDeps
+
 stdLibs arch =
-    -- Library OS now added in appGetOptionsForArch based on options field 'libraryOs'
-    [ In InstallTree arch "/lib/libterm_client.a",
-      In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
-      In InstallTree arch "/errors/errno.o",
-      In InstallTree arch ("/lib/libc.a"),
-      In InstallTree arch "/lib/libcompiler-rt.a",
-      --In InstallTree arch "/lib/libposixcompat.a",
-      --In InstallTree arch "/lib/libvfs.a",
-      --In InstallTree arch "/lib/libnfs.a",
-      --In InstallTree arch "/lib/liblwip.a",
-      --In InstallTree arch "/lib/libbarrelfish.a",
-      --In InstallTree arch "/lib/libcontmng.a",
-      --In InstallTree arch "/lib/libprocon.a",
-      In InstallTree arch "/lib/crtend.o" ,
-      In InstallTree arch "/lib/libcollections.a" ]
+    -- Library OS now added in appGetOptionsForArch based on options field 'libraryOs'.
+    -- Archive files should be added to stdLibDeps.
+    [ In InstallTree arch "/lib/crtend.o" ]
 
 stdCxxLibs arch =
-    [ In InstallTree arch "/lib/libcxx.a" ]
+    [ ]
     ++ stdLibs arch
 
 options arch archFamily = Options {
@@ -119,7 +119,9 @@ options arch archFamily = Options {
                   Dep InstallTree arch "/include/trace_definitions/trace_defs.h" ],
             optLdFlags = ldFlags arch,
             optLdCxxFlags = ldCxxFlags arch,
+            optLibDep = stdLibDeps,
             optLibs = stdLibs arch,
+            optCxxLibDep = stdCxxLibDeps,
             optCxxLibs = stdCxxLibs arch,
             optInterconnectDrivers = ["lmp", "ump", "multihop", "local"],
             optFlounderBackends = ["lmp", "ump", "multihop", "local"],
@@ -381,7 +383,7 @@ ldtCxxlinker arch cxxcompiler opts objs app bin =
     ++
     [ In BuildTree arch o | o <- objs ]
     ++
-    [Str "-Wl,--start-group -Wl,--whole-archive"]
+    [Str "-Wl,--start-group"]
     ++
     [ Ldt BuildTree arch app ]
     ++

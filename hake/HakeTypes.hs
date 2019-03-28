@@ -131,7 +131,7 @@ formatToken (Abs rule _) = formatToken rule
 formatToken (ErrorMsg s) = "$(error " ++ s ++ ")"
 formatToken (NL) = "\n\t"
 formatToken (LDep _  _) = ""
-formatToken (Ldt _ _  _) = ""
+formatToken (Ldt _ a b) = " LDT (" ++ (show (a,b)) ++ ") "
 
 
 -------------------------------------------------------------------------
@@ -156,7 +156,9 @@ data Options = Options {
       optDependencies :: [RuleToken],
       optLdFlags :: [RuleToken],
       optLdCxxFlags :: [RuleToken],
+      optLibDep :: [String],
       optLibs :: [RuleToken],
+      optCxxLibDep :: [String],
       optCxxLibs :: [RuleToken],
       optInterconnectDrivers :: [String],
       optFlounderBackends :: [String],

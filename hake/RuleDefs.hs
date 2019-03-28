@@ -132,6 +132,8 @@ kernelOptions arch = Options {
             optArchFamily = archFamily arch,
             optFlags = kernelCFlags arch,
             optCxxFlags = [],
+            optLibDep = [],
+            optCxxLibDep = [],
             optDefines = (optDefines (options arch)) ++ [ Str "-DIN_KERNEL",
                 Str ("-DCONFIG_SCHEDULER_" ++ (show Config.scheduler)),
                 Str ("-DCONFIG_TIMESLICE=" ++ (show Config.timeslice)) ],
@@ -463,6 +465,20 @@ ldtLinkCxxExecutable opts objs app bin =
 
 -------------------------------------------------------------------------
 
+
+--
+-- Emit dependency tokens for libs in Options
+stdLibDepsRules :: Options -> String -> [HRule]
+stdLibDepsRules opts app =
+  [Rule [LDep (DepApp arch app) (DepLib arch l) | l <- optLibDep opts]]
+  where
+    arch = optArch opts
+
+stdCxxLibDepsRules :: Options -> String -> [HRule]
+stdCxxLibDepsRules opts app =
+  [Rule [LDep (DepApp arch app) (DepLib arch l) | l <- optCxxLibDep opts]]
+  where
+    arch = optArch opts
 
 
 
@@ -874,12 +890,14 @@ fuguCFile :: Options -> String -> HRule
 fuguCFile opts file =
     let arch = optArch opts
         cfile = file ++ ".c"
+        ofile = file ++ ".o"
     in
       Rules [ Rule [ In InstallTree "tools" "/bin/fugu",
                      In SrcTree "src" (file++".fugu"),
                      Str "-c",
                      Out arch cfile ],
-              compileGeneratedCFile opts cfile
+              compileGeneratedCFile opts cfile,
+              staticLibrary opts "errno" [ofile] []
          ]
 
 fuguHFile :: Options -> String -> HRule
@@ -1042,7 +1060,9 @@ nativeOptions = Options {
       optDependencies        = [],
       optLdFlags             = [],
       optLdCxxFlags          = [],
+      optLibDep              = [],
       optLibs                = [],
+      optCxxLibDep           = [],
       optCxxLibs             = [],
       optInterconnectDrivers = [],
       optFlounderBackends    = [],
@@ -1210,6 +1230,7 @@ extraIncs libs =
            | lib == "lwip2" = True
            | otherwise      = False
 
+appGetOptionsForArch :: String -> Args.Args -> Options
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
@@ -1247,7 +1268,9 @@ appGetOptionsForArch arch args =
                    }
     where
         libos = fromMaybe (fromJust $ Config.libbarrelfish arch) (Args.libraryOs args)
-        library_os arch = [ In InstallTree arch ("/lib" </> "lib" ++ (Args.target libos) ++ ".a") ]
+        library_os arch =
+          [ In InstallTree arch ("/lib" </> "lib" ++ (Args.target libos) ++ ".a") ] ++
+          [ LDep (DepApp arch (Args.target args)) (DepLib arch (Args.target libos))]
 
 
 fullTarget :: Options -> String -> String -> HRule
@@ -1270,8 +1293,11 @@ appBuildArch tdb tf args arch =
         -- XXX: Not sure if this is correct. Currently assuming that if the app
         -- contains C++ files, we have to use the C++ linker.
         mylink = if cxxsrcs == [] then ldtLink else ldtLinkCxx
+        mystdlibs = if cxxsrcs == [] then stdLibDepsRules else stdCxxLibDepsRules
     in
-      Rules ( flounderRules opts args csrcs
+      Rules ( mystdlibs opts (Args.target args)
+              ++
+              flounderRules opts args csrcs
               ++
               skateRules opts args csrcs
               ++
@@ -1287,6 +1313,43 @@ appBuildArch tdb tf args arch =
               ]
 
             )
+
+--
+-- Build a driverdomain application binary
+--
+-- Similar to application, but defaults cFiles to default driverdomain
+-- implementation and adds linker script
+--
+
+driverdomain :: Args.Args
+driverdomain = Args.defaultArgs {
+    Args.buildFunction = applicationBuildFn,
+    Args.cFiles = ["/usr/drivers/domain/main.c"],
+    Args.addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld"],
+    Args.addLibraries = ["driverkit"]
+}
+
+
+-- This is pretty much libraryBuildFn, except that it produces the LDep token
+-- for the module
+drivermoduleBuildFn :: TreeDB -> String -> Args.Args -> HRule
+drivermoduleBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " DriverModule ") args) False = undefined
+drivermoduleBuildFn tdb tf args =
+    Rules ([ libBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
+           concat [modLibDeps args arch | arch <- Args.architectures args])
+    where
+      modLibDeps :: Args.Args -> String -> [HRule]
+      modLibDeps args arch =
+        let
+          me = DepMod arch (Args.target args)
+          libs = Args.addLibraries args
+        in
+          [Rule ([LDep me (DepLib arch l) | l <- libs])]
+
+drivermodule :: Args.Args
+drivermodule = Args.defaultArgs {
+    Args.buildFunction = drivermoduleBuildFn
+}
 
 --
 -- Build an Arrakis application binary
@@ -1369,7 +1432,8 @@ libBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths opts args)
+                 -- we dont pass the libraries, since they will be added in the linker phase
+                staticLibrary opts (Args.target args) (allObjectPaths opts args) []
               ]
             )
 

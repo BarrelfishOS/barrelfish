@@ -14,6 +14,7 @@ module LibDepTree where
 
 import HakeTypes
 import Data.Graph
+import Data.Maybe
 import qualified Data.Map.Strict as Map
 import qualified RuleDefs -- for libraryPath and applicationPath
 
@@ -35,9 +36,29 @@ ldtExtract rules = foldl merge Map.empty $ map ext rules
     merge :: LibDepTree2 -> LibDepTree2 -> LibDepTree2
     merge a b = Map.unionWith (++) a b
 
+ldtFromJust :: Maybe a -> String ->  a
+ldtFromJust Nothing err = errorWithoutStackTrace ("No Graph Node for " ++ err) -- yuck
+ldtFromJust (Just x) err = x
+
 -- Calculate the reachable elements from start in topological sorted order
 ldtDepOf :: LibDepTree2 -> DepEl -> [DepEl]
 ldtDepOf tree start = map extractDepEl $ filter (\el -> (elem el reach) && Just el /= vertexFromKey start) allTopo
+  where
+    reach :: [Vertex]
+    reach = reachable graph (ldtFromJust (vertexFromKey start) (show start))
+
+    allTopo :: [Vertex]
+    allTopo = topSort graph   -- topological sort of all elms
+
+    triFst (a,_,_) = a
+    extractDepEl = (\l -> triFst $ nodeFromVertex l)
+    (graph, nodeFromVertex, vertexFromKey) = graphFromEdges (wchild ++ wochild)
+    wchild = [(a,a,b) | (a,b) <- Map.toList tree]
+    wochild = [(c,c,[]) | c <- concat [cs | (_,cs) <- Map.toList tree],
+                Map.notMember c tree]
+
+ldtDepDfs :: LibDepTree2 -> DepEl -> Tree DepEl
+ldtDepDfs tree start = fmap extractDepEl $ head (dfs graph [fromJust $ vertexFromKey start])
   where
     reach :: [Vertex]
     reach = case vertexFromKey start of
@@ -53,6 +74,12 @@ ldtDepOf tree start = map extractDepEl $ filter (\el -> (elem el reach) && Just 
     wchild = [(a,a,b) | (a,b) <- Map.toList tree]
     wochild = [(c,c,[]) | c <- concat [cs | (_,cs) <- Map.toList tree],
                 Map.notMember c tree]
+
+ldtPrettyTree :: Tree DepEl -> String
+ldtPrettyTree tr = prettyPrintR tr ""
+  where
+    prettyPrintR (Node lbl cs) ind = (ind ++ (show lbl)) ++ "\n" ++
+                         (concat $ [prettyPrintR c ("+ " ++ ind) | c <- cs])
 
 
 -- Replace the Ldt tokens with include tokens

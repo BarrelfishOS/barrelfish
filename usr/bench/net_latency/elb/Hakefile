@@ -14,7 +14,7 @@
                       cFiles = [ "interface_raw.c", "benchmark.c" ],
                       flounderBindings = [ "net_queue_manager" ],
                       addLibraries = [ "bench", "net_if_raw", "contmng",
-                                       "trace" ] },
+                                       "trace", "lwip" ] },
 
   build application { target = "elb_app_tcp",
                       cFiles = [ "interface_raw.c", "benchmark_tcp.c",

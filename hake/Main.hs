@@ -824,8 +824,13 @@ body =  do
     let rules = map snd qualified_rules
     let ldt = ldtExtract rules
 
+
+    -- putStrLn "Deps of 'App tests/cxxtest' Makefile:"
+    -- putStrLn $ ldtPrettyTree $ ldtDepDfs ldt (DepApp "x86_64" "tests/cxxtest")
+
     putStrLn "Writing Makefile..."
     dirs <- makefileSectionArr makefile opts $ zip paths (map (\r -> ldtRuleExpand r ldt) rules)
+    -- dirs <- makefileSectionArr makefile opts $ zip paths rules
 
     putStrLn "Generating build directory dependencies..."
     makeDirectories makefile dirs

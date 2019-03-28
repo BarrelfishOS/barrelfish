@@ -68,7 +68,7 @@
         "drivers/infiniband/core/agent.c",
         "drivers/infiniband/core/smi.c"
     ],
-    addLibraries = [ "pci", "pciconfspace" ],
+    addLibraries = [ "pci" ],
     addIncludes = [ "include" ]
   }
 ]
