@@ -65,9 +65,9 @@ lmp_ep_send(
                      arg7, arg8, arg9).error;
 }
 
-#define lmp_ep_send9(ep, flags, send_cap, a, b, c, d, e, f, g, h, i)   \
+#define lmp_ep_send9(ep, flags, send_cap, a, b, c, d, e, f, g, h, i)    \
     lmp_ep_send((ep),(flags),(send_cap),9,(a),(b),(c),(d),(e),(f),(g),(h),(i))
-#define lmp_ep_send8(ep, flags, send_cap, a, b, c, d, e, f, g, h, i)    \
+#define lmp_ep_send8(ep, flags, send_cap, a, b, c, d, e, f, g, h)       \
     lmp_ep_send((ep),(flags),(send_cap),8,(a),(b),(c),(d),(e),(f),(g),(h),0)
 #define lmp_ep_send7(ep, flags, send_cap, a, b, c, d, e, f, g)          \
     lmp_ep_send((ep),(flags),(send_cap),7,(a),(b),(c),(d),(e),(f),(g),0,0)
