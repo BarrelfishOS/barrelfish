@@ -18,7 +18,7 @@
                                             ("pci_iommu", ["rpcclient"])],
                       flounderTHCStubs = [ "octopus" ],
                       flounderBindings = [ "pci", "pci_iommu", "octopus",
-                                           "kaluga" ],
+                                           "kaluga", "int_route_controller" ],
                       flounderExtraBindings = [("pci_iommu", ["rpcclient"])],
                       mackerelDevices = [ "pci_hdr0", "pci_hdr1", "ht_config",
                                           "pci_sr_iov_cap", "pci_e1000_msix_cap",
