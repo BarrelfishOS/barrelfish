@@ -22,8 +22,7 @@ data DepEl = DepApp String String      -- An application
             | DepMod String String     -- A driver module
             deriving (Show,Eq,Ord)
 
-type LibDepTree2 = Map.Map DepEl [DepEl]
-type LdtToken = LibDepTree2 -> [RuleToken]
+
 
 
 data TreeRef = SrcTree | BFSrcTree | BuildTree | InstallTree

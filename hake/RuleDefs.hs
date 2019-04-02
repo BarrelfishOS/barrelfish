@@ -1209,8 +1209,14 @@ applicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False
         = undefined
 applicationBuildFn tdb tf args =
-    Rules ([ appBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
-        concat [ appLibDeps args arch | arch <- Args.architectures args ])
+    -- The order is important: The application libs
+    -- must be inserted before the optLibs (which are inserted in
+    -- appBuildArch..). Otherwise it's impossible to override
+    -- libc symbols. And we use that trick for instance in libposixcompat
+    -- and the VFS.
+    Rules (concat [ appLibDeps args arch | arch <- Args.architectures args ] ++
+           [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
+        )
     where
       appLibDeps :: Args.Args -> String -> [HRule]
       appLibDeps args arch =
@@ -1295,8 +1301,7 @@ appBuildArch tdb tf args arch =
         mylink = if cxxsrcs == [] then ldtLink else ldtLinkCxx
         mystdlibs = if cxxsrcs == [] then stdLibDepsRules else stdCxxLibDepsRules
     in
-      Rules ( mystdlibs opts (Args.target args)
-              ++
+      Rules (
               flounderRules opts args csrcs
               ++
               skateRules opts args csrcs
@@ -1311,22 +1316,22 @@ appBuildArch tdb tf args arch =
                 mylink opts (allObjectPaths opts args) appname appname,
                 fullTarget opts arch appname
               ]
-
+              ++
+              mystdlibs opts (Args.target args)
             )
 
 --
 -- Build a driverdomain application binary
 --
--- Similar to application, but defaults cFiles to default driverdomain
--- implementation and adds linker script
+-- Similar to application, but adds driverdomain library (which implements
+-- main) and adds linker script
 --
 
 driverdomain :: Args.Args
 driverdomain = Args.defaultArgs {
     Args.buildFunction = applicationBuildFn,
-    Args.cFiles = ["/usr/drivers/domain/main.c"],
     Args.addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld"],
-    Args.addLibraries = ["driverkit"]
+    Args.addLibraries = ["driverdomain"]
 }
 
 

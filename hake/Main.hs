@@ -201,18 +201,18 @@ listFiles' root current
 
 -- We invoke GHC to parse the Hakefiles in a preconfigured environment,
 -- to implement the Hake DSL.
-evalHakeFiles :: FilePath -> Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
+evalHakeFiles :: FilePath -> Opts -> TreeDB -> [(FilePath, String)] ->
                  IO ([(FilePath,HRule)])
-evalHakeFiles the_libdir makefile o srcDB hakefiles =
+evalHakeFiles the_libdir o srcDB hakefiles =
     --defaultErrorHandler defaultFatalMessager defaultFlushOut $
     errorHandler $
         runGhc (Just the_libdir) $
-        driveGhc makefile o srcDB hakefiles
+        driveGhc o srcDB hakefiles
 
 -- This is the code that executes in the GHC monad.
-driveGhc :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
+driveGhc :: Opts -> TreeDB -> [(FilePath, String)] ->
             Ghc ([(FilePath,HRule)])
-driveGhc makefile o srcDB hakefiles = do
+driveGhc o srcDB hakefiles = do
     -- Set the RTS flags
     dflags <- getSessionDynFlags
     _ <- setSessionDynFlags dflags {
@@ -542,8 +542,7 @@ makefileRuleInner :: Handle -> [RuleToken] -> Bool -> IO (S.Set FilePath)
 makefileRuleInner h tokens double_colon = do
     if S.null (ruleOutputs compiledRule)
     then do
-        hPutStr h "# hake: omitted rule with no output: "
-        doBody
+        return $ ruleDirs compiledRule
     else do
         printTokens h $ ruleOutputs compiledRule
         if double_colon then hPutStr h ":: " else hPutStr h ": "
@@ -814,23 +813,19 @@ body =  do
     putStrLn $ "Creating " ++ (opt_makefilename opts) ++ "..."
     makefile <- openFile(opt_makefilename opts) WriteMode
     makefilePreamble makefile opts args
-    makeHakeDeps makefile opts $ map fst hakefiles
+
 
     -- Evaluate Hakefiles
     putStrLn $ "Evaluating " ++ show (length hakefiles) ++ " Hakefiles..."
-    qualified_rules <- evalHakeFiles (opt_ghc_libdir opts) makefile opts srcDB hakefiles
+    qualified_rules <- evalHakeFiles (opt_ghc_libdir opts) opts srcDB hakefiles
 
     let paths = map fst qualified_rules
     let rules = map snd qualified_rules
     let ldt = ldtExtract rules
 
-
-    -- putStrLn "Deps of 'App tests/cxxtest' Makefile:"
-    -- putStrLn $ ldtPrettyTree $ ldtDepDfs ldt (DepApp "x86_64" "tests/cxxtest")
-
+    -- ldtDebug ldt (DepApp "x86_64" "skb")
     putStrLn "Writing Makefile..."
-    dirs <- makefileSectionArr makefile opts $ zip paths (map (\r -> ldtRuleExpand r ldt) rules)
-    -- dirs <- makefileSectionArr makefile opts $ zip paths rules
+    dirs <- makefileSectionArr makefile opts $ zip paths (map (ldtRuleExpand ldt) rules)
 
     putStrLn "Generating build directory dependencies..."
     makeDirectories makefile dirs

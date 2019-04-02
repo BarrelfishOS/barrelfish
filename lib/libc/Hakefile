@@ -35,22 +35,6 @@ in
                             "arm/aeabi/aeabi_unwind_exidx.c" ]
                         "armv8" ->  [ "aarch64/gen/flt_rounds.c" ],
         addLibraries = [ "locale", "stdio", "string", "sys", "gdtoa", "libc_gdtoa", "stdlib", "libc_sys", "libc_gen", "vis", "libc_stdtime", "tzcode", "libc_inet" ],
---        addLibraries = [
---        "machine" -- put this first, so machine-specific symbols are found before generic ones
---        , "ctype"
---        , "search"
---        , "string"
---        , "argz"
---        , "stdlib"
---        , "stdio"
-        --  , "signal"
---        , "time"
---        , "locale"
---        , "reent"
---        , "errno"
---        , "misc"
---        , "sys"
---        ],
         omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ],
         architectures = [arch]
 } | arch <- [ "x86_64", "k1om", "armv7", "armv8" ] ]

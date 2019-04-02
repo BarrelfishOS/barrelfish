@@ -23,21 +23,24 @@
   -- link with driver modules.
   -- The custom linker script is used to add the section where the modules
   -- are stored.
-  build application {
+  build library {
     target = "driverdomain",
     cFiles = [ "main.c"],
-    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-    addLibraries = libDeps [ "driverkit", "thc", "term_server", "int_route_client" ],
+    addLibraries = [ "driverkit" ],
+    addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module",
+                  "mmchs_module"],
+    architectures = ["armv7", "armv8", "x86_64"]
+  },
+
+  build driverdomain {
+    target = "driverdomain",
     addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module",
                   "mmchs_module"],
     architectures = ["armv7"]
   },
 
-  build application {
+  build driverdomain {
     target = "driverdomain_pl390",
-    cFiles = [ "main.c"],
-    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-    addLibraries = libDeps [ "driverkit", "thc", "term_server", "int_route_client" ],
     addModules = ["pl390_dist_module"],
     architectures = ["armv7"]
   }

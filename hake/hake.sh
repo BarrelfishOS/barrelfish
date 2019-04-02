@@ -215,10 +215,10 @@ fi
 # from parallelising the IO operations), and performance in Hakefile
 # evaluation, which generally gets *slower* with more threads, as the GHC
 # garbage collector ends up thrashing a lot.
-HAKE_RTSOPTS="-H128M -A4M -N4"
+HAKE_RTSOPTS="-H1024M -A4M -N4"
 
 echo "Building hake..."
-ghc -O --make \
+ghc -O2 --make \
     -XDeriveDataTypeable \
     -XStandaloneDeriving \
     -XScopedTypeVariables \
