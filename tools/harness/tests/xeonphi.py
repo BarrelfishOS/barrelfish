@@ -4,7 +4,7 @@
 #
 # This file is distributed under the terms in the attached LICENSE file.
 # If you do not find this file, copies can be found by writing to:
-# ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+# ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
 # MAKEOPTS=-j12 ./scalebench.py -m xeon_phi_1 -B /mnt/local/" + machine.get_tftp_subdir() + "/barrelfish/build -t xeon_phi_spawn /mnt/local/" + machine.get_tftp_subdir() + "/barrelfish/ /mnt/local/" + machine.get_tftp_subdir() + "/harness-results/ -v
