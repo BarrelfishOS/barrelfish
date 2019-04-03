@@ -34,7 +34,7 @@
 
     build library { target = "int_route_client",
                     cFiles = [ "client/client.c", "client/int_model.c" ],
-                    flounderDefs = [ "int_route_service" ],
+                    flounderDefs = [ "int_route_service", "monitor_blocking" ],
                     flounderBindings = [ "int_route_service" ],
                     flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ]
                    },
