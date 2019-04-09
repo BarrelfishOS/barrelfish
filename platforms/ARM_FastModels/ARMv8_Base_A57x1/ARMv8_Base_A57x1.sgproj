@@ -1,0 +1,24 @@
+sgproject "ARMv8_Base_A57x1"
+{
+    TOP_LEVEL_COMPONENT = "ARMv8_Base_A57x1";
+    ACTIVE_CONFIG_LINUX  = "default";
+    config "default"
+    {
+        ADDITIONAL_COMPILER_SETTINGS = "-march=corei7 -O3 -Wall -std=c++11 -Wno-deprecated -Wno-unused-function";
+        ADDITIONAL_LINKER_SETTINGS = "-Wl,--no-undefined";
+        BUILD_DIR = "./Linux64-Release-GCC-6.4";
+        COMPILER = "gcc-6.4";
+        PLATFORM = "Linux64";
+        PREPROCESSOR_DEFINES = "NDEBUG";
+        SIMGEN_COMMAND_LINE = "--num-comps-file 50";
+        SIMGEN_WARNINGS_AS_ERRORS = "1";
+        TARGET_MAXVIEW = "0";
+        TARGET_SYSTEMC_ISIM = "1";
+    }
+    files
+    {
+        path = "$(PVLIB_HOME)/etc/sglib.sgrepo";
+        path = "$(PVLIB_HOME)/examples/LISA/FVP_Base/LISA/FVP_Base.sgrepo";
+        path = "ARMv8_Base_A57x1.lisa";
+    }
+}

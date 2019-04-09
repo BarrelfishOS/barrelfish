@@ -113,6 +113,12 @@ circo        = "circo"     -- from graphviz
 dot          = "dot"       --   "    "
 inkscape     = "inkscape"
 
+-- ARM Fast Models Simulator TODO: make this in 
+fastmodels_root    = "/opt/arm/FastModelsTools_11.6"
+fastmodels_env     = fastmodels_root </> "/source_all.sh"
+fastmodels_simgen  = fastmodels_root </> "bin/simgen"
+
+
 -- path to source and install directories; these are automatically set by
 -- hake.sh at setup time
 source_dir :: String

@@ -399,74 +399,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "acpi"
                        ] ]
 
-    armv7Image target bootTarget cpuTarget physBase modules =
-        let bootDriver = "/sbin/boot_" ++ bootTarget
-            cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
-            image      = "/" ++ target ++ "_image"
-        in Rules [
-            Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
-                    In BuildTree "root" ("/platforms/arm/menu.lst."++target),
-                    In BuildTree "armv7" bootDriver,
-                    Out "root" image,
-                    NoDep BuildTree "root" "/",
-                    Str physBase ] ++
-                    [ (Dep BuildTree "armv7" m) | m <- modules ] ++
-                    [ (Dep BuildTree "" m) | m <- modules_generic ] ),
 
-            Rule ([ Str Config.arm_objcopy,
-                    Str "-O binary",
-                    In BuildTree "root" image,
-                    Out "root" (image ++ ".bin") ]),
-            Rule ([ In SrcTree "tools" "/tools/arm_boot/gdb_script.sh",
-                    Str Config.arm_objdump,
-                    In BuildTree "root" image,
-                    In BuildTree "armv7" bootDriver,
-                    In BuildTree "armv7" cpuDriver,
-                    Out "root" (image ++ "-gdb.gdb") ])
-            ]
-
-    armv8Image target menu bootTarget cpuTarget modules =
-        let bootDriver = "/sbin/boot_" ++ bootTarget
-            cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
-            blob       = "/" ++ target ++ "blob"
-            blob_o     = "/" ++ target ++ "blob.o"
-            image_o    = "/" ++ target ++ "_image.o"
-            image      = "/" ++ target ++ "_image.efi"
-        in Rules [
-            Rule ([ In BuildTree "tools" "/bin/armv8_bootimage",
-                In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
-                Out "root" blob,
-                NoDep BuildTree "root" "/" ] ++
-                [ (Dep BuildTree "armv8" m) | m <- modules ] ++
-                [ (Dep BuildTree "" m) | m <- modules_generic ] ),
-            Rule ([ Str Config.aarch64_objcopy,
-                Str "-I binary",
-                Str "-O elf64-littleaarch64",
-                Str "-B aarch64",
-                Str ("--redefine-sym _binary_" ++ target ++ "blob_start=barrelfish_blob_start"),
-                Str ("--redefine-sym _binary_" ++ target ++ "blob_end=barrelfish_blob_end"),
-                Str ("--redefine-sym _binary_" ++ target ++ "blob_size=barrelfish_blob_size"),
-                In BuildTree "root" blob,
-                Out "root" blob_o ]),
-            Rule ([ Str "aarch64-linux-gnu-ld",
-                Str "/usr/lib/crt0-efi-aarch64.o",
-                Str "-znocombreloc",
-                Str "-Bsymbolic",
-                Str "-T /usr/lib/elf_aarch64_efi.lds",
-                Str "-shared",
-                Str "--no-undefined",
-                Str "--defsym=EFI_SUBSYSTEM=10",
-                In BuildTree "root" blob_o,
-                In BuildTree "armv8" "/tools/armv8_bootimage/efi_loader.o",
-                Str "-o",
-                Out "root" image_o,
-                Str "/usr/lib/libgnuefi.a", 
-                Str "/usr/lib/libefi.a" ]),
-            Rule ([ Str Config.aarch64_objcopy,
-                Str "-O binary",
-                In BuildTree "root" image_o,
-                Out "root" image ])
-            ]
   in
  [
    --
@@ -516,6 +449,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        ++
        [ ("",       f) | f <- modules_generic])
     "ARM Virtual Machine Board with ARM Cortex A57 processors in Fixed Virtual Platform.",
+
+    platform "ARM_FastModels_Base_A57" [ "armv8" ]
+       [ ("root", "/armv8_a57_fvp_base_image") ]
+    "ARM FastModels Base Board with A57 processors.",
 
     platform "QEMU" [ "armv8" ]
       ([ ("armv8", "/sbin/cpu_a57_qemu"), ("armv8", "/sbin/boot_armv8_generic")  ]
@@ -610,45 +547,48 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
 
     -- Build the default PandaBoard boot image
-    armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000" pandaModules,
+    armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000"  modules_generic pandaModules,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 1 core)
-    armv7Image "armv7_a15ve_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve_1" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 1 core, FVP
     -- quirks)
-    armv7Image "armv7_a15ve_fvp_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve_fvp_1" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 2 cores)
-    armv7Image "armv7_a15ve_2" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve_2" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores)
-    armv7Image "armv7_a15ve_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve_4" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores,
     -- FVP quirks)
-    armv7Image "armv7_a15ve_fvp_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve_fvp_4" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, with GEM5
     -- quirks)
-    armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the big.LITTLE A15/A7 simulation image (VersatileExpress EMM
     -- board, 4+4 cores)
-    armv7Image "armv7_a15a7ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15a7ve" "ve" "a15ve" "0x80000000" modules_generic vExpressEMMModules_A15,
 
     -- Build the A9 simulation image (VersatileExpress EMM board, 1 core)
-    armv7Image "armv7_a9ve_1" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
+    armv7Image "armv7_a9ve_1" "ve" "a9ve" "0x80000000" modules_generic vExpressEMMModules_A9,
 
     -- Build the A9 simulation image (VersatileExpress EMM board, 4 cores)
-    armv7Image "armv7_a9ve_4" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
+    armv7Image "armv7_a9ve_4" "ve" "a9ve" "0x80000000" modules_generic vExpressEMMModules_A9,
 
     -- Build the Zynq7000 image
-    armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,
+    armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" modules_generic zynq7Modules,
 
-    armv8Image "armv8_a57_qemu" "armv8_a57_qemu" "armv8_generic" "a57_qemu" armv8_modules,
+    armv8Image "armv8_a57_qemu" "armv8_a57_qemu" "armv8_generic" "a57_qemu" modules_generic armv8_modules,
 
-    armv8Image "armv8_rpi3" "armv8_rpi3" "armv8_generic" "a53_rpi3" armv8_modules,
+    armv8Image "armv8_rpi3" "armv8_rpi3" "armv8_generic" "a53_rpi3" modules_generic armv8_modules,
+
+    armv8EFIImage "armv8_a57_fvp_base" "armv8_a57_fvp_base" "armv8_generic" "a57_fvp" modules_generic armv8_modules,
+
     --
     -- Booting: various targets for booting Barrelfish under different circumstances
     --
@@ -658,7 +598,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_a57v",
                      "armv8_a57_qemu",
+                     "armv8_a57_fvp_base",
                      "armv8_a57v_1",
+                     "armv8_a57_fvp_1",
                      "armv8_apm88xxxx",
                      "armv8_cn88xx",
                      "armv8_rpi3",
@@ -784,6 +726,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
       )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
+
+    boot_fastmodels "ARM_FastModels_Base_A57x1" [ "armv8" ] 
+      "armv8_a57_fvp_base_image"
+      "ARM_FastModels/ARMv8_Base_A57x1/ARMv8_Base_A57x1"
+      "Boot on a ARM FastModels Base A57x1 Platform",
+
+    boot_fastmodels "ARM_FastModels_Base_A57x4" [ "armv8" ] 
+      "armv8_a57_fvp_base_image"
+      "ARM_FastModels/ARMv8_Base_A57x4"
+      "Boot on a ARM FastModels Base A57x4 Platform",
 
     boot "qemu_x86_64" [ "x86_64" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",

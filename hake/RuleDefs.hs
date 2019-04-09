@@ -1428,6 +1428,98 @@ platform name archs files docstr =
     Rules []
 
 --
+-- Creates a 
+--
+armv7Image ::[Char] -> [Char] -> [Char] -> [Char] -> [[Char]]-> [[Char]]  -> HRule
+armv7Image target bootTarget cpuTarget physBase modules_generic modules =
+    let bootDriver = "/sbin/boot_" ++ bootTarget
+        cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
+        image      = "/" ++ target ++ "_image"
+    in Rules [
+        Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
+                In BuildTree "root" ("/platforms/arm/menu.lst."++target),
+                In BuildTree "armv7" bootDriver,
+                Out "root" image,
+                NoDep BuildTree "root" "/",
+                Str physBase ] ++
+                [ (Dep BuildTree "armv7" m) | m <- modules ] ++
+                [ (Dep BuildTree "" m) | m <- modules_generic ] ),
+
+        Rule ([ Str Config.arm_objcopy,
+                Str "-O binary",
+                In BuildTree "root" image,
+                Out "root" (image ++ ".bin") ]),
+        Rule ([ In SrcTree "tools" "/tools/arm_boot/gdb_script.sh",
+                Str Config.arm_objdump,
+                In BuildTree "root" image,
+                In BuildTree "armv7" bootDriver,
+                In BuildTree "armv7" cpuDriver,
+                Out "root" (image ++ "-gdb.gdb") ])
+        ]
+
+armv8Image ::[Char] -> [Char] -> [Char] -> [Char] -> [[Char]] -> [[Char]] -> HRule
+armv8Image target menu bootTarget cpuTarget modules_generic modules =
+    let bootDriver = "/sbin/boot_" ++ bootTarget
+        cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
+        blob       = "/" ++ target ++ "blob"
+        blob_o     = "/" ++ target ++ "blob.o"
+        image_o    = "/" ++ target ++ "_image.o"
+        image      = "/" ++ target ++ "_image.efi"
+    in Rules [
+        Rule ([ In BuildTree "tools" "/bin/armv8_bootimage",
+            In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
+            Out "root" blob,
+            NoDep BuildTree "root" "/" ] ++
+            [ (Dep BuildTree "armv8" m) | m <- modules ] ++
+            [ (Dep BuildTree "" m) | m <- modules_generic ] ),
+        Rule ([ Str Config.aarch64_objcopy,
+            Str "-I binary",
+            Str "-O elf64-littleaarch64",
+            Str "-B aarch64",
+            Str ("--redefine-sym _binary_" ++ target ++ "blob_start=barrelfish_blob_start"),
+            Str ("--redefine-sym _binary_" ++ target ++ "blob_end=barrelfish_blob_end"),
+            Str ("--redefine-sym _binary_" ++ target ++ "blob_size=barrelfish_blob_size"),
+            In BuildTree "root" blob,
+            Out "root" blob_o ]),
+        Rule ([ Str "aarch64-linux-gnu-ld",
+            Str "/usr/lib/crt0-efi-aarch64.o",
+            Str "-znocombreloc",
+            Str "-Bsymbolic",
+            Str "-T /usr/lib/elf_aarch64_efi.lds",
+            Str "-shared",
+            Str "--no-undefined",
+            Str "--defsym=EFI_SUBSYSTEM=10",
+            In BuildTree "root" blob_o,
+            In BuildTree "armv8" "/tools/armv8_bootimage/efi_loader.o",
+            Str "-o",
+            Out "root" image_o,
+            Str "/usr/lib/libgnuefi.a", 
+            Str "/usr/lib/libefi.a" ]),
+        Rule ([ Str Config.aarch64_objcopy,
+            Str "-O binary",
+            In BuildTree "root" image_o,
+            Out "root" image ])
+        ]
+
+
+armv8EFIImage ::[Char] -> [Char] -> [Char] -> [Char] -> [[Char]] -> [[Char]] -> HRule
+armv8EFIImage target menu bootTarget cpuTarget modules_generic modules =
+    let bootDriver = "/sbin/boot_" ++ bootTarget
+        cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
+        target_image = "/" ++ target ++ "_image"
+    in Rules [
+        Rule $ [
+        In SrcTree "tools" "/tools/harness/efiimage.py",
+        In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
+        Str Config.install_dir,
+        Out "root" target_image
+        ] 
+        ++ [(Dep BuildTree "armv8" bootDriver)]
+        ++ [(Dep BuildTree "armv8" cpuDriver)]
+        ++ [(Dep BuildTree "armv8" f) | f <- modules ]
+        ++ [(Dep BuildTree "" f) | f <- modules_generic ]
+        ]
+--
 -- Boot an image.
 --   name: the boot target name
 --   archs: list of architectures required
@@ -1445,6 +1537,57 @@ boot name archs tokens docstr =
       ]
   else
     Rules []
+
+
+boot_fastmodels :: String -> [ String ] -> String -> String -> String -> HRule
+boot_fastmodels name archs img sims docstr =
+  let
+    imgpath = "/" ++ img
+    buildpath = "/fastmodels" </> (sims ++ "_Build")
+    binary = buildpath </> "isim_system"
+    tools_dir = (Dep InstallTree "tools" "/tools/.marker")
+    build_dir = (Dep InstallTree "tools" (buildpath </> ".marker"))
+    
+    sim_target2 = [
+        Str ("ARM_FM_ROOT=" ++ Config.fastmodels_root), 
+        In SrcTree "src" "/tools/fastmodels/simgen", 
+        Str "--num-comps-file 50", 
+        Str "--gen-sysgen",
+        Str "--build-directory",
+        NoDep BuildTree "tools" buildpath,
+        Str "--warnings-as-errors ",
+        Str "-p", In SrcTree "src" ("/platforms" </> (sims ++ ".sgproj")),
+        Str "-b", Target "tools" binary,
+        build_dir ]
+
+    boot_target = [
+        In InstallTree "tools" binary,
+              -- Don't try to pop an LCD window up
+        Str "-C bp.vis.disable_visualisation=1",
+        -- # Don't start a telnet xterm
+        Str "-C bp.terminal_0.start_telnet=0",
+        Str "-C bp.terminal_1.start_telnet=0",
+        Str "-C bp.secureflashloader.fname=/home/netos/tools/fvp-uefi/bl1.bin",
+        Str "-C bp.flashloader0.fname=/home/netos/tools/fvp-uefi/fip.bin",
+        NStr "-C bp.mmc.p_mmc_file=",
+        In BuildTree "root" imgpath,
+        Str "-C bp.pl011_uart0.unbuffered_output=1",
+        -- This has to be the last parameter because otherwise the command
+        -- passed to the OS has incorrect parameters. Don't know why
+        -- MH 11/2016
+        Str "-C bp.pl011_uart0.out_file=-",
+        Dep InstallTree "tools" binary ]
+  in
+    if null $ archs Data.List.\\ Config.architectures then
+        Rules [
+        Rule $ sim_target2, 
+        Phony name False boot_target,
+        Phony "help-boot" True
+        [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
+            Dep BuildTree "root" "/help-boot-header"  ]
+        ]
+    else
+        Rules []
 
 --
 -- Copy a file from the source tree
