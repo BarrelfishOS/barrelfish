@@ -114,7 +114,7 @@ dot          = "dot"       --   "    "
 inkscape     = "inkscape"
 
 -- ARM Fast Models Simulator TODO: make this in 
-fastmodels_root    = "/opt/arm/FastModelsTools_11.6"
+fastmodels_root    = "/home/netos/tools/FastModels_11.6/FastModelsTools_11.6"
 fastmodels_env     = fastmodels_root </> "/source_all.sh"
 fastmodels_simgen  = fastmodels_root </> "bin/simgen"
 
