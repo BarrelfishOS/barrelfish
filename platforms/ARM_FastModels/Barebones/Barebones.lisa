@@ -14,7 +14,8 @@ component Barebones
         // Memory
 		decoder : PVBusDecoder();
 		flash : IntelStrataFlashJ3("size"=0x4000000);
-		memory : RAMDevice(size=0x10000000);
+
+		memory : RAMDevice(size=0x900000000);
 		mci : PL180_MCI();
 		mmc : MMC();
 

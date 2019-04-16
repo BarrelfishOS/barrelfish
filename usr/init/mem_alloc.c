@@ -92,6 +92,7 @@ errval_t initialize_ram_alloc(void)
                 mem_cap.slot = mem_slot;
                 if (bi->regions[i].mr_bytes == MM_REQUIREDBYTES) {
                     bi->regions[i].mr_consumed = true;
+                    region_base = bi->regions[i].mr_base;
                     break;
                 }
 
@@ -113,7 +114,8 @@ errval_t initialize_ram_alloc(void)
     }
 
     if (region_base == 0) {
-        printf("Error: no RAM capability >= %zu MB found", MM_REQUIREDBYTES / 1024 / 1024);
+        USER_PANIC("Error: no RAM capability >= %zu MB found\n",
+                MM_REQUIREDBYTES / 1024 / 1024);
     }
 
     /*  init MM allocator */
