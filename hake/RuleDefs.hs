@@ -1538,9 +1538,38 @@ boot name archs tokens docstr =
   else
     Rules []
 
+barebones_simargs :: String -> [RuleToken]
+barebones_simargs imgpath = [
+        Str "-C terminal.start_telnet=0",
+        Str "-C terminal1.start_telnet=0",
+        Str "--data /home/netos/tools/fvp-uefi/bl1.bin@0x0000000000",
+        Str "--data /home/netos/tools/fvp-uefi/fip.bin@0x0008000000",
+        NStr "-C mmc.p_mmc_file=",
+        In BuildTree "root" imgpath,
+        Str "-C uart.unbuffered_output=1",
+        Str "-C uart.out_file=-",
+        Str "-C uart1.unbuffered_output=1",
+        Str "-C uart1.out_file=-"]
 
-boot_fastmodels :: String -> [ String ] -> String -> String -> String -> HRule
-boot_fastmodels name archs img sims docstr =
+fvp_simargs :: String -> [RuleToken]
+fvp_simargs imgpath = [
+        -- Don't try to pop an LCD window up
+        Str "-C bp.vis.disable_visualisation=1",
+        -- # Don't start a telnet xterm
+        Str "-C bp.terminal_0.start_telnet=0",
+        Str "-C bp.terminal_1.start_telnet=0",
+        Str "-C bp.secureflashloader.fname=/home/netos/tools/fvp-uefi/bl1.bin",
+        Str "-C bp.flashloader0.fname=/home/netos/tools/fvp-uefi/fip.bin",
+        NStr "-C bp.mmc.p_mmc_file=",
+        In BuildTree "root" imgpath,
+        Str "-C bp.pl011_uart0.unbuffered_output=1",
+        -- This has to be the last parameter because otherwise the command
+        -- passed to the OS has incorrect parameters. Don't know why
+        -- MH 11/2016
+        Str "-C bp.pl011_uart0.out_file=-"]
+
+boot_fastmodels :: String -> [ String ] -> String -> String -> (String -> [RuleToken]) -> String -> HRule
+boot_fastmodels name archs img sims simargs docstr =
   let
     imgpath = "/" ++ img
     buildpath = "/fastmodels" </> (sims ++ "_Build")
@@ -1560,23 +1589,9 @@ boot_fastmodels name archs img sims docstr =
         Str "-b", Target "tools" binary,
         build_dir ]
 
-    boot_target = [
-        In InstallTree "tools" binary,
-              -- Don't try to pop an LCD window up
-        Str "-C bp.vis.disable_visualisation=1",
-        -- # Don't start a telnet xterm
-        Str "-C bp.terminal_0.start_telnet=0",
-        Str "-C bp.terminal_1.start_telnet=0",
-        Str "-C bp.secureflashloader.fname=/home/netos/tools/fvp-uefi/bl1.bin",
-        Str "-C bp.flashloader0.fname=/home/netos/tools/fvp-uefi/fip.bin",
-        NStr "-C bp.mmc.p_mmc_file=",
-        In BuildTree "root" imgpath,
-        Str "-C bp.pl011_uart0.unbuffered_output=1",
-        -- This has to be the last parameter because otherwise the command
-        -- passed to the OS has incorrect parameters. Don't know why
-        -- MH 11/2016
-        Str "-C bp.pl011_uart0.out_file=-",
-        Dep InstallTree "tools" binary ]
+    boot_target = [In InstallTree "tools" binary]
+                  ++ (simargs imgpath)
+                  ++ [Dep InstallTree "tools" binary ]
   in
     if null $ archs Data.List.\\ Config.architectures then
         Rules [

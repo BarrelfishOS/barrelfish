@@ -1,0 +1,28 @@
+sgproject "Barebones.sgproj"
+{
+TOP_LEVEL_COMPONENT = "Barebones";
+ACTIVE_CONFIG_LINUX  = "Linux64-Release-GCC-6.4";
+ACTIVE_CONFIG_WINDOWS  = "Win64-Release-VC2013";
+
+config "Linux64-Release-GCC-6.4"
+{
+    ADDITIONAL_COMPILER_SETTINGS = "-march=core2 -O3 -Wall -std=c++11 -Wno-deprecated -Wno-unused-function";
+    ADDITIONAL_LINKER_SETTINGS = "-Wl,--no-undefined";
+    BUILD_DIR = "./Linux64-Release-GCC-6.4";
+    COMPILER = "gcc-6.4";
+    CONFIG_DESCRIPTION = "Default x86_64 Linux configuration for GCC 6.4, optimized for speed";
+    CONFIG_NAME = "Linux64-Release-GCC-6.4";
+    PLATFORM = "Linux64";
+    PREPROCESSOR_DEFINES = "NDEBUG";
+    SIMGEN_COMMAND_LINE = "--num-comps-file 50";
+    SIMGEN_WARNINGS_AS_ERRORS = "1";
+    TARGET_MAXVIEW = "0";
+    TARGET_SYSTEMC_ISIM = "1";
+}
+files
+{
+    path = "$(PVLIB_HOME)/etc/sglib.sgrepo";
+    path = "$(PVLIB_HOME)/examples/LISA/FVP_Base/LISA/FVP_Base.sgrepo";
+    path = "Barebones.lisa";
+}
+}
