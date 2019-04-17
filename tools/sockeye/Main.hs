@@ -24,9 +24,13 @@ import System.Exit
 import System.Environment
 import System.FilePath
 import System.IO
+import Debug.Trace
 
 {- import Text.Pretty.Simple (pPrint, pShowNoColor) -}
 import Data.Text.Lazy (unpack)
+import Data.Aeson (decodeStrict, FromJSON)
+import qualified Data.ByteString as B
+import Data.String.Utils
 
 import qualified SockeyeParserAST as ParseAST
 import qualified SockeyeSymbolTable as SymTable
@@ -39,6 +43,7 @@ import SockeyeChecker
 import qualified SockeyeBackendProlog as Prolog
 import qualified SockeyeBackendPrologMultiDim as PrologMultiDim
 import qualified SockeyeBackendIsabelle as Isabelle
+import qualified SockeyeBackendLISA as LISA
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -61,6 +66,9 @@ data Target
     = Prolog
     | PrologMultiDim
     | Isabelle
+    | LISA
+
+
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options
@@ -142,6 +150,10 @@ options =
     , Option "I" ["Isabelle"]
         (NoArg (\opts -> return $ optSetTarget Isabelle opts))
         "Generate Isabelle/HOL code."
+    , Option "L" ["LISA"]
+        (NoArg (\opts -> return $ optSetTarget
+        LISA opts))
+        "Generate LISA code."
     , Option "i" ["include"]
         (ReqArg (\f opts -> return $ optAddInclDir f opts) "DIR")
         "Add a directory to the search path where Sockeye looks for imports."
@@ -255,14 +267,23 @@ check symTable pAst =
         Right ast -> return ast
 
 {- Compiles the AST with the selected backend -}
-compile :: Target -> SymTable.Sockeye -> AST.Sockeye -> IO String
-compile Prolog symTable ast = return $ Prolog.compile symTable ast
-compile PrologMultiDim symTable ast = return $ PrologMultiDim.compile symTable ast
-compile Isabelle symTable ast = return $ Isabelle.compile symTable ast
+compile :: Target -> ParseAST.Sockeye -> SymTable.Sockeye -> AST.Sockeye -> IO String
+compile Prolog pAst _ _ = return $ Prolog.compileDirect pAst
+compile PrologMultiDim _ symTable ast = return $ PrologMultiDim.compile symTable ast
+compile Isabelle _ symTable ast = return $ Isabelle.compile symTable ast
+compile LISA pAst _ _ = compileDirectLISA pAst
 
-{- Try to generate Prolog without any intermediate AST -}
-compileDirect :: ParseAST.Sockeye -> IO String
-compileDirect ast = return $ Prolog.compileDirect ast
+{- Note: this function actually comes from the updated 1.4 AESON package,
+         which is not available in apt-get's 1.2 version -}
+decodeFileStrictSockeye :: (FromJSON a) => FilePath -> IO (Maybe a)
+decodeFileStrictSockeye = fmap decodeStrict . B.readFile
+
+
+{- Generate LISA -}
+compileDirectLISA :: ParseAST.Sockeye -> IO String
+compileDirectLISA ast = do
+    aux <- decodeFileStrictSockeye $ replace  ".soc" ".aux" (ParseAST.entryPoint ast)
+    return $ LISA.compileDirect ast aux
 
 {- Outputs the compilation result -}
 output :: FilePath -> String -> IO ()
@@ -312,7 +333,7 @@ main = do
     symTable <- buildSymTable parsedAst
     ast <- check symTable parsedAst
     {- debugOutput opts parsedAst symTable ast -}
-    out <- compileDirect parsedAst
+    out <- compile target parsedAst symTable ast
     output outFile out
     case depFile of
         Nothing -> return ()

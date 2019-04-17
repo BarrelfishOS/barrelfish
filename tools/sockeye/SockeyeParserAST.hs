@@ -90,6 +90,7 @@ instance MetaAST ImportAlias where
 
 data Module = Module
     { moduleMeta  :: ASTMeta
+    , moduleExtern:: Bool
     , moduleName  :: !String
     , parameters  :: [ModuleParameter]
     , constants   :: [NamedConstant]

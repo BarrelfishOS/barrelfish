@@ -197,7 +197,7 @@ instance MetaAST NaturalExpr where
 data PropertyExpr
     = And
         { propExprMeta :: ASTMeta
-        , propExprOp1     :: PropertyExpr
+        , propExprOp1  :: PropertyExpr
         , propExprOp2  :: PropertyExpr
         }
     | Or

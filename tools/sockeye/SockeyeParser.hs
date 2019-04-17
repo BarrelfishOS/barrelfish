@@ -89,12 +89,14 @@ importAlias = do
 
 sockeyeModule = do
     pos <- getPositionMeta
+    extern <- option False moduleExtern
     reserved "module"
     name <- moduleName
     params <- option [] (parens $ commaSep moduleParam)
     (consts, insts, nodes, defs) <- braces moduleBody
     return AST.Module
         { AST.moduleMeta  = pos
+        , AST.moduleExtern = extern
         , AST.moduleName  = name
         , AST.parameters  = params
         , AST.constants   = consts
@@ -103,6 +105,10 @@ sockeyeModule = do
         , AST.definitions = defs
         }
     <?> "module specification"
+
+moduleExtern = do
+    reserved "extern"
+    return True
 
 moduleParam = do
     pos <- getPositionMeta
@@ -475,6 +481,7 @@ lexer = P.makeTokenParser (
         {- List of reserved names -}
         P.reservedNames =
             [ "import", "as"
+            , "extern"
             , "module"
             , "input", "output"
             , "type", "const"
