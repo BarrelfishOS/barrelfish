@@ -1,4 +1,4 @@
-sgproject "Barebones.sgproj"
+sgproject "barebones.sgproj"
 {
 TOP_LEVEL_COMPONENT = "Barebones";
 ACTIVE_CONFIG_LINUX  = "Linux64-Release-GCC-6.4";
@@ -23,6 +23,6 @@ files
 {
     path = "$(PVLIB_HOME)/etc/sglib.sgrepo";
     path = "$(PVLIB_HOME)/examples/LISA/FVP_Base/LISA/FVP_Base.sgrepo";
-    path = "Barebones.lisa";
+    path = "barebones.lisa";
 }
 }

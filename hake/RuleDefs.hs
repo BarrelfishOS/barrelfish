@@ -837,6 +837,21 @@ sockeye2 net =
         , Include (Out "" depFile)
         ]
 
+sockeye2Lisa :: String -> HRule
+sockeye2Lisa net = 
+    let
+        outFile = Out "" ("/platforms" </> net <.> ".lisa")
+        inSgproj = "/socs" </> net <.> ".sgproj"
+        outSgproj = "/platforms" </> net <.> ".sgproj"
+    in Rules
+        [ Rule
+            [ sockeyeProgLoc2
+            , Str "-o", outFile
+            , Str "-L", sockeyeSocFileLoc net
+            ],
+          copyFile SrcTree "" inSgproj  "" outSgproj
+        ]
+
 --
 -- Build a Fugu library
 --
@@ -1568,16 +1583,15 @@ fvp_simargs imgpath = [
         -- MH 11/2016
         Str "-C bp.pl011_uart0.out_file=-"]
 
-boot_fastmodels :: String -> [ String ] -> String -> String -> (String -> [RuleToken]) -> String -> HRule
-boot_fastmodels name archs img sims simargs docstr =
-  let
-    imgpath = "/" ++ img
-    buildpath = "/fastmodels" </> (sims ++ "_Build")
-    binary = buildpath </> "isim_system"
-    tools_dir = (Dep InstallTree "tools" "/tools/.marker")
-    build_dir = (Dep InstallTree "tools" (buildpath </> ".marker"))
-    
-    sim_target2 = [
+
+-- Build buildpath/isim_system using the sgproj file
+fastmodel_sim_target :: RuleToken -> String -> [RuleToken] 
+fastmodel_sim_target sgproj buildpath= 
+    let
+        binary = buildpath </> "isim_system"
+        build_dir = (Dep InstallTree "tools" (buildpath </> ".marker"))
+    in
+    [
         Str ("ARM_FM_ROOT=" ++ Config.fastmodels_root), 
         In SrcTree "src" "/tools/fastmodels/simgen", 
         Str "--num-comps-file 50", 
@@ -1585,9 +1599,51 @@ boot_fastmodels name archs img sims simargs docstr =
         Str "--build-directory",
         NoDep BuildTree "tools" buildpath,
         Str "--warnings-as-errors ",
-        Str "-p", In SrcTree "src" ("/platforms" </> (sims ++ ".sgproj")),
+        Str "-p", sgproj,
         Str "-b", Target "tools" binary,
         build_dir ]
+
+boot_fastmodels :: String -> [ String ] -> String -> String -> (String -> [RuleToken]) -> String -> HRule
+boot_fastmodels name archs img sims simargs docstr =
+    let
+        sgproj = In SrcTree "src" ("/platforms" </> (sims ++ ".sgproj"))
+    in
+        boot_fastmodels_int name archs img sims sgproj simargs docstr
+
+
+boot_fastmodels_lisa :: String -> [ String ] -> String -> String -> (String -> [RuleToken]) -> String -> HRule
+boot_fastmodels_lisa name archs img sims simargs docstr =
+    let
+        sgproj = In BuildTree "" ("/platforms" </> sims <.> ".sgproj")
+        -- We assume here that the  sgproj depends exactly on one lisa 
+        -- file with the same base name
+        lisaDep = Dep BuildTree "" ("/platforms" </> sims <.> ".lisa")
+        buildpath = "/fastmodels" </> (sims ++ "_Build")
+        binary = buildpath </> "isim_system"
+        imgpath = "/" ++ img
+
+        boot_target = [In InstallTree "tools" binary]
+                      ++ (simargs imgpath)
+                      ++ [Dep InstallTree "tools" binary ]
+      in
+        if null $ archs Data.List.\\ Config.architectures then
+            Rules [
+            Rule $ [lisaDep] ++ fastmodel_sim_target sgproj buildpath, 
+            Phony name False boot_target,
+            Phony "help-boot" True
+            [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
+                Dep BuildTree "root" "/help-boot-header"  ]
+            ]
+        else
+            Rules []
+
+boot_fastmodels_int :: String -> [ String ] -> String -> String -> RuleToken -> (String -> [RuleToken]) -> String -> HRule
+boot_fastmodels_int name archs img sims sgproj simargs docstr =
+  let
+    imgpath = "/" ++ img
+    buildpath = "/fastmodels" </> (sims ++ "_Build")
+    binary = buildpath </> "isim_system"
+    tools_dir = (Dep InstallTree "tools" "/tools/.marker")
 
     boot_target = [In InstallTree "tools" binary]
                   ++ (simargs imgpath)
@@ -1595,7 +1651,7 @@ boot_fastmodels name archs img sims simargs docstr =
   in
     if null $ archs Data.List.\\ Config.architectures then
         Rules [
-        Rule $ sim_target2, 
+        Rule $ fastmodel_sim_target sgproj buildpath, 
         Phony name False boot_target,
         Phony "help-boot" True
         [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",

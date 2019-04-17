@@ -733,9 +733,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       fvp_simargs
       "Boot on a ARM FastModels Base A57x1 Platform",
 
-    boot_fastmodels "ARM_FastModels_Barebones" [ "armv8" ] 
+    boot_fastmodels_lisa "ARM_FastModels_Barebones" [ "armv8" ] 
       "armv8_a57_fvp_base_image"
-      "ARM_FastModels/Barebones/Barebones"
+      "barebones"
       barebones_simargs
       "Boot on a ARM FastModels based on Sven's Barebones",
 

@@ -26,3 +26,7 @@
 [ copyFile SrcTree "src" f "" ("/sockeyefacts" </> f)
   | f <- [ "omap44xx_meta.pl", "omap44xx-int_meta.pl" ]
 ]
+++
+[
+    sockeye2Lisa "barebones"
+]

@@ -1,0 +1,263 @@
+extern module ClockDivider((0 bits 64) mul) {
+    input clock (0) clk_in
+    output clock (0) clk_out
+}
+extern module MMC {
+    input clock (0) clk_in
+    input memory (0 bits 64) mmc 
+
+    output intr (0) card_present
+}
+extern module PL180_MCI {
+    input memory (0 bits 64) pvbus
+
+    output memory (0 bits 64) mmc_m
+}
+extern module IntelStrataFlashJ3((0 bits 64) size) {
+    input memory (0 bits 64) pvbus
+}
+extern module TZC_400((0 bits 64) master_id_from_label) {
+    input memory (0 bits 64) apbslave_s
+}
+extern module TelnetTerminal {
+    input memory (0 bits 64) serial_in
+}
+extern module PL011_Uart {
+    input clock (0) clk_in_ref
+    input memory (0 bits 64) pvbus
+}
+extern module GICv3IRI_Filter ((0 bits 64) reg_base, (0 bits 64) reg_base_per_redistributor, (0 bits 64) GICD_alias, (0 bits 64) gicv2_only, (0 bits 64) SPI_count, (0 bits 64) ITS0_base, (0 bits 64) ITS_TRANSLATE64R) {
+    input intr (0) ppi_in_0[0 to 15]
+    input memory (0 bits 64) pvbus_s
+
+    output memory (0 bits 64) pvbus_filtermiss_m
+    output memory (0 bits 64) pvbus_m
+    output intr (0) redistributor_m
+}
+extern module CCI400((0 bits 64) cache_state_modelled, (0 bits 64) broadcastcachemain, (0 bits 64) acchannelen, (0 bits 64) barrierterminate, (0 bits 64) bufferableoverride, (0 bits 64) periphbase) {
+    input memory (0 bits 64) pvbus_s_ace_3
+    input memory (0 bits 64) pvbus_s_ace_lite_plus_dvm_2
+
+    output memory (0 bits 64) pvbus_m
+}
+extern module SP805_Watchdog {
+    input clock (0) clk_in
+    input memory (0 bits 64) pvbus_s
+}
+
+extern module VE_SysRegs((0 bits 64) sys_proc_id0, (0 bits 64) sys_proc_id1, (0 bits 64) sys_proc_id2, (0 bits 64) sys_proc_id3, (0 bits 64) sys_id_variant) {
+    input memory (0 bits 64) pvbus
+    input clock (0) clock_100HZ
+    input clock (0) clock_24Mhz
+    input intr (0) mmc_card_present
+}
+extern module ARMCortexA57x1CT((0 bits 64) CLUSTER_ID, (0 bits 64) dcache_state_modelled, (0 bits 64) icache_state_modelled, (0 bits 64) PERIPHBASE, (0 bits 64) GICDISABLE, (0 bits 64) BROADCASTINNER, (0 bits 64) BROADCASTOUTER, (0 bits 64) BROADCASTCACHEMAINT) {
+    input clock (0) clk_in
+    input intr (0) gicv3_redistributor_s
+    
+    output memory (0 bits 64) pvbus_m0
+    output intr (0) CNTPNSIRQ 
+}
+extern module MasterClock {
+    output clock (0) clk_out
+}
+
+module Barebones {
+    /* Composition */
+
+    // Clocks
+    instance masterclock of MasterClock
+    masterclock instantiates MasterClock
+
+    instance clk100Hz of ClockDivider
+    clk100Hz instantiates ClockDivider(100)
+    
+    instance clk32KHz of ClockDivider
+    clk32KHz instantiates ClockDivider(32000)
+    
+    instance clk24MHz of ClockDivider
+    clk24MHz instantiates ClockDivider(24000000)
+    
+    instance clk100MHz of ClockDivider
+    clk100MHz instantiates ClockDivider(100000000)
+
+    // Memory
+    instance flash of IntelStrataFlashJ3
+    flash instantiates IntelStrataFlashJ3(0x4000000)
+
+    instance mci of PL180_MCI
+    mci instantiates PL180_MCI
+
+    instance mmc of MMC
+    mmc instantiates MMC
+
+    // Serial
+    instance uart of PL011_Uart
+    uart instantiates PL011_Uart
+
+    instance terminal of TelnetTerminal
+    terminal instantiates TelnetTerminal
+
+    instance uart1 of PL011_Uart
+    uart1 instantiates PL011_Uart
+
+    instance terminal1 of TelnetTerminal
+    terminal1 instantiates TelnetTerminal
+
+    // GIC
+    instance gic of GICv3IRI_Filter
+    gic instantiates GICv3IRI_Filter(
+        0x2f000000,
+        0,
+        0,
+        0,
+        224,
+        0x2f020000,
+        1
+    )
+
+    // Processor
+    instance core of ARMCortexA57x1CT
+    core instantiates ARMCortexA57x1CT(
+        0,
+        0,
+        0,
+        0x2C000000,
+        0,
+        1,
+        1,
+        1
+    )
+
+    // Watchdog
+    instance watchdog of SP805_Watchdog
+    watchdog instantiates SP805_Watchdog
+
+    // Miscellaneous
+    instance cci of CCI400
+    cci instantiates CCI400(
+        0,
+        0x0,
+        0x8,
+        0x7,
+        0x0,
+        0x2C000000
+    )
+
+    instance sysregs of VE_SysRegs
+    sysregs instantiates VE_SysRegs(
+        0x07330477,
+        0xff000000,
+        0xff000000,
+        0xff000000,
+        1
+    )
+
+    instance tzc of TZC_400
+    tzc instantiates TZC_400(
+        1
+    )
+
+    /* Local Nodes */
+    clock (0) MASTER_CLOCK_BUS
+    clock (0) CLK100HZ_BUS
+    clock (0) CLK32KHZ_BUS
+    clock (0) CLK24MHZ_BUS
+    clock (0) CLK100MHZ_BUS
+
+    memory (0 bits 48) MEMORY_BUS
+    memory (0 bits 48) CORE_TO_CCI_BUS
+    memory (0 bits 48) GIC_TO_CCI_BUS
+    memory (0 bits 48) CCI_TO_GIC_BUS
+    memory (0 bits 48) DRAM
+
+    intr (0) PPI[0 to 15]
+
+    /* Connection */
+
+    // Clocks
+    masterclock binds [clk_out to MASTER_CLOCK_BUS]
+    clk100Hz binds [clk_out to CLK100HZ_BUS]
+    clk32KHz binds [clk_out to CLK32KHZ_BUS]
+    clk24MHz binds [clk_out to CLK24MHZ_BUS]
+    clk100MHz binds [clk_out to CLK100MHZ_BUS]
+
+    MASTER_CLOCK_BUS maps [
+        (*) to clk100Hz.clk_in at (*);
+        (*) to clk32KHz.clk_in at (*);
+        (*) to clk24MHz.clk_in at (*);
+        (*) to clk100MHz.clk_in at (*)
+    ]
+
+    CLK100HZ_BUS maps [
+        (*) to sysregs.clock_100Hz at (*)
+    ]
+    
+    CLK100HZ_BUS maps [
+        (*) to sysregs.clock_100Hz at (*)
+    ]
+
+
+    CLK32KHZ_BUS maps [
+        (*) to watchdog.clk_in at (*)
+    ]
+
+    CLK24MHZ_BUS maps [
+        (*) to uart.clk_in_ref at (*);
+        (*) to uart1.clk_in_ref at (*);
+        (*) to sysregs.clock_24Mhz at (*);
+        (*) to mmc.clk_in at (*)
+    ]
+
+    CLK100MHZ_BUS maps [
+        (*) to core.clk_in at (*)
+    ]
+
+    // Memory
+    gic binds [
+        pvbus_m to GIC_TO_CCI_BUS;
+        pvbus_filtermiss_m to MEMORY_BUS
+    ]
+
+    core binds [
+        pvbus_m0 to CORE_TO_CCI_BUS;
+        CNTPNSIRQ to PPI
+    ]
+
+    cci binds [
+        pvbus_m to CCI_TO_GIC_BUS
+    ]
+
+    CORE_TO_CCI_BUS maps [
+        (0 bits 48) to cci.pvbus_s_ace_3 at (0 bits 48)
+    ]
+
+    GIC_TO_CCI_BUS maps [
+        (0 bits 48) to cci.pvbus_s_ace_lite_plus_dvm_2 at (0 bits 48)
+    ]
+
+    CCI_TO_GIC_BUS maps [
+        (0 bits 48) to gic.pvbus_s at (0 bits 48)
+    ]
+
+    PPI[0] maps [
+        (*) to gic.ppi_in_0[14] at (*)
+    ]
+
+    MEMORY_BUS maps [
+        (0x000C000000 to 0x000FFFffff) to flash.pvbus at (*);
+        (0x001C050000 to 0x001C05ffff) to mci.pvbus at (*);
+        (0x001C090000 to 0x001C09ffff) to uart.pvbus at (*);
+        (0x001C010000 to 0x001C01ffff) to sysregs.pvbus at (*);
+        (0x001C0A0000 to 0x001C0Affff) to uart1.pvbus at (*);
+        (0x002A490000 to 0x002A49ffff) to watchdog.pvbus_s at (*);
+        (0x002A4A0000 to 0x002A4A0fff) to tzc.apbslave_s at (*)
+    ]
+
+    MEMORY_BUS overlays DRAM
+
+    DRAM accepts [
+        (0 bits 48)
+    ]
+    
+}

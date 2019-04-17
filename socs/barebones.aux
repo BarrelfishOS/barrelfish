@@ -1,0 +1,118 @@
+{
+    "connections": [
+        {
+            "moduleName": "Barebones",
+            "source": {
+                "name": "uart",
+                "port": "serial_out"
+            },
+            "target": {
+                "name": "terminal",
+                "port": "serial"
+            }
+        },
+        {
+            "moduleName": "Barebones",
+            "source": {
+                "name": "uart1",
+                "port": "serial_out"
+            },
+            "target": {
+                "name": "terminal1",
+                "port": "serial"
+            }
+        },
+        {
+            "moduleName": "Barebones",
+            "source": {
+                "name": "gic",
+                "port": "redistributor_m",
+                "address": "0"
+            },
+            "target": {
+                "name": "core",
+                "port": "gicv3_redistributor_s",
+                "address": "0"
+            }
+        },
+        {
+            "moduleName": "Barebones",
+            "source": {
+                "name": "mci",
+                "port": "mmc_m"
+            },
+            "target": {
+                "name": "mmc",
+                "port": "mmc"
+            }
+        },
+        {
+            "moduleName": "Barebones",
+            "source": {
+                "name": "mmc",
+                "port": "card_present"
+            },
+            "target": {
+                "name": "sysregs",
+                "port": "mmc_card_present"
+            }
+        }
+    ],
+    "parameters": [
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "reg_base",
+            "translation": "reg-base"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "reg_base_per_redistributor",
+            "translation": "reg-base-per-redistributor",
+            "value": "\"0.0.0.0=0x2f100000\""
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "GICD_alias",
+            "translation": "GICD-alias"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "gicv2_only",
+            "translation": "gicv2-only"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "SPI_count",
+            "translation": "SPI-count"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "ITS0_base",
+            "translation": "ITS0-base"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "gic",
+            "name": "ITS_TRANSLATE64R",
+            "translation": "ITS-TRANSLATE64R"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "core",
+            "name": "dcache_state_modelled",
+            "translation": "dcache-state_modelled"
+        },
+        {
+            "moduleName": "Barebones",
+            "component": "core",
+            "name": "icache_state_modelled",
+            "translation": "icache-state_modelled"
+        }
+    ]
+}
