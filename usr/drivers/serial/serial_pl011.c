@@ -51,7 +51,7 @@ hw_init(struct serial_pl011 * sp, struct capref mem) {
     struct frame_identity id;
     void *vbase;
 
-    err = invoke_frame_identify(mem, &id);
+    err = frame_identify(mem, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vspace_map_one_frame_attr failed\n");
     }
