@@ -23,11 +23,13 @@
 #define INIT_L2_PAGES           ((INIT_SPACE_LIMIT - INIT_VBASE) / BASE_PAGE_SIZE)
 #define INIT_L2_BYTES           INIT_L2_PAGES * ARM_L2_BYTES_PER_ENTRY
 
-#define INIT_PERM_RO            (ARM_L2_SMALL_CACHEABLE  | \
+#define INIT_PERM_RO            (ARM_L2_SMALL_SHAREABLE  | \
+                                 ARM_L2_SMALL_CACHEABLE  | \
                                  ARM_L2_SMALL_BUFFERABLE | \
                                  ARM_L2_SMALL_USR_RO)
 
-#define INIT_PERM_RW            (ARM_L2_SMALL_CACHEABLE  | \
+#define INIT_PERM_RW            (ARM_L2_SMALL_SHAREABLE  | \
+                                 ARM_L2_SMALL_CACHEABLE  | \
                                  ARM_L2_SMALL_BUFFERABLE | \
                                  ARM_L2_SMALL_USR_RW)
 

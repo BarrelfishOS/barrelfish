@@ -51,11 +51,12 @@
 #define ARM_L2_TABLE_OFFSET(a)          ((a) & ARM_L2_TABLE_MASK)
 #define ARM_L2_TABLE_PPN(a)             ((a) >> ARM_L2_TABLE_BITS)
 
-#define ARM_L2_SMALL_CACHEABLE          0x008
-#define ARM_L2_SMALL_BUFFERABLE         0x004
+#define ARM_L2_SMALL_SHAREABLE          (1 << 10)
+#define ARM_L2_SMALL_CACHEABLE          (1 << 3)
+#define ARM_L2_SMALL_BUFFERABLE         (1 << 2)
 #define ARM_L2_SMALL_USR_RO             0x20
 #define ARM_L2_SMALL_USR_RW             0x30
-#define ARM_L2_SMALL_USR_NONE            0x10
+#define ARM_L2_SMALL_USR_NONE           0x10
 
 /* Page type independent page options */
 #define KPI_PAGING_FLAGS_READ    0x01
