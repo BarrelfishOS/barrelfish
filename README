@@ -106,7 +106,7 @@ of writing), this means the following:
     - prefix all deb entries in /etc/apt/sources.list with [arch=amd64]
     - add "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports bionic main universe"
       to sources.list
-    - apt update && apt install gnu-efi:arm64
+    - dpkg --add-architecture arm64 && apt update && apt install gnu-efi:arm64
 
 Building
 --------------------------------
