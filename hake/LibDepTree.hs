@@ -29,30 +29,28 @@ data LibDepTree2 = LibDepTree2Graph {
 }
 
 -- Given an [HRule], extract a LibDepTree2
-ldtExtract :: [HRule] -> LibDepTree2
-ldtExtract = emToGraph . foldl merge Map.empty . map ext
+ldtEmToGraph :: DepElMap -> LibDepTree2
+ldtEmToGraph tree = LibDepTree2Graph graph nodeFromVertex vertexFromKey
   where
-    ext :: HRule -> DepElMap
-    ext hrule = case hrule of
-        (Rules rules)        -> foldr merge Map.empty $ map ext rules
-        (HakeTypes.Rule rts) -> foldr merge Map.empty $ map extract_rt rts
-        _                    -> Map.empty
+    (graph, nodeFromVertex, vertexFromKey) = graphFromEdges (wchild ++ wochild)
+    wchild = [(a,a,reverse b) | (a,b) <- Map.toList tree]
+    wochild = [(c,c,[]) | c <- concat [cs | (_,cs) <- Map.toList tree],
+                Map.notMember c tree]
 
-    extract_rt :: RuleToken -> DepElMap
-    extract_rt rt = case rt of
-      (LDep a b) -> Map.singleton a [b]
-      _ -> Map.empty
+ldtDepElMerge :: DepElMap -> DepElMap -> DepElMap
+ldtDepElMerge a b = Map.unionWith (++) a b
 
-    merge :: DepElMap -> DepElMap -> DepElMap
-    merge a b = Map.unionWith (++) a b
+ldtHRuleToDepElMap :: [String] -> HRule -> DepElMap
+ldtHRuleToDepElMap archs hrule = case hrule of
+      (Rules rules)        -> foldr ldtDepElMerge Map.empty $ map (ldtHRuleToDepElMap archs) rules
+      (HakeTypes.Rule rts) -> foldr ldtDepElMerge Map.empty $ map ext_rt rts
+      _                    -> Map.empty
 
-    emToGraph :: DepElMap -> LibDepTree2
-    emToGraph tree = LibDepTree2Graph graph nodeFromVertex vertexFromKey
       where
-        (graph, nodeFromVertex, vertexFromKey) = graphFromEdges (wchild ++ wochild)
-        wchild = [(a,a,reverse b) | (a,b) <- Map.toList tree]
-        wochild = [(c,c,[]) | c <- concat [cs | (_,cs) <- Map.toList tree],
-                    Map.notMember c tree]
+        ext_rt :: RuleToken -> DepElMap
+        ext_rt rt = case rt of
+          (LDep a b) -> if elem (depElArch a) archs then Map.singleton a [b] else Map.empty
+          _ -> Map.empty
 
 
 

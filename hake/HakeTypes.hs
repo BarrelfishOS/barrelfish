@@ -64,6 +64,11 @@ data HRule = Rule [ RuleToken ]
            | Rules [ HRule ]
              deriving (Show,Typeable)
 
+depElArch :: DepEl -> String
+depElArch (DepMod x _) = x
+depElArch (DepLib x _) = x
+depElArch (DepApp x _) = x
+
 frArch :: RuleToken -> String
 frArch (In _ a _ ) = a
 frArch (Out a _ ) = a
@@ -72,6 +77,7 @@ frArch (NoDep _ a _ ) = a
 frArch (PreDep _ a _ ) = a
 frArch (Target a _ ) = a
 frArch (Abs rule _) = frArch rule
+frArch (LDep a _) = depElArch a
 frArch t = ""
 
 frPath :: RuleToken -> String

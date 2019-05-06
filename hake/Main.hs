@@ -1,3 +1,4 @@
+
 {-
   Hake: a meta build system for Barrelfish
 
@@ -9,8 +10,11 @@
   ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 -}
 
+
+
 -- Asynchronous IO for walking directories
 import Control.Concurrent.Async
+import Control.DeepSeq
 
 import Control.Exception.Base
 import Control.Monad
@@ -202,17 +206,17 @@ listFiles' root current
 -- We invoke GHC to parse the Hakefiles in a preconfigured environment,
 -- to implement the Hake DSL.
 evalHakeFiles :: FilePath -> Opts -> TreeDB -> [(FilePath, String)] ->
-                 IO ([(FilePath,HRule)])
-evalHakeFiles the_libdir o srcDB hakefiles =
+                 (FilePath -> HRule -> Ghc a) -> IO ([a])
+evalHakeFiles the_libdir o srcDB hakefiles rulef =
     --defaultErrorHandler defaultFatalMessager defaultFlushOut $
     errorHandler $
         runGhc (Just the_libdir) $
-        driveGhc o srcDB hakefiles
+        driveGhc o srcDB hakefiles rulef
 
 -- This is the code that executes in the GHC monad.
-driveGhc :: Opts -> TreeDB -> [(FilePath, String)] ->
-            Ghc ([(FilePath,HRule)])
-driveGhc o srcDB hakefiles = do
+driveGhc :: forall a. Opts -> TreeDB -> [(FilePath, String)] ->
+            (FilePath -> HRule -> Ghc a) -> Ghc ([a])
+driveGhc o srcDB hakefiles rulef = do
     -- Set the RTS flags
     dflags <- getSessionDynFlags
     _ <- setSessionDynFlags dflags {
@@ -250,15 +254,15 @@ driveGhc o srcDB hakefiles = do
         -- Evaluate one Hakefile, and emit its Makefile section.  We collect
         -- referenced directories as we go, to generate the 'directories'
         -- rules later.
-        collectRules' :: [(FilePath,HRule)] -> [(FilePath, String)] ->
-                          Ghc ([(FilePath,HRule)])
+        collectRules' :: [a] -> [(FilePath, String)] -> Ghc ([a])
         collectRules' rules [] = return rules
         collectRules' rules ((abs_hakepath, contents):hs) = do
             let hakepath = makeRelative (opt_sourcedir o) abs_hakepath
             rule <- evaluate hakepath contents
-            collectRules' ((hakepath,rule) : rules) hs
+            ruleout <- rulef hakepath rule
+            collectRules' (ruleout : rules) hs
 
-        collectRules :: [(FilePath, String)] -> Ghc ([(FilePath,HRule)])
+        collectRules :: [(FilePath, String)] -> Ghc ([a])
         collectRules hs = collectRules' [] hs
 
         -- Evaluate a Hakefile, returning something of the form
@@ -767,6 +771,15 @@ makeFlounderTypes src build arches = do
 -- The top level
 --
 
+extractrule :: FilePath -> HRule -> Ghc (HRule)
+extractrule fp hr = return hr
+
+extractDep :: FilePath -> HRule -> Ghc (DepElMap)
+extractDep fp hr = return $ ldtHRuleToDepElMap Config.architectures hr
+
+writeMF :: Handle -> Opts -> (HRule -> HRule) -> FilePath -> HRule -> Ghc (S.Set FilePath)
+writeMF h o rule_transform fp rule = liftIO $ makefileSection h o fp (rule_transform rule)
+
 body :: IO ()
 body =  do
     -- Parse arguments; architectures default to config file
@@ -814,18 +827,17 @@ body =  do
     makefile <- openFile(opt_makefilename opts) WriteMode
     makefilePreamble makefile opts args
 
-
     -- Evaluate Hakefiles
+    putStrLn $ "Evaluating " ++ show (length hakefiles) ++ " Hakefiles for dependencies..."
+    depElMap <- evalHakeFiles (opt_ghc_libdir opts) opts srcDB hakefiles extractDep
+
+    let dep_graph = ldtEmToGraph (foldr ldtDepElMerge Map.empty depElMap)
+    let rtrans = ldtRuleExpand $ dep_graph
     putStrLn $ "Evaluating " ++ show (length hakefiles) ++ " Hakefiles..."
-    qualified_rules <- evalHakeFiles (opt_ghc_libdir opts) opts srcDB hakefiles
 
-    let paths = map fst qualified_rules
-    let rules = map snd qualified_rules
-    let ldt = ldtExtract rules
+    dirs_a <- evalHakeFiles (opt_ghc_libdir opts) opts srcDB hakefiles (writeMF makefile opts rtrans)
 
-    -- ldtDebug ldt (DepApp "x86_64" "skb")
-    putStrLn "Writing Makefile..."
-    dirs <- makefileSectionArr makefile opts $ zip paths (map (ldtRuleExpand ldt) rules)
+    let dirs = foldr S.union S.empty dirs_a
 
     putStrLn "Generating build directory dependencies..."
     makeDirectories makefile dirs
