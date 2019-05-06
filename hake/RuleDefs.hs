@@ -36,6 +36,7 @@ debugFlag = False
 inRule :: RuleToken -> Bool
 inRule (Dep _ _ _) = False
 inRule (PreDep _ _ _) = False
+inRule (LDep _ _) = False
 inRule (Target _ _) = False
 inRule _ = True
 
@@ -131,6 +132,8 @@ kernelOptions arch = Options {
             optArchFamily = archFamily arch,
             optFlags = kernelCFlags arch,
             optCxxFlags = [],
+            optLibDep = [],
+            optCxxLibDep = [],
             optDefines = (optDefines (options arch)) ++ [ Str "-DIN_KERNEL",
                 Str ("-DCONFIG_SCHEDULER_" ++ (show Config.scheduler)),
                 Str ("-DCONFIG_TIMESLICE=" ++ (show Config.timeslice)) ],
@@ -270,6 +273,14 @@ linker opts objs libs mods bin
     | optArch opts == "armv8" = ARMv8.linker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
+ldtLinker :: Options -> [String] -> String -> String -> [RuleToken]
+ldtLinker opts objs app bin
+    | optArch opts == "x86_64" = X86_64.ldtLinker opts objs app bin
+    | optArch opts == "k1om" = K1om.ldtLinker opts objs app bin
+    | optArch opts == "armv7" = ARMv7.ldtLinker opts objs app bin
+    | optArch opts == "armv8" = ARMv8.ldtLinker opts objs app bin
+    | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
+
 strip :: Options -> String -> String -> String -> [RuleToken]
 strip opts src debuglink target
     | optArch opts == "x86_64" = X86_64.strip opts src debuglink target
@@ -292,6 +303,12 @@ cxxlinker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken
 cxxlinker opts objs libs mods bin
     | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs mods bin
     | optArch opts == "k1om" = K1om.cxxlinker opts objs libs mods bin
+    | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
+
+ldtCxxlinker :: Options -> [String] -> String -> String -> [RuleToken]
+ldtCxxlinker opts objs app bin
+    | optArch opts == "x86_64" = X86_64.ldtCxxlinker opts objs app bin
+    | optArch opts == "k1om" = K1om.ldtCxxlinker opts objs app bin
     | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
 
 --
@@ -403,11 +420,18 @@ archiveLibrary opts name objs libs =
     archive opts objs libs name (libraryPath opts name)
 
 --
--- Link an executable
+-- Link an executable, explicit libs/mods
 --
 linkExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
 linkExecutable opts objs libs mods bin =
     linker opts objs libs mods (applicationPath opts bin)
+
+--
+-- Link an executable, use ldt to calculate dependencies
+--
+ldtLinkExecutable :: Options -> [String] -> String -> String -> [RuleToken]
+ldtLinkExecutable opts objs app bin =
+    ldtLinker opts objs app (applicationPath opts bin)
 
 --
 -- Strip debug symbols from an executable
@@ -431,8 +455,30 @@ linkCxxExecutable :: Options -> [String] -> [String] -> [String] -> String -> [R
 linkCxxExecutable opts objs libs mods bin =
     cxxlinker opts objs libs mods (applicationPath opts bin)
 
+--
+-- Link a C++ executable using ldt.
+-- XXX: This has not been tested
+--
+ldtLinkCxxExecutable :: Options -> [String] -> String -> String -> [RuleToken]
+ldtLinkCxxExecutable opts objs app bin =
+    ldtCxxlinker opts objs app (applicationPath opts bin)
+
 -------------------------------------------------------------------------
 
+
+--
+-- Emit dependency tokens for libs in Options
+stdLibDepsRules :: Options -> String -> [HRule]
+stdLibDepsRules opts app =
+  [Rule [LDep (DepApp arch app) (DepLib arch l) | l <- optLibDep opts]]
+  where
+    arch = optArch opts
+
+stdCxxLibDepsRules :: Options -> String -> [HRule]
+stdCxxLibDepsRules opts app =
+  [Rule [LDep (DepApp arch app) (DepLib arch l) | l <- optCxxLibDep opts]]
+  where
+    arch = optArch opts
 
 
 
@@ -789,7 +835,7 @@ sockeyeFactFilePath d = "/sockeyefacts" </> d <.> "pl"
 sockeyeFactFileLoc d = In BuildTree "" $ sockeyeFactFilePath d
 
 sockeyeNS :: String -> String -> HRule
-sockeyeNS net rootns = 
+sockeyeNS net rootns =
     let
         factFile = sockeyeFactFilePath net
         depFile = dependFilePath factFile
@@ -806,7 +852,7 @@ sockeyeNS net rootns =
         ]
 
 sockeye :: String -> HRule
-sockeye net = 
+sockeye net =
     let
         factFile = sockeyeFactFilePath net
         depFile = dependFilePath factFile
@@ -822,7 +868,7 @@ sockeye net =
         ]
 
 sockeye2 :: String -> HRule
-sockeye2 net = 
+sockeye2 net =
     let
         factFile = sockeyeFactFilePath net
         depFile = dependFilePath factFile
@@ -859,12 +905,14 @@ fuguCFile :: Options -> String -> HRule
 fuguCFile opts file =
     let arch = optArch opts
         cfile = file ++ ".c"
+        ofile = file ++ ".o"
     in
       Rules [ Rule [ In InstallTree "tools" "/bin/fugu",
                      In SrcTree "src" (file++".fugu"),
                      Str "-c",
                      Out arch cfile ],
-              compileGeneratedCFile opts cfile
+              compileGeneratedCFile opts cfile,
+              staticLibrary opts "errno" [ofile] []
          ]
 
 fuguHFile :: Options -> String -> HRule
@@ -931,11 +979,31 @@ link opts objs libs mods bin =
     ]
 
 --
+-- Link a set of object files and libraries together
+--
+ldtLink :: Options -> [String] -> String -> String -> HRule
+ldtLink opts objs app bin =
+    let full = bin ++ ".full"
+        debug = bin ++ ".debug"
+    in Rules [
+        Rule $ ldtLinkExecutable opts objs app full,
+        Rule $ debugExecutable opts full debug,
+        Rule $ stripExecutable opts full debug bin
+    ]
+
+--
 -- Link a set of C++ object files and libraries together
 --
 linkCxx :: Options -> [String] -> [String] -> [String] -> String -> HRule
 linkCxx opts objs libs mods bin =
     Rule (linkCxxExecutable opts objs libs mods bin)
+
+--
+-- Link a set of object files and libraries together
+--
+ldtLinkCxx :: Options -> [String] -> String -> String -> HRule
+ldtLinkCxx opts objs app bin =
+    Rule (ldtLinkCxxExecutable opts objs app bin)
 
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
@@ -1007,7 +1075,9 @@ nativeOptions = Options {
       optDependencies        = [],
       optLdFlags             = [],
       optLdCxxFlags          = [],
+      optLibDep              = [],
       optLibs                = [],
+      optCxxLibDep           = [],
       optCxxLibs             = [],
       optInterconnectDrivers = [],
       optFlounderBackends    = [],
@@ -1154,7 +1224,24 @@ applicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False
         = undefined
 applicationBuildFn tdb tf args =
-    Rules [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
+    -- The order is important: The application libs
+    -- must be inserted before the optLibs (which are inserted in
+    -- appBuildArch..). Otherwise it's impossible to override
+    -- libc symbols. And we use that trick for instance in libposixcompat
+    -- and the VFS.
+    Rules (concat [ appLibDeps args arch | arch <- Args.architectures args ] ++
+           [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
+        )
+    where
+      appLibDeps :: Args.Args -> String -> [HRule]
+      appLibDeps args arch =
+        let
+          app = DepApp arch (Args.target args)
+          libs = Args.addLibraries args
+          mods = Args.addModules args
+        in
+          [Rule ([LDep app (DepLib arch  l) | l <- (libs)])] ++
+          [Rule ([LDep app (DepMod arch l) | l <- (mods)])]
 
 extraIncs libs =
     [ NoDep SrcTree "src" ("/include" </> l) | l <- filter libNeedsInc libs ]
@@ -1164,6 +1251,7 @@ extraIncs libs =
            | lib == "lwip2" = True
            | otherwise      = False
 
+appGetOptionsForArch :: String -> Args.Args -> Options
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
@@ -1201,13 +1289,17 @@ appGetOptionsForArch arch args =
                    }
     where
         libos = fromMaybe (fromJust $ Config.libbarrelfish arch) (Args.libraryOs args)
-        library_os arch = [ In InstallTree arch ("/lib" </> "lib" ++ (Args.target libos) ++ ".a") ]
+        library_os arch =
+          [ In InstallTree arch ("/lib" </> "lib" ++ (Args.target libos) ++ ".a") ] ++
+          [ LDep (DepApp arch (Args.target args)) (DepLib arch (Args.target libos))]
 
 
 fullTarget :: Options -> String -> String -> HRule
 fullTarget opts arch appname =
     Phony (arch ++ "_All") False
         [ Dep BuildTree arch (applicationPath opts appname) ]
+
+
 
 appBuildArch tdb tf args arch =
     let -- Fiddle the options
@@ -1221,9 +1313,11 @@ appBuildArch tdb tf args arch =
         appname = Args.target args
         -- XXX: Not sure if this is correct. Currently assuming that if the app
         -- contains C++ files, we have to use the C++ linker.
-        mylink = if cxxsrcs == [] then link else linkCxx
+        mylink = if cxxsrcs == [] then ldtLink else ldtLinkCxx
+        mystdlibs = if cxxsrcs == [] then stdLibDepsRules else stdCxxLibDepsRules
     in
-      Rules ( flounderRules opts args csrcs
+      Rules (
+              flounderRules opts args csrcs
               ++
               skateRules opts args csrcs
               ++
@@ -1234,11 +1328,48 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args)
-                       appname,
+                mylink opts (allObjectPaths opts args) appname appname,
                 fullTarget opts arch appname
               ]
+              ++
+              mystdlibs opts (Args.target args)
             )
+
+--
+-- Build a driverdomain application binary
+--
+-- Similar to application, but adds driverdomain library (which implements
+-- main) and adds linker script
+--
+
+driverdomain :: Args.Args
+driverdomain = Args.defaultArgs {
+    Args.buildFunction = applicationBuildFn,
+    Args.addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld"],
+    Args.addLibraries = ["driverdomain"]
+}
+
+
+-- This is pretty much libraryBuildFn, except that it produces the LDep token
+-- for the module
+drivermoduleBuildFn :: TreeDB -> String -> Args.Args -> HRule
+drivermoduleBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " DriverModule ") args) False = undefined
+drivermoduleBuildFn tdb tf args =
+    Rules ([ libBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
+           concat [modLibDeps args arch | arch <- Args.architectures args])
+    where
+      modLibDeps :: Args.Args -> String -> [HRule]
+      modLibDeps args arch =
+        let
+          me = DepMod arch (Args.target args)
+          libs = Args.addLibraries args
+        in
+          [Rule ([LDep me (DepLib arch l) | l <- libs])]
+
+drivermodule :: Args.Args
+drivermodule = Args.defaultArgs {
+    Args.buildFunction = drivermoduleBuildFn
+}
 
 --
 -- Build an Arrakis application binary
@@ -1267,7 +1398,17 @@ library = Args.defaultArgs {
 libraryBuildFn :: TreeDB -> String -> Args.Args -> HRule
 libraryBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
 libraryBuildFn tdb tf args =
-    Rules [ libBuildArch tdb tf args arch | arch <- Args.architectures args ]
+    Rules ([ libBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
+           concat [libLibDeps args arch | arch <- Args.architectures args])
+    where
+      libLibDeps :: Args.Args -> String -> [HRule]
+      libLibDeps args arch =
+        let
+          lib = DepLib arch (Args.target args)
+          libs = Args.addLibraries args
+        in
+          [Rule ([LDep lib (DepLib arch l) | l <- libs])]
+
 
 libGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -1311,7 +1452,8 @@ libBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths opts args)
+                 -- we dont pass the libraries, since they will be added in the linker phase
+                staticLibrary opts (Args.target args) (allObjectPaths opts args) []
               ]
             )
 

@@ -28,5 +28,7 @@ in
            compileCFile opts ("crtbegin.c"),
            copy opts "crtbegin.o" "/lib/crtbegin.o",
            compileCFile opts ("crtend.c"),
+	   -- crtend has to be an object file, otherwise it will not be linked properly	
+           -- staticLibrary opts "crtend" ["crtend.o"] [], 
            copy opts "crtend.o" "/lib/crtend.o" ]
 ) | arch <- allArchitectures ]

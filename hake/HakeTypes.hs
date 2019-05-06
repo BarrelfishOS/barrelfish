@@ -7,15 +7,27 @@
 -- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Basic Hake rule combinators
--- 
+--
 --------------------------------------------------------------------------
 
 module HakeTypes where
 
 import Data.Typeable
+import qualified Data.Map.Strict as Map
+
+-- An element of the dependency tree, first arg is always arch,,
+-- second is app/lib/module name
+data DepEl = DepApp String String      -- An application
+            | DepLib String String     -- A library
+            | DepMod String String     -- A driver module
+            deriving (Show,Eq,Ord)
+
+
+
 
 data TreeRef = SrcTree | BFSrcTree | BuildTree | InstallTree
              deriving (Show,Eq,Ord)
+
 
 -- Note on Abs:
 -- The first parameter is a rule referring to an absolute resource whereas the
@@ -29,16 +41,21 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | Out    String String         -- Output of the computation
                | Target String String         -- Target that's not involved
                | Str String                   -- String with trailing " "
-               | NStr String                  -- Just a string               
-               | ContStr Bool String String   -- Conditional string 
+               | NStr String                  -- Just a string
+               | ContStr Bool String String   -- Conditional string
                | ErrorMsg String              -- Error message: $(error x)
                | NL                           -- New line
                | Abs RuleToken RuleToken      -- Absolute path rule token
-                 deriving (Show,Eq,Ord)
+               | LDep DepEl DepEl             -- Dependency Link
+               | Ldt TreeRef String String    -- Evaluate after obtaining LDT
+
+               deriving (Show,Eq,Ord)
+
 
 -- Convert a rule into an absolute rule
 makeAbs :: RuleToken -> RuleToken
 makeAbs rule = Abs rule rule
+
 
 data HRule = Rule [ RuleToken ]
            | Include RuleToken
@@ -46,6 +63,16 @@ data HRule = Rule [ RuleToken ]
            | Phony String Bool [ RuleToken ]
            | Rules [ HRule ]
              deriving (Show,Typeable)
+
+depElArch :: DepEl -> String
+depElArch (DepMod x _) = x
+depElArch (DepLib x _) = x
+depElArch (DepApp x _) = x
+
+depElName :: DepEl -> String
+depElName (DepMod _ x) = x
+depElName (DepLib _ x) = x
+depElName (DepApp _ x) = x
 
 frArch :: RuleToken -> String
 frArch (In _ a _ ) = a
@@ -55,6 +82,7 @@ frArch (NoDep _ a _ ) = a
 frArch (PreDep _ a _ ) = a
 frArch (Target a _ ) = a
 frArch (Abs rule _) = frArch rule
+frArch (LDep a _) = depElArch a
 frArch t = ""
 
 frPath :: RuleToken -> String
@@ -108,10 +136,13 @@ formatToken (NoDep _ a f) = f ++ " "
 formatToken (PreDep _ a f) = f ++ " "
 formatToken (Target a f) = f ++ " "
 formatToken (Str s) = s ++ " "
-formatToken (NStr s) = s 
+formatToken (NStr s) = s
 formatToken (Abs rule _) = formatToken rule
 formatToken (ErrorMsg s) = "$(error " ++ s ++ ")"
 formatToken (NL) = "\n\t"
+formatToken (LDep _  _) = ""
+formatToken (Ldt _ a b) = " LDT (" ++ (show (a,b)) ++ ") "
+
 
 -------------------------------------------------------------------------
 --
@@ -135,7 +166,9 @@ data Options = Options {
       optDependencies :: [RuleToken],
       optLdFlags :: [RuleToken],
       optLdCxxFlags :: [RuleToken],
+      optLibDep :: [String],
       optLibs :: [RuleToken],
+      optCxxLibDep :: [String],
       optCxxLibs :: [RuleToken],
       optInterconnectDrivers :: [String],
       optFlounderBackends :: [String],
@@ -148,4 +181,3 @@ data Options = Options {
       optSuffix :: String,
       optInstallPath :: OptionsPath
     }
-      

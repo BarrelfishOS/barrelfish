@@ -1,16 +1,20 @@
-{- 
+
+{-
   Hake: a meta build system for Barrelfish
 
   Copyright (c) 2009, 2015, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 -}
-  
+
+
+
 -- Asynchronous IO for walking directories
 import Control.Concurrent.Async
+import Control.DeepSeq
 
 import Control.Exception.Base
 import Control.Monad
@@ -22,12 +26,14 @@ import Data.List
 import Data.Maybe
 import Data.Char
 import qualified Data.Set as S
+import qualified Data.Map.Strict as Map
 
 import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO
+import Debug.Trace
 
 -- The GHC API.  We use the mtl-compatible version in order to use liftIO
 -- within the GHC monad.
@@ -38,12 +44,14 @@ import Control.Monad.Ghc
 -- We parse and pretty-print Hakefiles.
 import Language.Haskell.Exts
 
+
 -- Hake components
 import RuleDefs
 import HakeTypes
 import qualified Args
 import qualified Config
 import TreeDB
+import LibDepTree
 
 data HakeError = HakeError String Int
     deriving (Show, Typeable)
@@ -67,7 +75,7 @@ data Opts = Opts { opt_makefilename :: String,
                    opt_verbosity :: Integer
                  }
           deriving (Show,Eq)
-                   
+
 parse_arguments :: [String] -> Opts
 parse_arguments [] =
   Opts { opt_makefilename = "Makefile",
@@ -80,14 +88,14 @@ parse_arguments [] =
          opt_abs_sourcedir = "",
          opt_abs_bfsourcedir = "",
          opt_abs_builddir = "",
-         opt_usage_error = False, 
+         opt_usage_error = False,
          opt_architectures = [],
          opt_verbosity = 1 }
 parse_arguments ("--install-dir" : (s : t)) =
   (parse_arguments t) { opt_installdir = s }
-parse_arguments ("--source-dir" : s : t) =  
+parse_arguments ("--source-dir" : s : t) =
   (parse_arguments t) { opt_sourcedir = s }
-parse_arguments ("--bfsource-dir" : s : t) =  
+parse_arguments ("--bfsource-dir" : s : t) =
   (parse_arguments t) { opt_bfsourcedir = s }
 parse_arguments ("--build-dir" : s : t) =
   (parse_arguments t) { opt_builddir = s }
@@ -95,17 +103,17 @@ parse_arguments ("--ghc-libdir" : (s : t)) =
   (parse_arguments t) { opt_ghc_libdir = s }
 parse_arguments ("--output-filename" : s : t) =
   (parse_arguments t) { opt_makefilename = s }
-parse_arguments ("--quiet" : t ) = 
+parse_arguments ("--quiet" : t ) =
   (parse_arguments t) { opt_verbosity = 0 }
-parse_arguments ("--verbose" : t ) = 
+parse_arguments ("--verbose" : t ) =
   (parse_arguments t) { opt_verbosity = 2 }
-parse_arguments ("--architecture" : a : t ) = 
-  let 
+parse_arguments ("--architecture" : a : t ) =
+  let
     o2 = parse_arguments t
     arches = (a : opt_architectures o2)
   in
     o2 { opt_architectures = arches }
-parse_arguments _ = 
+parse_arguments _ =
   (parse_arguments []) { opt_usage_error = True }
 
 usage :: String
@@ -197,18 +205,18 @@ listFiles' root current
 
 -- We invoke GHC to parse the Hakefiles in a preconfigured environment,
 -- to implement the Hake DSL.
-evalHakeFiles :: FilePath -> Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
-                 IO (S.Set FilePath)
-evalHakeFiles the_libdir makefile o srcDB hakefiles =
+evalHakeFiles :: FilePath -> Opts -> TreeDB -> [(FilePath, String)] ->
+                 (FilePath -> HRule -> Ghc a) -> IO ([a])
+evalHakeFiles the_libdir o srcDB hakefiles rulef =
     --defaultErrorHandler defaultFatalMessager defaultFlushOut $
     errorHandler $
         runGhc (Just the_libdir) $
-        driveGhc makefile o srcDB hakefiles
+        driveGhc o srcDB hakefiles rulef
 
 -- This is the code that executes in the GHC monad.
-driveGhc :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
-            Ghc (S.Set FilePath)
-driveGhc makefile o srcDB hakefiles = do
+driveGhc :: forall a. Opts -> TreeDB -> [(FilePath, String)] ->
+            (FilePath -> HRule -> Ghc a) -> Ghc ([a])
+driveGhc o srcDB hakefiles rulef = do
     -- Set the RTS flags
     dflags <- getSessionDynFlags
     _ <- setSessionDynFlags dflags {
@@ -231,11 +239,11 @@ driveGhc makefile o srcDB hakefiles = do
                 ideclQualified = True
           } | m <- qualified_modules])
 
-    -- Emit Makefile sections corresponding to Hakefiles
-    buildSections hakefiles
+    -- Collect rules from Hakefiles
+    collectRules hakefiles
 
     where
-        module_paths = [ (opt_installdir o) </> "hake", ".", 
+        module_paths = [ (opt_installdir o) </> "hake", ".",
                          (opt_bfsourcedir o) </> "hake" ]
         source_modules = [ "HakeTypes", "RuleDefs", "Args", "Config",
                            "TreeDB" ]
@@ -246,17 +254,16 @@ driveGhc makefile o srcDB hakefiles = do
         -- Evaluate one Hakefile, and emit its Makefile section.  We collect
         -- referenced directories as we go, to generate the 'directories'
         -- rules later.
-        buildSections' :: (S.Set FilePath) -> [(FilePath, String)] ->
-                          Ghc (S.Set FilePath)
-        buildSections' dirs [] = return dirs
-        buildSections' dirs ((abs_hakepath, contents):hs) = do
+        collectRules' :: [a] -> [(FilePath, String)] -> Ghc ([a])
+        collectRules' rules [] = return rules
+        collectRules' rules ((abs_hakepath, contents):hs) = do
             let hakepath = makeRelative (opt_sourcedir o) abs_hakepath
             rule <- evaluate hakepath contents
-            dirs' <- liftIO $ makefileSection makefile o hakepath rule
-            buildSections' (S.union dirs' dirs) hs
+            ruleout <- rulef hakepath rule
+            collectRules' (ruleout : rules) hs
 
-        buildSections :: [(FilePath, String)] -> Ghc (S.Set FilePath)
-        buildSections hs = buildSections' S.empty hs
+        collectRules :: [(FilePath, String)] -> Ghc ([a])
+        collectRules hs = collectRules' [] hs
 
         -- Evaluate a Hakefile, returning something of the form
         -- Rule [...]
@@ -270,9 +277,10 @@ driveGhc makefile o srcDB hakefiles = do
 
                     -- Evaluate in GHC
                     val <- ghandle handleFailure $
-                                dynCompileExpr $ hake_wrapped ++
-                                                 " :: TreeDB -> HRule"
-                    rule <- 
+                                dynCompileExpr $ hake_wrapped ++ " :: TreeDB -> HRule"
+
+
+                    rule <-
                         case fromDynamic val of
                             Just r -> return r
                             Nothing -> throw $
@@ -477,8 +485,19 @@ arch_list = S.fromList (Config.architectures ++
 allowedArchs :: [String] -> Bool
 allowedArchs = all (\a -> a `S.member` arch_list)
 
+
 -- The section corresponding to a Hakefile.  These routines all collect
 -- and directories they see.
+makefileSectionArr :: Handle -> Opts -> [(FilePath,HRule)] -> IO (S.Set FilePath)
+makefileSectionArr h opts xs = makefileSectionArr' S.empty xs
+  where
+    makefileSectionArr' :: (S.Set FilePath) -> [(FilePath,HRule)] ->
+      IO (S.Set FilePath)
+    makefileSectionArr' dirs [] = return dirs
+    makefileSectionArr' dirs ((fp,rule) : xs) = do
+      dirs' <- makefileSection h opts fp rule
+      makefileSectionArr' (S.union dirs' dirs) xs
+
 makefileSection :: Handle -> Opts -> FilePath -> HRule -> IO (S.Set FilePath)
 makefileSection h opts hakepath rule = do
     hPutStrLn h $ "# From: " ++ hakepath ++ "\n"
@@ -521,12 +540,13 @@ printDirs :: Handle -> S.Set FilePath -> IO ()
 printDirs h dirs =
     S.foldr (\d m -> hPutStr h (d ++ " ") >> m) (return ()) dirs
 
+
+
 makefileRuleInner :: Handle -> [RuleToken] -> Bool -> IO (S.Set FilePath)
 makefileRuleInner h tokens double_colon = do
     if S.null (ruleOutputs compiledRule)
     then do
-        hPutStr h "# hake: omitted rule with no output: "
-        doBody
+        return $ ruleDirs compiledRule
     else do
         printTokens h $ ruleOutputs compiledRule
         if double_colon then hPutStr h ":: " else hPutStr h ": "
@@ -547,7 +567,7 @@ makefileRuleInner h tokens double_colon = do
             return $ ruleDirs compiledRule
 
 --
--- Functions to resolve path names in rules. 
+-- Functions to resolve path names in rules.
 --
 -- Absolute paths are interpreted relative to one of the three trees: source,
 -- build or install.  Relative paths are interpreted relative to the directory
@@ -587,22 +607,22 @@ resolvePaths o hakepath (Phony name dbl tokens)
 -- we need to take into account the tree (source, build, or install).
 resolveTokenPath :: Opts -> FilePath -> RuleToken -> RuleToken
 -- An input token specifies which tree it refers to.
-resolveTokenPath o hakepath (In tree arch path) = 
+resolveTokenPath o hakepath (In tree arch path) =
     (In tree arch (treePath o tree arch path hakepath))
 -- An output token implicitly refers to the build tree.
-resolveTokenPath o hakepath (Out arch path) = 
+resolveTokenPath o hakepath (Out arch path) =
     (Out arch (treePath o BuildTree arch path hakepath))
 -- A dependency token specifies which tree it refers to.
-resolveTokenPath o hakepath (Dep tree arch path) = 
+resolveTokenPath o hakepath (Dep tree arch path) =
     (Dep tree arch (treePath o tree arch path hakepath))
 -- A non-dependency token specifies which tree it refers to.
-resolveTokenPath o hakepath (NoDep tree arch path) = 
+resolveTokenPath o hakepath (NoDep tree arch path) =
     (NoDep tree arch (treePath o tree arch path hakepath))
 -- A pre-dependency token specifies which tree it refers to.
-resolveTokenPath o hakepath (PreDep tree arch path) = 
+resolveTokenPath o hakepath (PreDep tree arch path) =
     (PreDep tree arch (treePath o tree arch path hakepath))
 -- An target token implicitly refers to the build tree.
-resolveTokenPath o hakepath (Target arch path) = 
+resolveTokenPath o hakepath (Target arch path) =
     (Target arch (treePath o BuildTree arch path hakepath))
 -- A target token referring to an absolute resource
 resolveTokenPath o hakepath (Abs rule rule2) =
@@ -627,13 +647,13 @@ resolveTokenPath _ _ token = token
 -- it's relative to the top-level directory plus the architecture.
 treePath :: Opts -> TreeRef -> FilePath -> FilePath -> FilePath -> FilePath
 -- The architecture 'root' is special.
-treePath o SrcTree "root" path hakepath = 
+treePath o SrcTree "root" path hakepath =
     relPath (opt_sourcedir o) path hakepath
 treePath o BFSrcTree "root" path hakepath =
     relPath (opt_bfsourcedir o) path hakepath
-treePath o BuildTree "root" path hakepath = 
+treePath o BuildTree "root" path hakepath =
     relPath (opt_builddir o) path hakepath
-treePath o InstallTree "root" path hakepath = 
+treePath o InstallTree "root" path hakepath =
     relPath (opt_installdir o) path hakepath
 -- The architecture 'cache' is special.
 treePath o SrcTree "cache" path hakepath =
@@ -685,7 +705,7 @@ makeHakeDeps h o l = do
         hake = resolveTokenPath o "" (In InstallTree "root" "/hake/hake")
         makefile = resolveTokenPath o "/" (Out "root" (opt_makefilename o))
         rule = HakeTypes.Rule
-                    ( [ hake, 
+                    ( [ hake,
                         Str "--source-dir", Str (opt_sourcedir o),
                         Str "--install-dir", Str (opt_installdir o),
                         Str "--bfsource-dir", Str (opt_bfsourcedir o),
@@ -710,15 +730,15 @@ makeDirectories h dirs = do
     hPutStrLn h "\t$(Q)mkdir -p `dirname $@`"
     hPutStrLn h "\t$(Q)touch $@"
 
--- Generate enume for flounder endpoint types. do it here as 
+-- Generate enume for flounder endpoint types. do it here as
 -- Hake knows all the files
 
 makeFlounderTypesArch :: String -> String -> String -> IO()
 makeFlounderTypesArch src build arch = do
     let fileName = build ++ "/" ++ arch ++ "/include/if/if_types.h"
     let dirName = build ++ "/" ++ arch ++ "/include/if"
-    
-    createDirectoryIfMissing True dirName 
+
+    createDirectoryIfMissing True dirName
     writeFile fileName ""
 
     h <- openFile(fileName) WriteMode
@@ -743,17 +763,46 @@ makeFlounderTypesArch src build arch = do
 makeFlounderTypes :: String -> String -> [String] -> IO()
 makeFlounderTypes src build arches = do
     mapM_ (\x -> makeFlounderTypesArch src build x) arches
+
+
+makeDriverDomainDb :: String -> LibDepTree2 -> IO()
+makeDriverDomainDb build t = do
+  let fileName = build ++ "/sockeyefacts/ddomain_db.pl"
+  let dirName = build ++ "/sockeyefacts"
+  createDirectoryIfMissing True dirName
+  writeFile fileName ""
+  h <- openFile(fileName) WriteMode
+  mapM_ (hPutStrLn h . pairToPl) (ldtDriverModules t)
+  hFlush h
+  hClose h
+  return ()
+  where
+    pairToPl :: (DepEl, DepEl) -> String
+    pairToPl (a,b) = "drivermodule(" ++ toPl a ++ "," ++ toPl b ++ ")."
+    toPl :: DepEl -> String
+    toPl x = "(\"" ++ depElArch x ++ "\",\"" ++ depElName x ++ "\")"
+
+
 --
 -- The top level
 --
+
+extractrule :: FilePath -> HRule -> Ghc (HRule)
+extractrule fp hr = return hr
+
+extractDep :: FilePath -> HRule -> Ghc (DepElMap)
+extractDep fp hr = return $ ldtHRuleToDepElMap Config.architectures hr
+
+writeMF :: Handle -> Opts -> (HRule -> HRule) -> FilePath -> HRule -> Ghc (S.Set FilePath)
+writeMF h o rule_transform fp rule = liftIO $ makefileSection h o fp (rule_transform rule)
 
 body :: IO ()
 body =  do
     -- Parse arguments; architectures default to config file
     args <- System.Environment.getArgs
     let o1 = parse_arguments args
-        al = if opt_architectures o1 == [] 
-             then Config.architectures 
+        al = if opt_architectures o1 == []
+             then Config.architectures
              else opt_architectures o1
         opts' = o1 { opt_architectures = al }
 
@@ -793,25 +842,32 @@ body =  do
     putStrLn $ "Creating " ++ (opt_makefilename opts) ++ "..."
     makefile <- openFile(opt_makefilename opts) WriteMode
     makefilePreamble makefile opts args
-    makeHakeDeps makefile opts $ map fst hakefiles
 
     -- Evaluate Hakefiles
-    putStrLn $ "Evaluating " ++ show (length hakefiles) ++
-                        " Hakefiles..."
-    dirs <- evalHakeFiles (opt_ghc_libdir opts) makefile opts srcDB hakefiles
+    putStrLn $ "Evaluating " ++ show (length hakefiles) ++ " Hakefiles for dependencies..."
+    depElMap <- evalHakeFiles (opt_ghc_libdir opts) opts srcDB hakefiles extractDep
 
-    -- Emit directory rules
-    putStrLn $ "Generating build directory dependencies..."
+    let dep_graph = ldtEmToGraph (foldr ldtDepElMerge Map.empty depElMap)
+    let rtrans = ldtRuleExpand $ dep_graph
+    putStrLn $ "Evaluating " ++ show (length hakefiles) ++ " Hakefiles..."
+
+    dirs_a <- evalHakeFiles (opt_ghc_libdir opts) opts srcDB hakefiles (writeMF makefile opts rtrans)
+
+    let dirs = foldr S.union S.empty dirs_a
+
+    putStrLn "Generating build directory dependencies..."
     makeDirectories makefile dirs
 
     -- Create flounder type file TODO have not found a better place to do this yet
     makeFlounderTypes (opt_sourcedir opts) (abs_builddir) (opt_architectures opts)
 
+    makeDriverDomainDb abs_builddir dep_graph
+
     hFlush makefile
     hClose makefile
     return ()
 
-main :: IO () 
+main :: IO ()
 main = do
     r <- body `catch` handleHakeError
     exitWith ExitSuccess

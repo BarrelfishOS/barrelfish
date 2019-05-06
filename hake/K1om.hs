@@ -172,9 +172,11 @@ cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
 assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
+ldtLinker = ArchDefaults.ldtLinker arch compiler
 strip = ArchDefaults.strip arch objcopy
 debug = ArchDefaults.debug arch objcopy
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
+ldtCxxlinker = ArchDefaults.ldtCxxlinker arch cxxcompiler
 
 --
 -- Link the kernel (CPU Driver)
