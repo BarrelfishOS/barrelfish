@@ -14,6 +14,7 @@ module LibDepTree where
 
 import HakeTypes
 import qualified Data.Set as S
+import Data.Array (indices)
 import Data.Graph
 import Data.Maybe
 import Data.List (sortBy)
@@ -38,7 +39,7 @@ ldtEmToGraph tree = LibDepTree2Graph graph nodeFromVertex vertexFromKey
                 Map.notMember c tree]
 
 ldtDepElMerge :: DepElMap -> DepElMap -> DepElMap
-ldtDepElMerge a b = Map.unionWith (++) a b
+ldtDepElMerge = Map.unionWith (++)
 
 ldtHRuleToDepElMap :: [String] -> HRule -> DepElMap
 ldtHRuleToDepElMap archs hrule = case hrule of
@@ -97,6 +98,24 @@ ldtDepDfs ldt start = fmap extractDepEl $ head (dfs graph [fromJust $ vertexFrom
     triFst (a,_,_) = a
     extractDepEl = triFst . nodeFromVertex
     (graph, nodeFromVertex, vertexFromKey) = (gGraph ldt, gNodeFromVertex ldt, gVertexFromKey ldt)
+
+ldtDriverModules :: LibDepTree2 -> [(DepEl,DepEl)]
+-- concat $ map depS (indices $ gGraph t)
+ldtDriverModules t = depS =<< indices (gGraph t)
+  where
+    triFst (a,_,_) = a
+    toNode :: Vertex -> DepEl
+    toNode = triFst . gNodeFromVertex t
+
+    depS :: Vertex -> [(DepEl,DepEl)]
+    depS = step . ldtDepDfs t . toNode
+
+    step :: Tree DepEl -> [(DepEl,DepEl)]
+    step (Node (DepApp arch name) cs) = [ ((DepApp arch name),x) | x <- concat $ map nm cs]
+      where
+        nm (Node (DepMod arch name) _) = [DepMod arch name]
+        nm _ = []
+    step _ = []
 
 ldtPrettyTree :: Tree DepEl -> String
 ldtPrettyTree tr = prettyPrintR tr ""

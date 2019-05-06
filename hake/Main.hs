@@ -765,6 +765,22 @@ makeFlounderTypes src build arches = do
     mapM_ (\x -> makeFlounderTypesArch src build x) arches
 
 
+makeDriverDomainDb :: String -> LibDepTree2 -> IO()
+makeDriverDomainDb build t = do
+  let fileName = build ++ "/sockeyefacts/ddomain_db.pl"
+  let dirName = build ++ "/sockeyefacts"
+  createDirectoryIfMissing True dirName
+  writeFile fileName ""
+  h <- openFile(fileName) WriteMode
+  mapM_ (hPutStrLn h . pairToPl) (ldtDriverModules t)
+  hFlush h
+  hClose h
+  return ()
+  where
+    pairToPl :: (DepEl, DepEl) -> String
+    pairToPl (a,b) = "drivermodule(" ++ toPl a ++ "," ++ toPl b ++ ")."
+    toPl :: DepEl -> String
+    toPl x = "(\"" ++ depElArch x ++ "\",\"" ++ depElName x ++ "\")"
 
 
 --
@@ -844,6 +860,8 @@ body =  do
 
     -- Create flounder type file TODO have not found a better place to do this yet
     makeFlounderTypes (opt_sourcedir opts) (abs_builddir) (opt_architectures opts)
+
+    makeDriverDomainDb abs_builddir dep_graph
 
     hFlush makefile
     hClose makefile

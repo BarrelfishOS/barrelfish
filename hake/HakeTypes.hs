@@ -69,6 +69,11 @@ depElArch (DepMod x _) = x
 depElArch (DepLib x _) = x
 depElArch (DepApp x _) = x
 
+depElName :: DepEl -> String
+depElName (DepMod _ x) = x
+depElName (DepLib _ x) = x
+depElName (DepApp _ x) = x
+
 frArch :: RuleToken -> String
 frArch (In _ a _ ) = a
 frArch (Out a _ ) = a
