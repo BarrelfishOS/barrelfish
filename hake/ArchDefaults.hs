@@ -84,25 +84,25 @@ kernelLibs arch =
     [ In InstallTree arch "/lib/libcompiler-rt.a" ]
 
 -- Libraries that are linked to all applications.
+stdLibDeps =
+  [
+    "c",
+    "collections",
+    "compiler-rt",
+    "octopus_parser",
+    "term_client",
+    "errno"
+  ]
+
+stdCxxLibDeps = ["cxx"] ++ stdLibDeps
+
 stdLibs arch =
-    -- Library OS now added in appGetOptionsForArch based on options field 'libraryOs'
-    [ In InstallTree arch "/lib/libterm_client.a",
-      In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
-      In InstallTree arch "/errors/errno.o",
-      In InstallTree arch ("/lib/libc.a"),
-      In InstallTree arch "/lib/libcompiler-rt.a",
-      --In InstallTree arch "/lib/libposixcompat.a",
-      --In InstallTree arch "/lib/libvfs.a",
-      --In InstallTree arch "/lib/libnfs.a",
-      --In InstallTree arch "/lib/liblwip.a",
-      --In InstallTree arch "/lib/libbarrelfish.a",
-      --In InstallTree arch "/lib/libcontmng.a",
-      --In InstallTree arch "/lib/libprocon.a",
-      In InstallTree arch "/lib/crtend.o" ,
-      In InstallTree arch "/lib/libcollections.a" ]
+    -- Library OS now added in appGetOptionsForArch based on options field 'libraryOs'.
+    -- Archive files should be added to stdLibDeps.
+    [ In InstallTree arch "/lib/crtend.o" ]
 
 stdCxxLibs arch =
-    [ In InstallTree arch "/lib/libcxx.a" ]
+    [ ]
     ++ stdLibs arch
 
 options arch archFamily = Options {
@@ -119,7 +119,9 @@ options arch archFamily = Options {
                   Dep InstallTree arch "/include/trace_definitions/trace_defs.h" ],
             optLdFlags = ldFlags arch,
             optLdCxxFlags = ldCxxFlags arch,
+            optLibDep = stdLibDeps,
             optLibs = stdLibs arch,
+            optCxxLibDep = stdCxxLibDeps,
             optCxxLibs = stdCxxLibs arch,
             optInterconnectDrivers = ["lmp", "ump", "multihop", "local"],
             optFlounderBackends = ["lmp", "ump", "multihop", "local"],
@@ -294,7 +296,7 @@ archive arch opts objs libs name libname =
     [ NL, Str "ranlib ", Out arch libname ]
 
 --
--- Link an executable
+-- Link an executable, explicitly stating libraries and modules
 --
 linker :: String -> String -> Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
 linker arch compiler opts objs libs mods bin =
@@ -314,6 +316,29 @@ linker arch compiler opts objs libs mods bin =
     [Str "-Wl,--whole-archive"] ++ [ In BuildTree arch l | l <- mods ] ++ [Str "-Wl,--no-whole-archive"]
     ++
     [ In BuildTree arch l | l <- libs ]
+    ++
+    (optLibs opts)
+    ++
+    [Str "-Wl,--end-group"]
+
+--
+-- Link an executable, libs and mods are not passed, but later resolved
+-- using the application name "app" and the library dependency tree
+--
+ldtLinker :: String -> String -> Options -> [String] -> String -> String -> [RuleToken]
+ldtLinker arch compiler opts objs app bin =
+    [ Str compiler ]
+    ++ (optLdFlags opts)
+    ++
+    (extraLdFlags opts)
+    ++
+    [ Str "-o", Out arch bin ]
+    ++
+    [ In BuildTree arch o | o <- objs ]
+    ++
+    [Str "-Wl,--start-group"]
+    ++
+    [ Ldt BuildTree arch app ]
     ++
     (optLibs opts)
     ++
@@ -341,6 +366,31 @@ cxxlinker arch cxxcompiler opts objs libs mods bin =
     (optCxxLibs opts)
     ++
     [Str "-Wl,--end-group"]
+
+
+--
+-- Link an executable
+--
+ldtCxxlinker :: String -> String -> Options -> [String] -> String -> String -> [RuleToken]
+ldtCxxlinker arch cxxcompiler opts objs app bin =
+    [ Str cxxcompiler ]
+    ++
+    (optLdCxxFlags opts)
+    ++
+    (extraLdFlags opts)
+    ++
+    [ Str "-o", Out arch bin ]
+    ++
+    [ In BuildTree arch o | o <- objs ]
+    ++
+    [Str "-Wl,--start-group"]
+    ++
+    [ Ldt BuildTree arch app ]
+    ++
+    (optCxxLibs opts)
+    ++
+    [Str "-Wl,--end-group"]
+
 
 --
 -- Strip debug symbols from an executable

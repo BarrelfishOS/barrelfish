@@ -16,9 +16,9 @@
     --- domain
     build library { target = "int_route_server",
                     cFiles = [ "server/init.c" ],
-                    flounderDefs = [ "int_route_service" ],
+                    flounderDefs = [ "int_route_service", "monitor_blocking" ],
                     flounderBindings = [ "int_route_service", "int_route_controller" ],
-                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ],
+                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]), ("monitor_blocking", ["rpcclient"]) ],
                     addLibraries = [ "skb", "hashtable" ] 
                    },
 
@@ -36,7 +36,7 @@
                     cFiles = [ "client/client.c", "client/int_model.c" ],
                     flounderDefs = [ "int_route_service", "monitor_blocking" ],
                     flounderBindings = [ "int_route_service" ],
-                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ]
+                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]), ("monitor_blocking", ["rpcclient"]) ]
                    },
 
     -- We run a stand alone IRS on ARMv7

@@ -33,43 +33,52 @@
  --                      architectures = [ "armv7", "armv8" ]
  --                    },
 
-
-  build library { target = "serial_kernel_module",
-                      cFiles = [ "serial_kernel.c",
-                                 "main_common.c",
-                                 "basic_service.c", "terminal_service.c" ],
+  build library { target = "serial_common",
+                      cFiles = [ "main_common.c", "basic_service.c",
+                                 "terminal_service.c" ],
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
                       architectures = [ "x86_64", "armv7", "armv8" ]
                     },
-  build application {
+
+  build drivermodule { target = "serial_kernel_module",
+                      cFiles = [ "serial_kernel.c" ],
+                      flounderDefs = [ "terminal" , "terminal_config",
+                                       "terminal_session" ],
+                      addLibraries = ["serial_common", "driverkit", "thc",
+                                      "term_server", "int_route_client"],
+                      architectures = [ "x86_64", "armv7", "armv8" ]
+                    },
+
+  build driverdomain {
         target = "serial_kernel",
-        cFiles = [ "main_ddomain.c"],
-        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
         addModules = ["serial_kernel_module"],
         architectures = ["x86_64", "armv7", "armv8"]
   },
 
-  build library { target = "serial_pc16550d_module",
-                      cFiles = [ "serial_pc16550d.c",
-                                 "main_common.c",
-                                 "basic_service.c", "terminal_service.c" ],
-                      flounderBindings = [ "serial" ],
+  build drivermodule { target = "serial_pc16550d_module",
+                      cFiles = [ "serial_pc16550d.c" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      architectures = [ "x86_32", "x86_64"]
+                      architectures = [ "x86_32", "x86_64"],
+                      addLibraries = [ "serial_common", "int_route_client", "thc", "term_server"]
                     },
 
-  build application {
+  build driverdomain {
         target = "serial_pc16550d",
-        cFiles = [ "main_ddomain.c"],
-        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
-        addModules = ["serial_pc16550d_module"],
+        addModules = ["serial_pc16550d_module", "serial_kernel_module"],
         architectures = ["x86_64"]
   },
+
+  -- build application {
+  --       target = "serial_pc16550d",
+  --       cFiles = [ "main_ddomain.c"],
+  --       addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+  --       addLibraries = ["driverkit", "thc", "term_server"],
+  --       addModules = ["serial_pc16550d_module"],
+  --       architectures = ["x86_64"]
+  -- },
 
   build library { target = "serial_pl011_module",
                       cFiles = [ "serial_pl011.c",

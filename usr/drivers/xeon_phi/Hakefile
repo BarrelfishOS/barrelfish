@@ -11,13 +11,13 @@
 --------------------------------------------------------------------------
 
 [
-  build library {
+  build drivermodule {
       target = "mod_knc",
       architectures= ["x86_64"],
       cFiles = [ "mod_knc.c"]
   },
 
-  build application { 
+  build driverdomain { 
     target = "xeon_phi",
     architectures= ["x86_64"],
     cFiles = [ 
@@ -46,7 +46,7 @@
       "dma_service",
       "elf", 
       "vfs",
-      "lwip",
+      "lwip2",
       "bench", 
       "xeon_phi_manager_client",
       "xeon_phi_client",
@@ -56,7 +56,6 @@
       "net"
     ],
     addModules = [ "mod_knc" ],
-    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
     flounderDefs = [
       "interphi", 
       "xeon_phi",
