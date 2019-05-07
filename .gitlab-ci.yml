@@ -10,7 +10,7 @@
 
 stages:
   - commithooks
-  # - hake
+  - hake
   # - build
   # - tests
 
@@ -20,13 +20,19 @@ stages:
 commithook-signedoff:
   stage: commithooks
   image: achreto/barrelfish-ci
-  artifacts :
-    paths:
-      - commits_not_signed.txt
   script:
-    - "! git log  --since='2018-01-01' --invert-grep --grep='Signed-off-by' | tee 'commits_not_signed.txt' | grep 'commit' -A 5"
+    - "! git log  --since='2018-01-01' --invert-grep --grep='Signed-off-by' 
+        | tee 'commits_not_signed.txt' | grep 'commit' -A 5"
     
+##############################################################################
 
+hake-tool:
+  stage: hake
+  image: achreto/barrelfish-ci
+  script:
+    - "mkdir build; (cd build && ../hake/hake.sh --no-hake -s ../ -a x86_64)"
+
+##############################################################################
 
 # x86:hake:
 #   stage: hake
