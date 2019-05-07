@@ -442,6 +442,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic])
       "Xeon Phi build with benchmarks and test suites",
 
+    platform "ARMV7_Basic" [ "armv7" ]
+      ([ ("armv7", f) | f <- pandaModules ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Basic ARMv8 build",
+
+    platform "ARMV8_Basic" [ "armv8" ]
+      ([ ("armv8", f) | f <- armv8_modules ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Basic ARMv8 build",
+
     platform "FVP" [ "armv8" ]
       ([ ("armv8", "/sbin/cpu_a57_fvp"), ("armv8", "/sbin/boot_armv8_generic")  ]
        ++
