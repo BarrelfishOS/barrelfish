@@ -13,7 +13,6 @@ stages:
   - hake
   - build
   # - tests
-  - cleanup
 
 
 ##############################################################################
@@ -45,47 +44,43 @@ hake-files:
 build-x86:
   stage: build
   image: achreto/barrelfish-ci
-  # artifacts:
-  #   paths:
-  #     - build-x86
-  #   when: on_success
+  artifacts:
+    paths:
+      - build-x86.log
+    when: on_failure
   script:
     - "mkdir build-x86; 
-       (cd build-x86 && ../hake/hake.sh -s ../ -a x86_64 && make X86_64_Basic -j4)"
+       (cd build-x86 && ../hake/hake.sh -s ../ -a x86_64 && make X86_64_Basic -j4 > ../build.log);
+       rm -rf build-x86"
 
 
 build-armv7:
   stage: build
   image: achreto/barrelfish-ci
-  # artifacts:
-  #   paths:
-  #     - build-x86
-  #   when: on_success
+  artifacts:
+    paths:
+      - build-armv7.log
+    when: on_failure
   script:
     - "mkdir build-armv7; 
-       (cd build-armv7 && ../hake/hake.sh -s ../ -a armv7 && make ARMV7_Basic -j4)"
+       (cd build-armv7 && ../hake/hake.sh -s ../ -a armv7 && make ARMV7_Basic -j4 > ../build-armv7.log);
+       rm -rf build-armv7"
 
 
 build-armv8:
   stage: build
   image: achreto/barrelfish-ci
-  # artifacts:
-  #   paths:
-  #     - build-x86
-  #   when: on_success
+  artifacts:
+    paths:
+      - build-armv8.log
+    when: on_failure
   script:
     - "mkdir build-armv8; 
-       (cd build-armv8 && ../hake/hake.sh -s ../ -a armv8 && make ARMV8_Basic -j4)"           
+       (cd build-armv8 && ../hake/hake.sh -s ../ -a armv8 && make ARMV8_Basic -j4  > ../build-armv8.log);
+       rm -rf build-armv8;"
 
 
 ##############################################################################
-
-cleanup-all:
-  stage: cleanup
-  image: achreto/barrelfish-ci
-  script:
-    - "rm -rf build-*"
-  when: always 
 
 # x86:build:
 #   stage: build
