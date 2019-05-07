@@ -13,6 +13,7 @@ stages:
   - hake
   - build
   # - tests
+  - cleanup
 
 
 ##############################################################################
@@ -75,6 +76,16 @@ build-armv8:
   script:
     - "mkdir build-armv8; 
        (cd build-armv8 && ../hake/hake.sh -s ../ -a armv8 && make ARMV8_Basic -j4)"           
+
+
+##############################################################################
+
+cleanup-all:
+  stage: cleanup
+  image: achreto/barrelfish-ci
+  script:
+    - "rm -rf build-*"
+  when: always 
 
 # x86:build:
 #   stage: build
