@@ -1,0 +1,130 @@
+##########################################################################
+# Copyright (c) 2018 ETH Zurich.
+# All rights reserved.
+#
+# This file is distributed under the terms in the attached LICENSE file.
+# If you do not find this file, copies can be found by writing to:
+# ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+# Attn: Systems Group.
+##########################################################################
+
+stages:
+  - commithooks
+  # - hake
+  # - build
+  # - tests
+
+
+##############################################################################
+
+commithook-signedoff:
+  stage: commithooks
+  image: achreto/barrelfish-ci
+  artifacts :
+    paths:
+      - commits_not_signed.txt
+  script:
+    - "! git log  --since="2017-01-01" --invert-grep --grep="Signed-off-by" | tee "commits_not_signed.txt" | grep "commit" -A 5"
+    
+
+
+# x86:hake:
+#   stage: hake
+#   image: achreto/barrelfish-ci
+#   artifacts:
+#     paths:
+#       - build-x86
+#     when: on_success
+#   script:
+#     - "mkdir build-x86; (cd build-x86 && ../hake/hake.sh -s ../ -a x86_64)"
+    
+
+# x86:build:
+#   stage: build
+#   dependencies:
+#     - x86:hake
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "(cd build-x86 &&  make X86_64_Basic)"
+
+# x86:memtest:
+#   stage: tests
+#   dependencies:
+#     - x86:build
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "mkdir -p results"
+#     - "(./tools/harness/scalebench.py --xml --debug -B build-x86 -m qemu1 -t memtest . results )"    
+
+# x86:memtest4:
+#   stage: tests
+#   dependencies:
+#     - x86:build
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "mkdir -p results"
+#     - "(./tools/harness/scalebench.py --xml --debug -B build-x86 -m qemu4 -t memtest . results )"    
+
+
+# ##############################################################################
+
+
+# armv7:hake:
+#   stage: hake
+#   image: achreto/barrelfish-ci
+#   artifacts:
+#     paths:
+#       - build-armv7
+#     when: on_success
+#   script:
+#     - "mkdir build-armv7; (cd build-armv7 && ../hake/hake.sh -s ../ -a armv7)"
+
+
+# armv7:build:
+#   stage: build
+#   dependencies:
+#     - armv7:hake
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "(cd build-armv7 &&  make PandaboardES)"
+
+# armv7:memtest:
+#   stage: tests
+#   dependencies:
+#     - armv7:build
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "mkdir -p results"
+#     - "(./tools/harness/scalebench.py --xml --debug -B build-armv7 -m qemu_armv7 -t memtest . results )"
+
+
+# ##############################################################################
+
+
+# armv8:hake:
+#   stage: hake
+#   image: achreto/barrelfish-ci
+#   artifacts:
+#     paths:
+#       - build-armv8
+#     when: on_success
+#   script:
+#     - "mkdir build-armv8; (cd build-armv8 && ../hake/hake.sh -s ../ -a armv8)"#
+# #
+
+# armv8:build:
+#   stage: build
+#   dependencies:
+#     - armv8:hake
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "(cd build-armv8 &&  make ThunderX)"    
+
+# armv8:memtest:
+#   stage: tests
+#   dependencies:
+#     - armv8:build
+#   image: achreto/barrelfish-ci
+#   script:
+#     - "mkdir -p results"
+#     - "(./tools/harness/scalebench.py --xml --debug -B build-armv8 -m qemu_armv8_1 -t memtest . results )"
