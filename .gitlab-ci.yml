@@ -24,7 +24,7 @@ commithook-signedoff:
     paths:
       - commits_not_signed.txt
   script:
-    - "! git log  --since='2017-01-01' --invert-grep --grep='Signed-off-by' | tee 'commits_not_signed.txt' | grep 'commit' -A 5"
+    - "! git log  --since='2018-01-01' --invert-grep --grep='Signed-off-by' | tee 'commits_not_signed.txt' | grep 'commit' -A 5"
     
 
 
