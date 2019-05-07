@@ -50,7 +50,7 @@ build-x86:
   #   when: on_success
   script:
     - "mkdir build-x86; 
-       (cd build-x86 && ../hake/hake.sh -s ../ -a x86_64 && make X86_64_Basic)"
+       (cd build-x86 && ../hake/hake.sh -s ../ -a x86_64 && make X86_64_Basic -j4)"
 
 
 build-armv7:
@@ -62,7 +62,7 @@ build-armv7:
   #   when: on_success
   script:
     - "mkdir build-armv7; 
-       (cd build-armv7 && ../hake/hake.sh -s ../ -a armv7 && make ARMV7_Basic)"
+       (cd build-armv7 && ../hake/hake.sh -s ../ -a armv7 && make ARMV7_Basic -j4)"
 
 
 build-armv8:
@@ -74,7 +74,7 @@ build-armv8:
   #   when: on_success
   script:
     - "mkdir build-armv8; 
-       (cd build-armv8 && ../hake/hake.sh -s ../ -a armv8 && make ARMV8_Basic)"           
+       (cd build-armv8 && ../hake/hake.sh -s ../ -a armv8 && make ARMV8_Basic -j4)"           
 
 # x86:build:
 #   stage: build
