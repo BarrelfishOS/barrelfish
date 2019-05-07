@@ -46,27 +46,20 @@
 
     --- irqtest
 
-    build library {
+    build drivermodule {
         target = "e1000n_irqtest_module",
         cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c",
             "test_instr_irqtest.c"],
         flounderBindings = [ "octopus", "e1000_devif" ],
         flounderDefs = [ "octopus", "e1000_devif" ],
         mackerelDevices = [ "e1000" ],
-        addLibraries = libDeps [ "pci_driver_client", 
-            "int_msix_ctrl" ],
+        addLibraries = [ "pci", "pci_driver_client", "int_msix_ctrl" ],
         architectures = [ "x86_64" ],
         addCFlags = [ "-DLIBRARY", "-DUNDER_TEST" ]
     },
 
-    build application {
+    build driverdomain {
         target = "e1000n_irqtest",
-        cFiles = [ "main.c"],
-        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-
-        addLibraries = libDeps["driverkit", "pci", "pci_driver_client", 
-                               "bench", "trace", "skb", "net", "lwip2", 
-                               "driverkit_iommu"],
         addModules = ["e1000n_irqtest_module"],
         architectures = ["x86_64"],
         addCFlags = [ "-DUNDER_TEST"]
