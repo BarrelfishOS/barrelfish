@@ -87,6 +87,9 @@ while test $# -ne 0; do
 	"-n"|"--no-hake")
 	    RUN_HAKE="No"
 	    ;;
+    "-d"|"--no-deps")
+        NO_DEPS="No"
+        ;;        
     "-t"|"--toolchain")
         TC_ARCH="$2"
         shift
@@ -244,6 +247,11 @@ fi
 
 echo "Running hake..."
 ./hake/hake --output-filename Makefile --source-dir "$SRCDIR/" --ghc-libdir "$(ghc --print-libdir)" || exit
+
+if test "$NO_DEPS" = "No"; then
+    echo "Not running dependencies as per your request."
+    exit
+fi
 
 echo "Now running initial make to build dependencies."
 echo "Running $JOBS jobs at once (-j N to change this)."
