@@ -2409,13 +2409,8 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR write access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
-<<<<<<< HEAD
-    case 0x8b: // IA32_BIOS_SIGN_ID
-        break;
-=======
         case X86_MSR_BIOS_SIGN_ID:
             break;
->>>>>>> master
 	default:
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
@@ -2491,40 +2486,6 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR read access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
-<<<<<<< HEAD
-        case 0x1b:
-            val = 0x0;
-            break;
-        case 0x8b:
-            val = 0x0;
-            break;
-        case 0xfe:
-            val = 0x0;
-            break;
-        case 0x179:
-            val = 0x0;
-            break;
-	    case 0x17a:
-            val = 0x0;
-            break;
-        case 0x1a0: // IA32_MISC_ENABLE
-            val = 0x1; // Fast-Strings Enable
-            break;
-        case 0x277:
-            val = 0x0;
-            break;
-        case 0x2ff:
-            val = 0x0;
-            break;
-        default:
-            msr_index = vmx_guest_msr_index(msr);
-            if (msr_index == -1) {
-                printf("MSR: unhandeled MSR read access to %x\n", msr);
-                return handle_vmexit_unhandeled(g);
-            }
-            val = guest_msr_area[msr_index].val;
-            break;
-=======
         case X86_MSR_APIC_BASE:
         case X86_MSR_BIOS_SIGN_ID:
         case X86_MSR_MTRRCAP:
@@ -2545,7 +2506,6 @@ handle_vmexit_msr (struct guest *g) {
 	    }
 	    val = guest_msr_area[msr_index].val;
 	    break;
->>>>>>> master
 #endif
         }
 

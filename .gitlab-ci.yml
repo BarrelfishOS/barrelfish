@@ -23,6 +23,13 @@ commithook-signedoff:
   script:
     - "! git log  --since='2018-01-01' --invert-grep --grep='Signed-off-by' 
         | tee 'commits_not_signed.txt' | grep 'commit' -A 5"
+
+commithook-merged:
+  stage: commithooks
+  image: achreto/barrelfish-ci
+  script:
+    - "! grep -r '^<<<<<<< '"
+
     
 ##############################################################################
 
