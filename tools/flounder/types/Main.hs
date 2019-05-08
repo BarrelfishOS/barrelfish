@@ -31,12 +31,6 @@ makeFlounderTypes src build arch = do
     let fileName = build ++ "/" ++ arch ++ "/include/if/if_types.h"
     let dirName = build ++ "/" ++ arch ++ "/include/if"
 
-    putStrLn src
-    putStrLn build
-    putStrLn arch
-    putStrLn fileName
-    putStrLn dirName
-
     createDirectoryIfMissing True dirName
     writeFile fileName ""
 
@@ -64,7 +58,6 @@ main :: IO ()
 main =
    do
     argv <- System.Environment.getArgs
-    print argv
     case argv of
      [src_dir, build_dir, arch, out] -> do
            makeFlounderTypes src_dir build_dir arch
