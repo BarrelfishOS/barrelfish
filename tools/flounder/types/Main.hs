@@ -25,6 +25,10 @@ import Debug.Trace
 
 -- Generate enume for flounder endpoint types. do it here as
 -- Hake knows all the files
+--
+
+isIf :: FilePath -> Bool
+isIf = (== ".if") . takeExtension
 
 makeFlounderTypes :: String -> String -> String -> IO()
 makeFlounderTypes src build arch = do
@@ -36,8 +40,8 @@ makeFlounderTypes src build arch = do
 
     h <- openFile(fileName) WriteMode
 
-    baseDir <- getDirectoryContents (src </> "if") >>= return. filter (\c -> not $ elem c [".", ".."])
-    archDir <- getDirectoryContents (src </> "if/arch") >>= return. filter (\c -> not $ elem c [".", ".."])
+    baseDir <- getDirectoryContents (src </> "if") >>= return. filter isIf 
+    archDir <- getDirectoryContents (src </> "if/arch") >>= return. filter isIf 
     hPutStrLn h "#ifndef IF_TYPES_H"
     hPutStrLn h "#define IF_TYPES_H"
     hPutStrLn h ""

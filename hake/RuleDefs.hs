@@ -614,6 +614,7 @@ mackerelDependencies opts d srcs =
 
 flounderProgLoc = In InstallTree "tools" "/bin/flounder"
 flounderIfFileLoc ifn = In SrcTree "src" ("/if" </> (ifn ++ ".if"))
+flounderIfFileDep ifn = Dep SrcTree "src" ("/if" </> (ifn ++ ".if"))
 
 -- new-style stubs: path for generic header
 flounderIfDefsPath ifn = "/include/if" </> (ifn ++ "_defs.h")
@@ -656,25 +657,22 @@ flounderRule opts args
     = Rule $ [ flounderProgLoc ] ++ (flounderIncludes opts) ++ args
 
 
-flounderTypesSrcDir = NoDep SrcTree "" ""
 flounderTypesProgLoc = In InstallTree "tools" "/bin/floundertypes"
 --
 -- Build interface types header file
 --
-flounderGenIfTypes :: Options -> String -> HRule
-flounderGenIfTypes opts ifn = flounderTypesGeneric opts
-
-flounderTypesGeneric :: Options -> HRule
-flounderTypesGeneric opts =
+flounderGenIfTypes :: Options -> [String] -> HRule
+flounderGenIfTypes opts ifs =
     let
         arch = optArch opts
+        ifn_tokens = map flounderIfFileDep ifs
     in
-      Rule [ flounderTypesProgLoc,
+      Rule $ [ flounderTypesProgLoc,
              Str Config.source_dir,
              Str Config.install_dir,
              Str arch,
              Out arch ("/include/if/if_types.h")
-           ]
+           ] ++ ifn_tokens
 --
 -- Build new-style Flounder header files from a definition
 -- (generic header, plus one per backend)

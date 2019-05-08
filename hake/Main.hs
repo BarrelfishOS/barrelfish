@@ -277,7 +277,9 @@ driveGhc o srcDB hakefiles rulef = do
 
                     -- Evaluate in GHC
                     val <- ghandle handleFailure $
-                                dynCompileExpr $ hake_wrapped ++ " :: TreeDB -> HRule"
+                                dynCompileExpr -- $ traceShowId
+                                $ hake_wrapped ++ " :: TreeDB -> HRule"
+
 
 
                     rule <-
