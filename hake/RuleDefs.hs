@@ -655,6 +655,26 @@ flounderRule :: Options -> [RuleToken] -> HRule
 flounderRule opts args
     = Rule $ [ flounderProgLoc ] ++ (flounderIncludes opts) ++ args
 
+
+flounderTypesSrcDir = NoDep SrcTree "" ""
+flounderTypesProgLoc = In InstallTree "tools" "/bin/floundertypes"
+--
+-- Build interface types header file
+--
+flounderGenIfTypes :: Options -> String -> HRule
+flounderGenIfTypes opts ifn = flounderTypesGeneric opts
+
+flounderTypesGeneric :: Options -> HRule
+flounderTypesGeneric opts =
+    let
+        arch = optArch opts
+    in
+      Rule [ flounderTypesProgLoc,
+             Str Config.source_dir,
+             Str Config.install_dir,
+             Str arch,
+             Out arch ("/include/if/if_types.h")
+           ]
 --
 -- Build new-style Flounder header files from a definition
 -- (generic header, plus one per backend)
@@ -663,9 +683,11 @@ flounderGenDefs :: Options -> String -> HRule
 flounderGenDefs opts ifn =
     Rules $ flounderRule opts [
            Str "--generic-header", flounderIfFileLoc ifn,
-           Out (optArch opts) (flounderIfDefsPath ifn)
+           Out (optArch opts) (flounderIfDefsPath ifn),
+           Dep BuildTree (optArch opts)  ("/include/if/if_types.h")
          ] : [ flounderRule opts [
            Str $ "--" ++ drv ++ "-header", flounderIfFileLoc ifn,
+           Dep BuildTree (optArch opts)  ("/include/if/if_types.h"),
            Out (optArch opts) (flounderIfDrvDefsPath ifn drv)]
            | drv <- Args.allFlounderBackends ]
 

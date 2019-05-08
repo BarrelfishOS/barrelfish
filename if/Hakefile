@@ -11,6 +11,7 @@
 --
 --------------------------------------------------------------------------
 
+[ flounderGenIfTypes (options arch) [] | arch <- allArchitectures ] ++
 -- whereas these are using the new-style bindings
 [ flounderGenDefs (options arch) f
       | f <- [ "acpi",
@@ -112,7 +113,6 @@
            ],
              arch <- allArchitectures
 ] ++
-
 -- these are for THC stubs
 [ flounderTHCFile (options arch) f
       | f <- [ "ata_rw28",
