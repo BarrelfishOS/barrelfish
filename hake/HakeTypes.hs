@@ -36,6 +36,7 @@ data TreeRef = SrcTree | BFSrcTree | BuildTree | InstallTree
 
 data RuleToken = In     TreeRef String String -- Input to the computation
                | Dep    TreeRef String String -- Extra (implicit) dependency
+               | PhonyDep String              -- Dependency on a Phony target
                | NoDep  TreeRef String String -- File that's not a dependency
                | PreDep TreeRef String String -- One-time dependency
                | Out    String String         -- Output of the computation
@@ -50,7 +51,6 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | Ldt TreeRef String String    -- Evaluate after obtaining LDT
 
                deriving (Show,Eq,Ord)
-
 
 -- Convert a rule into an absolute rule
 makeAbs :: RuleToken -> RuleToken
@@ -114,6 +114,7 @@ isFileRef _ = True
 isDependency :: RuleToken -> Bool
 isDependency (In _ _ _) = True
 isDependency (Dep _ _ _) = True
+isDependency (PhonyDep _) = True
 isDependency (Abs rule _) = isDependency rule
 isDependency _ = False
 
@@ -132,6 +133,7 @@ formatToken :: RuleToken -> String
 formatToken (In _ a f) = f ++ " "
 formatToken (Out a f) = f ++ " "
 formatToken (Dep _ a f) = f ++ " "
+formatToken (PhonyDep t) = t ++ " "
 formatToken (NoDep _ a f) = f ++ " "
 formatToken (PreDep _ a f) = f ++ " "
 formatToken (Target a f) = f ++ " "

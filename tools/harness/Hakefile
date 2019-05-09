@@ -1,0 +1,110 @@
+let
+    coreboot_tests = ["list_kcb_cores","stop_core","update_kernel", "park_osnode", "park_boot"]
+    irq_tests = ["irqtestlegacy", "irqtestmsix"]
+    net_tests = words "webserver httperf nfscat tftpclient"
+    devif_tests = words "devif_nettx_e10k devif_netrx_e10k devif_idc_test devif_debug devif_udp"
+    full_machines = ["babybel","appenzeller","gottardo","sbrinz",
+                    "ziger","vacherin","tilsiter","mozzarella","feta"]
+    full_tests = ["memtest_multicore", "fputest", "spawntest", "spantest",
+        "lrpc", "ump_latency", "ump_latency_cache", "ump_throughput", "ump_send",
+        "ump_receive", "multihop_test", "bulk*", "spantest_interleaved", "rcce_*",
+        "compiler-rt*", "tommath-*", "timer", "distops_*", "idc_local", "idc_cross",
+        "rpc_cap_local", "rpc_cap_cross", "mt_waitset", "lrpc_fpu", "proc_mgmt_test"]
+
+    armv8_full_tests = ["memtest_multicore", "memtest", "lrpc", "bulk*",
+                        "rcce_*", "tommath-*", "rpc_cap_local", "rpc_cap_cross",
+                        "mt_waitset"]
+
+    armv7_full_tests = words "buildall memtest_multicore spawntest ump_latency ump_throughput ump_send ump_receive bulk* compiler-rt-fp* tommath-* distops_* idc_local idc_cross rpc_cap_local rpc_cap_cross rcce_lu fputest"
+
+
+    quick_machines = ["nos"]
+
+    jobs "x86_64" = [
+        testJob "x86_64-qemu" "Memtest on qemu" $ scalebench ["memtest"] ["qemu1"],
+        testJob "x86_64-qemu-full" "Full set on qemu" $
+            (scalebench (["buildall","skb_cap_test"]++irq_tests) ["qemu1"]) ++ 
+            (scalebench  coreboot_tests ["qemu4"]),
+
+        testJob "x86_64-hw-quick" "Full tests on quick booting HW" $
+            scalebench full_tests quick_machines,
+        testJob "x86_64-hw-full" "Full set on HW" $
+            scalebench full_tests full_machines,
+        testJob "x86_64-hw-skb" "SKB test on HW" $
+            scalebench ["skb_cap_test"] ["tilsiter","vacherin"],
+        testJob "x86_64-hw-xeonphi" "Xeon Phi test on HW" $
+            scalebench ["xeon_phi_boot"] ["babybel"],
+        testJob "x86_64-hw-vmkit" "vmkit test on HW" $
+            scalebench ["vmkit"] ["sbrinz"],
+        testJob "x86_64-hw-net-quick" "Quick net on HW" $
+            scalebench net_tests quick_machines,
+        testJob "x86_64-hw-net" "Net on HW" $
+            scalebench net_tests ["sbrinz", "vacherin", "babybel"],
+        testJob "x86_64-hw-irqtest" "Test irqs on HW" $
+            (scalebench irq_tests ["sbrinz","appenzeller"]) ++ 
+            (scalebench ["irqtestlegacy"] ["mozarella"]),
+        testJob "x86_64-hw-devif" "Queue If" $
+            scalebench devif_tests ["babybel"],
+        testJob "x86_64-hw-coreboot" "coreboot" $
+            scalebench coreboot_tests ["nos","tilsiter","sbrinz","vacherin"],
+        testJob "x86_64-hw-blk" "Disk driver infrastructure tests." $
+            scalebench ["blk_read_test","blk_write_test","blk_verify_test"] ["vacherin","tilsiter"],
+        ---- TODO: Postgres, needs to fetch additional repo
+        testJob "x86_64-hw-known-to-fail" "Broken tests" $
+            scalebench ["spantest_exit"] quick_machines,
+        testJob "x86_64-hw-perfmon" "Perfomance monitoring" $
+            scalebench ["perfmontest"] ["sbrinz2"]
+        ]
+
+    jobs "armv8" = [
+         testJob "armv8-qemu" "Memtest on qemu" $
+             scalebench ["memtest"] ["qemu_armv8_4"],
+         testJob "armv8-fvp" "Memtest on FVP" $
+             scalebench ["memtest"] ["qemu_armv8_4"],
+         testJob "armv8-hw-quick" "Memtest on hw" $
+             scalebench ["memtest"] ["armv8_fvp_a57x1"],
+         testJob "armv8-hw-full" "Full set hw" $
+             scalebench armv8_full_tests ["gorgonzola","roquefort"],
+         testJob "armv8-known-to-fail" "Known-to-fail" $
+             scalebench
+                (words "distops_* idc_local idc_cross spantest spantest_interleaved multihop_test compiler-rt*")
+                ["gorgonzola","roquefort","danablu"]
+        ]
+    
+    jobs "armv7"  = [
+         testJob "armv7-qemu-zynq7" "Memtest on qemu-zynq7" $
+            scalebench ["memtest"] ["qemu_armv7_zynq7"],
+         testJob "armv7-qemu" "Memtest on qemu" $
+            scalebench ["memtest"] ["qemu_armv7"],
+         testJob "armv7-gem5" "Gem5 simulator" $
+            scalebench ["memtest"] ["armv7_gem5"],
+         testJob "armv7-fvp" "FVP simulator" $
+            scalebench ["memtest_multicore"] ["armv7_fvp_4"],
+         testJob "armv7-pandaboard" "Full set on Pandaboard" $
+            scalebench armv7_full_tests ["pandaboard"],
+         testJob "armv7-pandaboard-known-to-fail" "Pandaboard known-to-fail" $
+            scalebench ["spantest","spantest-interleaved", "mt_waitset"] ["pandaboard"]
+         ]
+    jobs _  = []
+
+    simjobs "x86_64" = ["x86_64-qemu"]
+    simjobs "armv8" = ["armv8-qemu", "armv8-fvp"]
+    simjobs "armv7" = ["armv7-qemu", "armv7-qemu-zynq7"]
+    simjob = testJob "sim_tests" "Memtest for current architectures on simulators" $
+        map PhonyDep $ concat $ map simjobs Config.architectures
+
+    noarch_jobs = [
+        simjob,
+        testJob "release_builds" "Release builds (-O2 and -DNDEBUG)" $ 
+            scalebenchO "release" ["buildall"]
+            (words "qemu1 qemu_armv7 armv7_fvp armv7_gem5 qemu_armv7_zynq7 panda_local armv8_fvp_a57x1 gorgonzola1"),
+        testJob "mdb_invariants" "memtest_multicore with MDB invariants enabled" $ 
+            scalebenchO "test_mdbinvariants" ["memtest_multicore"]
+            ["vacherin"]
+        -- TODO schedsim must just call the schedsim-check phony target...
+        -- testJob "schedsim" "Scheduler Simulator" $ [Dep ? ? schedsim-check]
+        -- TODO docs
+        ]
+
+in
+    noarch_jobs ++ (concat $ map jobs Config.architectures)

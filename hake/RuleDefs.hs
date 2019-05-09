@@ -1842,3 +1842,47 @@ getExternalDependency url name =
         ] ),
         copyFile SrcTree "cache" name "" name
     ]
+
+scalebenchProgLoc = In SrcTree "root" "/tools/harness/scalebench.py"
+
+-- A testJob corresponds to a job in jenkins. It has name, description
+-- and will execute a sequence of scalebench invocations
+testJob :: String -> String -> [RuleToken] -> HRule
+testJob name desc exec =
+    Rules [
+        Phony "help-tests" True [Str "@echo \"", NStr name, Str ":\\t", NStr desc, Str "\""],
+        Phony name False exec
+    ]
+
+
+-- Execute scalebench
+
+scalebenchO :: String -> [String] -> [String] -> [RuleToken]
+scalebenchO buildType tests machines =
+    [ 
+       Str "mkdir", Str "-p", Str result_dir, NL, 
+       scalebenchProgLoc
+    ] ++
+    test_tokens ++ 
+    machine_tokens ++
+    [
+       Str "--debug"
+    ] ++
+    build_args buildType ++
+    [
+       -- positional arguments
+       Str Config.source_dir,          -- sourcedir
+       Str result_dir,             -- resultdir 
+       NL
+    ]
+    where
+        build_args "" = [Str "-e", Str "."]
+        build_args x  = [Str "-b", Str x]
+
+        result_dir = "results/"
+        test_tokens = concat [[Str "-t", Str t] | t <- tests]
+        machine_tokens = concat [[Str "-m", Str t] | t <- machines]
+
+scalebench :: [String] -> [String] -> [RuleToken]
+scalebench = scalebenchO ""
+    

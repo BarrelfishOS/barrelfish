@@ -69,6 +69,7 @@ in
     ," - 'help':           show this help text"
     ," - 'help-platforms': show the platforms (file collections) which can be built"
     ," - 'help-boot':      show the boot sequences which can be initiated"
+    ," - 'help-tests':     show the available tests"
     ," - 'clean':          remove most generated files"
     ," - 'realclean':      remove all generated files (clears the build tree)"
     ," - 'Documentation':  build all Technical Notes"
