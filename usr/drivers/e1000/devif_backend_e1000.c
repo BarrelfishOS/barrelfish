@@ -690,8 +690,8 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
     E1000_DEBUG("%s:%d: Init iommu client \n", __func__, __LINE__);
 
     // Set buffer ring sizes
-    device->rx_ring_size = device->transmit_buffers*sizeof(union rx_desc);
-    device->tx_ring_size = device->receive_buffers*sizeof(struct tx_desc);
+    device->rx_ring_size = device->receive_buffers*sizeof(union rx_desc);
+    device->tx_ring_size = device->transmit_buffers*sizeof(struct tx_desc);
 
     // and create queue. set the transmit receive ring
     err = driverkit_iommu_client_init_cl(device->iommu_ep, &device->iommu);
