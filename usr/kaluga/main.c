@@ -53,7 +53,7 @@ static void add_start_function_overrides(void)
     set_start_function("corectrl", start_boot_driver);
 
 
-#ifdef __X86_64__
+#ifdef __x86_64__
     set_start_function("iommu", start_iommu_driver);
     set_start_function("serial_pc16550d", default_start_function_pure);
 #endif
