@@ -206,7 +206,6 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
 
     struct capref retcap = NULL_CAP;
     struct capref vnode = NULL_CAP;
-    struct frame_identity id;
 
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
@@ -217,15 +216,6 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
         case ObjType_VNode_x86_64_pdpt :
         case ObjType_VNode_x86_64_pml4 :
         case ObjType_VNode_x86_64_pml5 :
-
-            err = frame_identify(src, &id);
-            if (err_is_fail(err)) {
-                err = err_push(err, LIB_ERR_CAP_INVOKE);
-                goto send_reply;
-            }
-
-            IOMMU_SVC_DEBUG("%s retype 0x%" PRIxGENPADDR " to %d\n", __FUNCTION__,
-                             id.base, objtype);
 
             /* we should be the only one that has it */
             err = cap_revoke(src);
