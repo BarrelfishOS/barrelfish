@@ -12,7 +12,6 @@
  * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#define KALUGA_DEBUG_ON 1
 
 #include <stdio.h>
 #include <stdlib.h>
