@@ -652,7 +652,7 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
     vtd_cmd_translation_enable(vtd);
 
     if (!(vtd->capabilities.page_walk_coherency & vtd->capabilities.snoop_control)) {
-        INTEL_VTD_NOTICE("VT-d is not coherent with processor caches!");
+        INTEL_VTD_NOTICE("VT-d is not coherent with processor caches! \n");
     }
 
     err = skb_add_fact("iommu_enabled(%"PRIu16",%"PRIu8").", vtd->pci_segment,
