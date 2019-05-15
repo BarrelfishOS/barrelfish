@@ -197,6 +197,10 @@ errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
 errval_t driverkit_hwmodel_vspace_map(int32_t nodeid, struct capref frame,
                                       vregion_flags_t flags, struct dmem *dmem)
 {
+
+#ifdef DISABLE_MODEL
+    return SYS_ERR_OK;
+#else
     errval_t err;
     struct frame_identity id;
     err = frame_identify(frame, &id);
@@ -204,12 +208,6 @@ errval_t driverkit_hwmodel_vspace_map(int32_t nodeid, struct capref frame,
         return err;
     }
 
-#ifdef DISABLE_MODEL
-    dmem->devaddr = id.base;
-    dmem->size = id.bytes;
-    return vspace_map_one_frame_attr((void **)&dmem->vbase, id.bytes, frame,
-            flags, NULL, NULL);
-#else
     char conf_buf[512];
 
     dmem->mem = frame;
@@ -453,6 +451,9 @@ errval_t driverkit_hwmodel_get_map_conf_addr(int32_t mem_nodeid, genpaddr_t addr
                                              lvaddr_t *ret_addr)
 {
     errval_t err;
+#ifdef DISABLE_MODEL
+    return SYS_ERR_OK;
+#endif
 
     debug_printf("%s:%d: alias_conf request addr=0x%"PRIx64", size=%"PRIuGENSIZE"\n",
                  __FUNCTION__, __LINE__, addr, size);
@@ -506,6 +507,9 @@ errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
                                        char *ret_conf, size_t ret_conf_size,
                                        lvaddr_t *ret_addr)
 {
+#ifdef DISABLE_MODEL
+    return SYS_ERR_OK;
+#else
     struct frame_identity id;
     errval_t err;
     err = frame_identify(dst, &id);
@@ -517,5 +521,5 @@ errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
 
     return driverkit_hwmodel_get_map_conf_addr(mem_nodeid, id.base, id.bytes,
                                                nodeid, ret_conf, ret_conf_size, ret_addr);
-
+#endif
 }

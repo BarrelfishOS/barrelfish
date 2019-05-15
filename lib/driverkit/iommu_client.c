@@ -163,6 +163,35 @@ static errval_t iommu_alloc_frame(struct iommu_client *cl,
 #define MAPPING_REGION_START (512UL << 31)
 #define MAPPING_REGION_SIZE (512UL << 30)
 
+static lvaddr_t vregion_map_base = MAPPING_REGION_START;
+
+/*
+ * returns a region of memory
+ */
+static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
+                                           struct capref mem,
+                                           lvaddr_t *driver,
+                                           dmem_daddr_t *device)
+{
+    errval_t err;
+    struct frame_identity id;
+    err = frame_identify(mem, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    assert(id.bytes >= LARGE_PAGE_SIZE);
+
+    *driver = vregion_map_base;
+    //*device = vregion_map_base;
+    *device = id.base;
+    
+
+    vregion_map_base += id.bytes;
+
+    return SYS_ERR_OK;
+}
+
 /*
  * returns a region of memory
  */
@@ -233,7 +262,7 @@ static errval_t iommu_free_ram(struct capref ram)
 
 #include <barrelfish_kpi/paging_arch.h>
 #define IOMMU_DEFAULT_VREGION_FLAGS VREGION_FLAGS_READ_WRITE
-#define IOMMU_DEFAULT_VNODE_FLAGS (PTABLE_EXECUTE_DISABLE | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR)
+#define IOMMU_DEFAULT_VNODE_FLAGS PTABLE_ACCESS_DEFAULT
 
 
 static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl,
@@ -1091,13 +1120,25 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
+#ifdef DISABLE_MODEL
+    dmem->size = id.bytes;
+    dmem->mem = frame;
+
+    err = iommu_alloc_vregion(cl, frame, &dmem->vbase, &dmem->devaddr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
+    return err;
+#else
     uint64_t inaddr, outaddr;
     int32_t nodeid;
     struct list_parser_status status;
     skb_read_list_init_offset(&status, conf_buf, 0);
     while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
                         &nodeid, &inaddr, &outaddr)) {
-        debug_printf("%s:%u %i, %i, inaddr=%lx, vbase=%lx\n", __FUNCTION__, __LINE__,
+        DRIVERKIT_DEBUG("%s:%u %i, %i, inaddr=%lx, vbase=%lx\n", __FUNCTION__, __LINE__,
                      nodeid, nodeid, inaddr, dmem->devaddr);
         err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
         if (err_is_fail(err)) {
@@ -1108,6 +1149,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     }
 
     return err;
+#endif
 }
 
 
@@ -1131,10 +1173,6 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
     dmem->cl = cl;
     dmem->mem = frame;
 
-    debug_printf("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
-                    __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
-
-
     /*
      * if driver vbase is null, then we map it at any address in the driver's
      * vspace. Only if the policy is not shared, then we have to map it.
@@ -1145,8 +1183,8 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
             err = vspace_map_one_frame_attr((void **)&dmem->vbase, dmem->size,
                                             dmem->mem, flags, NULL, NULL);
         } else {
-            DRIVERKIT_DEBUG("vspace_map_one_frame_fixed_attr(%lx, %lu)\n",
-                            dmem->vbase, dmem->size >> 20);
+            DRIVERKIT_DEBUG("vspace_map_one_frame_fixed_attr(%lx, %lu) \n",
+                            dmem->vbase, dmem->size);
             err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
                                                   dmem->mem, flags, NULL, NULL);
             if (err_is_fail(err)) {
@@ -1171,9 +1209,10 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
     }
 
     assert(dmem->vbase);
-    assert(dmem->devaddr || dmem->devaddr == 0); //TODO: Maybe dont give 0 as valid dev address
+    assert(dmem->devaddr); //TODO: Maybe give 0 as valid dev address?
 
-
+    DRIVERKIT_DEBUG("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
+                    __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
 
     uint64_t ptecount = 1;
     uint64_t pagesize = 0;
