@@ -39,7 +39,7 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
 {
     errval_t err;
 
-    debug_printf("Kaluga: starting driver for IOMMU '%s'\n", record);
+    KALUGA_DEBUG("Kaluga: starting driver for IOMMU '%s'\n", record);
 
     static struct domain_instance* inst;
     struct driver_instance *drv;
@@ -56,7 +56,7 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
         return err;
     }
 
-    debug_printf("Kaluga: iommu idx: %" PRIu64 ", key: '%s', segment: %" PRIu64 ", address: 0x%"
+    KALUGA_DEBUG("Kaluga: iommu idx: %" PRIu64 ", key: '%s', segment: %" PRIu64 ", address: 0x%"
                   PRIx64 "\n", idx, key, segment, address);
 
     /* record is no longer needed */
@@ -82,7 +82,7 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
 
     /* we currently start all IOMMUss in the same domain */
     if (driver->driverinstance == NULL) {
-        debug_printf("Driver instance not running, starting...\n");
+        KALUGA_DEBUG("Driver instance not running, starting iommu...\n");
 
         inst = instantiate_driver_domain(driver->binary, where);
         if (inst == NULL) {\

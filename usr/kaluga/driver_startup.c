@@ -423,7 +423,7 @@ errval_t start_networking_new(coreid_t where,
         ddomain_instantiate_driver(inst, drv2);
 
         KALUGA_DEBUG("Adding %s to EP factories \n", netss_name);
-        err = queue_service_add_ep_factory(qs, netss_name, 0, drv2);
+        err = queue_service_add_ep_factory(qs, netss_name, where, drv2);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Could not add EP factory (%s) to queue service.", 
                       netss_name);
