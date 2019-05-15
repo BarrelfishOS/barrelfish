@@ -366,7 +366,7 @@ errval_t start_networking_new(coreid_t where,
         static struct domain_instance* inst;
         KALUGA_DEBUG("Creating new driver domain for net_sockets_server\n");
         // TODO for now alway start on core 0
-        inst = instantiate_driver_domain("net_sockets_server", 0);
+        inst = instantiate_driver_domain("net_sockets_server", where);
         if (inst == NULL) {
             return DRIVERKIT_ERR_DRIVER_INIT;
         }
@@ -394,6 +394,7 @@ errval_t start_networking_new(coreid_t where,
         id.device = device_id;
         id.vendor = vendor_id;
 
+        // TODO free this
         char * pci_arg_str = malloc(PCI_OCTET_LEN);
         assert(pci_arg_str);
         pci_serialize_octet(addr, id, cls, pci_arg_str);
@@ -410,7 +411,7 @@ errval_t start_networking_new(coreid_t where,
 
         struct capref cap;
         
-        err = get_driver_ep(0, driver, oct_id, &cap);
+        err = get_driver_ep(where, driver, oct_id, &cap);
         if (err_is_fail(err)) {     
             debug_printf("Failed getting EP to driver %s \n", oct_id);
             free(pci_arg_str);
@@ -421,6 +422,7 @@ errval_t start_networking_new(coreid_t where,
         assert(err_is_ok(err));
 
         ddomain_instantiate_driver(inst, drv2);
+
 
         KALUGA_DEBUG("Adding %s to EP factories \n", netss_name);
         err = queue_service_add_ep_factory(qs, netss_name, where, drv2);
