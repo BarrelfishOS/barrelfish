@@ -138,7 +138,6 @@ errval_t vtd_ctxt_table_map(struct vtd_root_table *rt, uint8_t idx,
     }
 
     vtd_ctxt_cache_invalidate(rt->vtd);
-
     ctx->root_table = rt;
     ctx->root_table_idx = idx;
 
@@ -168,7 +167,8 @@ errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ct)
         return err;
     }
 
-    vtd_ctxt_cache_invalidate(rt->vtd);
+    // TODO seems to not work in vacherin
+    //vtd_ctxt_cache_invalidate(rt->vtd);
 
     rt->ctxt_tables[ct->root_table_idx] = NULL;
 
