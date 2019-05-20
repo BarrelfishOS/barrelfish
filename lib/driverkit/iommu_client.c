@@ -183,12 +183,10 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
     assert(id.bytes >= LARGE_PAGE_SIZE);
 
     *driver = vregion_map_base;
-    //*device = vregion_map_base;
+    *device = vregion_map_base;
     *device = id.base;
     
-
     vregion_map_base += id.bytes;
-
     return SYS_ERR_OK;
 }
 
@@ -263,7 +261,6 @@ static errval_t iommu_free_ram(struct capref ram)
 #include <barrelfish_kpi/paging_arch.h>
 #define IOMMU_DEFAULT_VREGION_FLAGS VREGION_FLAGS_READ_WRITE
 #define IOMMU_DEFAULT_VNODE_FLAGS PTABLE_ACCESS_DEFAULT
-
 
 static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl,
                                                 dmem_daddr_t addr, uint64_t *retslot,
@@ -476,7 +473,6 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
     free(vnode_l2);
     return err;
 }
-
 
 /*
  * ============================================================================
@@ -1079,7 +1075,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
                                        struct dmem *dmem) {
     errval_t err;
 
-    char conf_buf[512];
 
     struct frame_identity id;
     err = frame_identify(frame, &id);
@@ -1100,6 +1095,20 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 
     DRIVERKIT_DEBUG("[iommu client] allocate driver vspace\n");
 
+#ifdef DISABLE_MODEL
+    dmem->size = id.bytes;
+    dmem->mem = frame;
+
+    err = iommu_alloc_vregion(cl, frame, &dmem->vbase, &dmem->devaddr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
+    return err;
+#else
+
+    char conf_buf[512];
     int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
     err = driverkit_hwmodel_vspace_map(my_nodeid, frame, flags, dmem);
     if (err_is_fail(err)) {
@@ -1120,18 +1129,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
-#ifdef DISABLE_MODEL
-    dmem->size = id.bytes;
-    dmem->mem = frame;
-
-    err = iommu_alloc_vregion(cl, frame, &dmem->vbase, &dmem->devaddr);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
-    return err;
-#else
     uint64_t inaddr, outaddr;
     int32_t nodeid;
     struct list_parser_status status;
@@ -1179,7 +1176,7 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
      */
     if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED || !cl->enabled) {
         if (dmem->vbase == 0) {
-            DRIVERKIT_DEBUG("vspace_map_one_frame_attr(?, %lu)\n", dmem->size >> 20);
+            DRIVERKIT_DEBUG("vspace_map_one_frame_attr(?, %lu)\n", dmem->size);
             err = vspace_map_one_frame_attr((void **)&dmem->vbase, dmem->size,
                                             dmem->mem, flags, NULL, NULL);
         } else {
@@ -1211,8 +1208,8 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
     assert(dmem->vbase);
     assert(dmem->devaddr); //TODO: Maybe give 0 as valid dev address?
 
-    DRIVERKIT_DEBUG("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
-                    __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
+    DRIVERKIT_DEBUG("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR " of size %zu\n",
+                    __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr, dmem->size);
 
     uint64_t ptecount = 1;
     uint64_t pagesize = 0;
@@ -1292,17 +1289,16 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
                          slot, max_pte, offset, pagesize, ptecount);
         }
     }
-
     return SYS_ERR_OK;
 
-    err_out3:
+err_out3:
     USER_PANIC("NYI: cleanup mapped frames!\n");
-    err_out2:
+err_out2:
     if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED) {
         vspace_unmap((void *)dmem->vbase);
     }
 
-    err_out:
+err_out:
     return err;
 }
 
@@ -1487,6 +1483,7 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
             return err;
         }
     } else {
+        
         err = frame_alloc(&(mem->mem), bytes, (size_t *)&(mem->size));
         if (err_is_fail(err)) {
             return err;
