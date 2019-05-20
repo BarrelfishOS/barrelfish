@@ -709,8 +709,10 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         // TODO propery cleanup
         goto error;
     }
+    E1000_DEBUG("%s:%d: transmit ring size=%zu, vaddr=%p, devaddr=%p \n", 
+                __func__, __LINE__, device->tx.size, (void*) device->tx.vbase, 
+                (void*) device->tx.devaddr);
 
-    E1000_DEBUG("%s:%d: receive ring \n", __func__, __LINE__);
     err = driverkit_iommu_mmap_cl(device->iommu, device->rx_ring_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
                                   &device->rx);
     device->receive_ring = (void*) device->rx.vbase;
@@ -718,6 +720,10 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         // TODO propery cleanup
         goto error;
     }
+
+    E1000_DEBUG("%s:%d: receive ring size=%zu, vaddr=%p, devaddr=%p \n", 
+                __func__, __LINE__, device->rx.size, (void*) device->rx.vbase, 
+                (void*) device->rx.devaddr);
 
     e1000_setup_tx(device, device->tx.devaddr);
     e1000_setup_rx(device, device->rx.devaddr);
