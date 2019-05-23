@@ -46,6 +46,31 @@
 
 
 boot_entry_bsp:
+/*
+    mov	x0, 16
+	mov	x1, 24
+	movk	x0, 0x5a09, lsl 16
+	mov	w3, 139
+	movk	w3, 0x402, lsl 16
+	movk	x1, 0x5a09, lsl 16
+	str	w3, [x0]
+	mov	x3, 28
+	add	x0, x0, 4
+	mov	w2, 786432
+	movk	x3, 0x5a09, lsl 16
+	str	w2, [x1]
+_lpuart_read:
+	ldr	w1, [x0]
+	tbz	x1, 21, _lpuart_read
+	ldr	w2, [x3]
+	.p2align 3
+_lpuart_write:
+	ldr	w1, [x0]
+	tbz	x1, 23, _lpuart_write
+	and	w1, w2, 255
+	str	w1, [x3]
+	b	_lpuart_read
+    */
      /* Calling the boot initialization function for the BSP core.
 
       void boot_bsp_init(uint32_t magic,

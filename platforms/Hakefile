@@ -513,6 +513,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("root", "/armv8_rpi3_image.efi") ])
     "Raspberry Pi 3 quad ARM Cortex A53",
 
+    platform "imx8x" [ "armv8" ]
+      ([ ("armv8", "/sbin/cpu_imx8x"), ("armv8", "/sbin/boot_armv8_generic")  ]
+       ++
+       [ ("armv8", f) | f <- armv8_modules ]
+       ++
+       [ ("",       f) | f <- modules_generic]
+       ++
+       [ ("root", "/armv8_imx8x_image.efi") ])
+    "NXP iMX8QPX",
+
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++
      [ ("root", "/armv7_omap44xx_image"),
@@ -600,6 +610,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     armv8Image "armv8_rpi3" "armv8_rpi3" "armv8_generic" "a53_rpi3" modules_generic armv8_modules,
 
+    armv8Image "armv8_imx8x" "armv8_imx8x" "armv8_generic" "imx8x" modules_generic armv8_modules,
+
     armv8EFIImage "armv8_a57_fvp_base" "armv8_a57_fvp_base" "armv8_generic" "a57_fvp" modules_generic armv8_modules,
 
     armv8EFIImage "armv8_a57_qemu" "armv8_a57_qemu" "armv8_generic" "a57_qemu" modules_generic armv8_modules,
@@ -618,6 +630,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv8_a57_fvp_1",
                      "armv8_apm88xxxx",
                      "armv8_cn88xx",
+                     "armv8_imx8x",
                      "armv8_rpi3",
                      "armv7_a9ve_1",
                      "armv7_a9ve_4",
@@ -740,6 +753,15 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--uboot-img", In SrcTree "tools" "/tools/qemu-armv8-uboot.bin" ]
       )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using U-Boot",
+
+    boot "qemu_armv8_uboot" [ "armv8" ] ([
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/armv8_a57_qemu_image.efi",
+      Str "--arch", Str "armv8",
+      Str "--uboot"
+       ]
+      )
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot_fastmodels "ARM_FastModels_Base_A57x1" [ "armv8" ] 
       "armv8_a57_fvp_base_image"
