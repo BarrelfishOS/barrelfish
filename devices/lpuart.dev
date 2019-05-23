@@ -1,0 +1,226 @@
+/*
+ * Copyright (c) 2009, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * lpuart.dev
+ *
+ * DESCRIPTION: Low Power UART
+ *
+ * This is derived from:
+ *
+ * i.MX 8DualXPlus Appliacations Processor Reference Manual, revision D, NXP
+ * Pages 2255 - 2298
+ * (IMX8DQXPRM.pdf)
+ *
+ */
+
+device lpuart msbfirst (addr base) "LPUART" {
+
+	constants feature "feature set number" {
+		standard = 0b01 "Standard feature set";
+		irda     = 0b11 "Standard feature set with MODEM/IrDA support";
+    };
+
+	constants trgsel "trigger select" {
+		disabled = 0b00 "Input trigger is disabled.";
+		rx       = 0b01 "Input trigger is used instead of RX pin input.";
+		ctsb     = 0b10 "Input trigger is used instead of CTS_B pin input.`";
+		modrx    = 0b11 "Input trigger is used to modulate TX pin output.";
+	};
+
+	constants osr "oversampling ratio" {
+		default = 0b00000 "Writing 0 to this field will result in an oversampling ratio of 16.";
+		ratio4  = 0b00011 "Oversampling ratio of 4, requires BOTHEDGE to be set.";
+		ratio5  = 0b00100 "Oversampling ratio of 5, requires BOTHEDGE to be set.";
+		ratio6  = 0b00101 "Oversampling ratio of 6, requires BOTHEDGE to be set.";
+		ratio7  = 0b00110 "Oversampling ratio of 7, requires BOTHEDGE to be set.";
+		ratio8  = 0b00111 "Oversampling ratio of 8.";
+		ratio9  = 0b01000 "Oversampling ratio of 9.";
+		ratio10 = 0b01001 "Oversampling ratio of 10.";
+		ratio11 = 0b01010 "Oversampling ratio of 11.";
+		ratio12 = 0b01011 "Oversampling ratio of 12.";
+		ratio13 = 0b01100 "Oversampling ratio of 13.";
+		ratio14 = 0b01101 "Oversampling ratio of 14.";
+		ratio15 = 0b01110 "Oversampling ratio of 15.";
+		ratio16 = 0b01111 "Oversampling ratio of 16.";
+		ratio17 = 0b10000 "Oversampling ratio of 17.";
+		ratio18 = 0b10001 "Oversampling ratio of 18.";
+		ratio19 = 0b10010 "Oversampling ratio of 19.";
+		ratio20 = 0b10011 "Oversampling ratio of 20.";
+		ratio21 = 0b10100 "Oversampling ratio of 21.";
+		ratio22 = 0b10101 "Oversampling ratio of 22.";
+		ratio23 = 0b10110 "Oversampling ratio of 23.";
+		ratio24 = 0b10111 "Oversampling ratio of 24.";
+		ratio25 = 0b11000 "Oversampling ratio of 25.";
+		ratio26 = 0b11001 "Oversampling ratio of 26.";
+		ratio27 = 0b11010 "Oversampling ratio of 27.";
+		ratio28 = 0b11011 "Oversampling ratio of 28.";
+		ratio29 = 0b11100 "Oversampling ratio of 29.";
+		ratio30 = 0b11101 "Oversampling ratio of 30.";
+		ratio31 = 0b11110 "Oversampling ratio of 31.";
+		ratio32 = 0b11111 "Oversampling ratio of 32.";
+	};
+    
+    register verid ro addr(base, 0x0) "Version ID Register" {
+		major	 8  "Major Version Number";
+		minor    8	"Minor Version Number";
+		feature 16	type(feature) "Feature Identification Number";
+    };
+
+	register param ro addr(base, 0x4) "Parameter Register" {
+		_		16;
+		rxfifo   8 "Receive FIFO size (2^RXFIFO)";
+		txfifo   8 "Transmit FIFO size (2^FIFO)";
+	};
+
+	register global ro addr(base, 0x8) "LPUART Global Register" {
+		_   30;
+		rst	 1 rw "Software Reset";
+		_    1;
+	};
+	
+	register pincfg addr(base, 0xc) "LPUART Pin Configuration Register" {
+		_      30;
+		trgsel  2 rw type(trgsel) "Trigger select";
+	};
+
+	register baud addr(base, 0x10) "LPUART Baud Rate Register" {
+		maen1       1 "Match address mode enable 1";
+		maen2       1 "Match address mode enable 2";
+		m10         1 "10-bit mode select";
+		osr         5 type(osr) "Oversampling ratio";
+		tdmae       1 "Transmitter DMA Enable";
+		_           1;
+		rdmae       1 "Receiver Full DMA Enable";
+		ridmae      1 "Receiver idle DMA Enable";
+		matcfg      2 "Match Configuration";
+		bothedge    1 "Both Edge Sampling";
+		resynccdis  1 "Resynchronization Disable";
+		lbkdie      1 "LIN Break Detect Interrupt Enable";
+		rxedgie     1 "RX Input Active Edge Interrupt Enable";
+		sbns        1 "Stop Bit Number Select";
+		sbr        13 "Baud Rate Modulo Divisor";
+	};
+
+	register stat addr(base, 0x14) "LPUART Status Register" {
+		lbkdif  1 rw1c "LIN Break Detect Interrupt flag";
+		rxedgif 1 rw1c "RX Pin Active Edge Interrupt Flag";
+		msbf    1      "MSB first";
+		rxinv   1      "Receive Data Inversion";
+		rwuid   1      "Whether idle char sets IDLE bit.";
+		brk13   1      "Break Character Generation Length";
+		lbkde   1      "LIN Break Detection Enable";
+		raf     1 ro   "Receiver Active Flag";
+		tdre    1 ro   "Transmit Data Register Empty Flag";
+		tc      1 ro   "Transmit Complete Flag";
+		rdrf    1 ro   "Receive Data Register Full Flag";
+		idle    1 rw1c "Idle Line Flag";
+		or      1 rw1c "Receiver Overrun Flag";
+		nf      1 rw1c "Noise Flag";
+		fe      1 rw1c "Framing Error Flag";
+		pf      1 rw1c "Parity Error Flag";
+		ma1f    1 rw1c "Match 1 Flag";
+		ma2f    1 rw1c "Match 2 Flag";
+		_      14;
+	};
+
+	register ctrl addr(base, 0x18) "LPUART Control Register" {
+		r8t9    1 "Receive Bit 8 / Transmit Bit 9";
+		r9t8    1 "Receive Bit 9 / Transmit Bit 8";
+		txdir   1 "TX Pin Direction Single-Wire Mode";
+		txinv   1 "Transmit Data Inversion";
+		orie    1 "Overrrun Interrupt Enable";
+		neie    1 "Noise Error Interrupt Enable";
+		feie    1 "Framing Error Interrupt Enable";
+		peie    1 "Parity Error Interrupt Enable";
+		tie     1 "Transmit Interrupt Enable";
+		tcie    1 "Transmission Complete Interrupt Enable";
+		rie     1 "Receiver Interrupt Enable";
+		iue     1 "Idle Line Interrupt Enable";
+		te      1 "Transmitter Enable";
+		re      1 "Receiver Enable";
+		rwu     1 "Receiver Wakeup Control";
+		sbk     1 "Send Break";
+		ma1ie   1 "Match 1 Interrupt Enable";
+		ma2ie   1 "Match 2 Interrupt Enable";
+		_       2;
+		m7      1 "7-Bit Mode Select";
+		idlecfg 3 "Idle Configuration (2^IDLECFG idle characters before IDLE flag set)";
+		loops   1 "Loop Mode Select";
+		dozeen  1 "Doze Enable";
+		rsrc    1 "Receiver Source Select";
+		m       1 "9-Bit or 8-Bit Mode Select";
+		wake    1 "Receiver Wakeup Method Select";
+		ilt     1 "Idle Line Type Select";
+		pe      1 "Parity Enable";
+		pt      1 "Parity Type";
+	};
+
+	register data addr(base, 0x1c) "LPUART Receive Data Register" {
+		_      16;
+		noisy   1 ro "Whether received with noise.";
+		paritye 1 ro "Whether received with parity error.";
+		fretsc  1    "Whether received with frame error/Transmit Special Character";
+		rxempt  1 ro "Receive Buffer Empty";
+		idline  1 ro "Idle Line";
+		_       1;
+		buf    10    "Data buffer";
+	};
+
+	register match addr(base, 0x20) "LPUART Match Address Register" {
+		_    6;
+		ma2 10 "Match Address 2";
+		_    6;
+		ma1 10 "Match Address 1";
+	};
+
+	register modir addr(base, 0x24) "LPUART Modem IrDA Register" {
+		_       13;
+		iren     1 "Infrared enable";
+		tnp      2 "Transmitter narrow pulse";
+		_        2;
+		rtswater 6 "Receive RTS Configuration";
+		_        2;
+		txctssrc 1 "Transmit CTS Source";
+		txctsc   1 "Transmit CTS Configuration";
+		rxrtse   1 "Receiver request-to-send enable";
+		txrtspol 1 "Transmitter request-to-send polarity";
+		txrtse   1 "Transmitter request-to-send enable";
+		txctse   1 "Transmitter clear-to-send enable";
+	};
+
+	register fifo addr(base, 0x28) "LPUART FIFO Register" {
+		_          8;
+		txempt     1 ro   "Transmit Buffer/FIFO Empty";
+		rxempt     1 ro   "Receive Buffer/FIFO Empty";
+		_          4;
+		txof       1 rw1c "Trasnmitter Buffer Overflow Flag";
+		rxuf       1 rw1c "Receiver Buffer Underflow Flag";
+		txflush    1 wo   "Transmit FIFO/Buffer Flush";
+		rxflush    1 wo   "Receive FIFO/Buffer Flush";
+		_          1;
+		rxiden     3      "Receiver Idle Empty Enable";
+		txofe      1      "Transmit FIFO Overflow Interrupt Enable";
+		rxufe      1      "Receive FIFO Underflow Interrupt Enable";
+		txfe       1      "Transmit FIFO Enable";
+		txfifosize 3 ro   "Transmit FIFO Buffer Depth";
+		rxfe       1      "Receive FIFO Enable";
+		rxfifosize 3 ro   "Receive FIFO Buffer Depth";
+	};
+
+	register water addr(base, 0x2c) "LPUART Watemark Register" {
+		_       1;
+		rxcount 7 ro "Receive Counter";
+		_       2;
+		rxwater 6    "Receiver Watermark";
+		_       1;
+		txcount 7 ro "Transmit Counter";
+		_       2;
+		txwater 6    "Transmit Watermark";
+	};
+};
