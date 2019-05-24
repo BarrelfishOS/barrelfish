@@ -16,12 +16,14 @@
 \usepackage{listings}
 \usepackage{makeidx}
 \usepackage{natbib}
+\usepackage{xspace}
 
 \def\chapterautorefname{Chapter}
 \def\sectionautorefname{Section}
 \def\subsectionautorefname{Section}
 \def\subsubsectionautorefname{Section}
 \def\tableautorefname{Table}
+\def\qemu{QEMU\xspace}
 
 \lstdefinelanguage{armasm}{
     numbers=left,
@@ -335,7 +337,7 @@ Our target simulation environment is the ARM Fixed Virtual Platform, and the
 Foundation Platform. These models are supplied by ARM. The Foundation Platform
 is freely available, and will be the default supported simulation platform for
 the public Barrelfish tree, while we will use the FVP internally to allow
-bare-metal debugging. Future support for QEmu is desirable, to the extent that
+bare-metal debugging. Future support for \qemu is desirable, to the extent that
 it models a compatible system --- GEM5, which the ARMv7 port targets,
 currently does not.
 
@@ -581,6 +583,26 @@ interconnect driver---this is always an architecture-specific part of the CPU
 driver. In practice, its design will be closely tied to the context switch and
 upcall dispatch code.
 
+\chapter{Booting}\label{c:booting}
+
+Booting ARM systems has always been difficult to do in a standard way,
+and ARMv8 systems are no exception.  Barrelfish uses one of two
+methods of booting an initial ARMv8 core, depending on whether the
+hardware platform supports UEFI~\cite{uefi} or U-Boot.  If a platform
+supports neither, more work will be required to boot the board.
+
+If a board has full support for UEFI (such as TianoCore), you can use
+Hagfish~\ref{s:hagfish} to individually load the modules needed to
+boot Barrelfish and set up the initial CPU/MMU environment before
+entering the CPU driver proper. 
+
+Note that U-Boot also claims to support UEFI.  However, in practice it
+supports a small subset of UEFI functionality sufficient to boot
+\texttt{grub} or the Linux kernel as an EFI binary.   If your board
+boots via U-Boot, you should use the minimal EFI
+bootloader~\ref{s:uboot} which loads a single multiboot image into
+memory and sets up the environment similar to Hagfish. 
+
 \section{Hagfish}\label{s:hagfish}
 
 The Barrelfish/ARMv8 UEFI loader prototype is called Hagfish\footnote{A
@@ -767,6 +789,95 @@ module /armv8/sbin/sdma auto
 \caption{Hagfish configuration file}
 \label{f:hag_config}
 \end{figure}
+
+
+
+\subsection{Booting with Hagfish in \qemu}\label{c:qemu}
+
+When booting a \qemu image for 64-bit ARM, a number of options are
+available (see \texttt{make help-boot}).  Building a boot image for
+\qemu with ARMv8 will typically result in a file in the build directory
+called \texttt{platforms/qemu.img}.  This is a disk image which can be
+read by Hagfish through EFI calls.
+
+Booting this with a boot target from \texttt{make} will run the
+following:
+\begin{lstlisting}
+  srcdir/tools/qemu-wrapper.sh \\
+     --image platforms/qemu.img \\
+     --arch armv8 \\
+     --bios ../git/barrelfish/tools/hagfish/QEMU_EFI.fd
+\end{lstlisting}
+
+This wrapper script is complex, but reasonably well documented (use
+'\texttt{--help}').  It will invoke \qemu as follows:
+\begin{lstlisting}
+  qemu-system-aarch64 \\
+  -m 1024 \\
+  -cpu cortex-a57 \\
+  -M virt \\
+  -d guest_errors \\
+  -M gic_version=3 \\
+  -smp 1 \\
+  -bios ../git/barrelfish/tools/hagfish/QEMU_EFI.fd \\
+  -device virtio-blk-device,drive=image \\
+  -drive if=none,id=image,file=platforms/qemu.img,format=raw \\
+  -nographic
+\end{lstlisting}
+
+
+Note that for this script to work, you need to have \texttt{mtools}
+(the MS-DOS file system manipulation tools) installed, since they are
+used to prepare the \texttt{platforms/qemu.img} file.
+
+More specifically, the \texttt{platforms/qemu.img} file is generated
+by \texttt{tools/harness/efiimage.py}.  This creates an EFI file
+system image out of the plain Barrelfish binaries built in
+\texttt{\textit{builddir}/armv8/sbin}, plus the Hagfish EFI image we
+regularly use for real hardware.  The \texttt{QEMU\_EFI.fd} file is
+the UEFI runtime built for \qemu. 
+
+\section{Booting from U-Boot}\label{s:uboot}
+
+Where a full UEFI environment is not available, it is possible to boot
+Barrelfish from U-Boot~\cite{uboot}.  We boot Barrelfish from U-Boot
+using U-Boot's limited EFI support: a build-time tool
+(\texttt{armv8\_bootimage} builds a single binary which only requires
+the minimal EFI environment provided by U-Boot.   This binary contains
+a loader (\texttt{efi\_loader}) which sets up the rest of the image as
+a multiboot image in memory before starting the CPU driver.
+
+\subsection{Booting in \qemu with U-Boot}
+
+A ``platform'' target like \texttt{QEMU\_UBoot} which build such an image
+for \qemu, and the \texttt{qemu-wrapper.sh} script can be invoked to
+use U-Boot instead of Hagfish:
+
+\begin{lstlisting}
+  srcdir/tools/qemu-wrapper.sh \\
+  --image armv8_a57_qemu_image.efi \\
+  --arch armv8 \\
+  --uboot-img srcdir/tools/qemu-armv8-uboot.bin
+\end{lstlisting}
+
+This invoked \qemu as follows:
+
+\begin{lstlisting}
+  qemu-system-aarch64 \\
+  -m 1024 \\
+  -cpu cortex-a57 \\
+  -M virt \\
+  -d guest_errors \\
+  -M gic_version=3 \\
+  -smp 1 \\
+  -bios srcdir/tools/qemu-armv8-uboot.bin \\
+  -device loader,addr=0x50000000,file=armv8_a57_qemu_image.efi \\
+  -nographic
+\end{lstlisting}
+
+As you can see, the UBoot binary is given as the BIOS, and the minimal
+EFI image with the complete set of multiboot modules compiled in is
+pre-loaded into memory when \qemu starts.
 
 \chapter{Technical Observations}\label{c:tech}
 
