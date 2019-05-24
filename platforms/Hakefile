@@ -728,7 +728,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--bios", In SrcTree "tools" "/tools/hagfish/QEMU_EFI.fd"
        ]
       )
-    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using UEFI",
 
     boot "qemu_a57v_debug" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
@@ -737,7 +737,15 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--bios", In SrcTree "tools" "/tools/hagfish/QEMU_EFI.fd",
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
       )
-    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using UEFI with debugging enabled",
+
+    boot "qemu_a57v_uboot" [ "armv8" ] ([
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/armv8_a57_qemu_image.efi",
+      Str "--arch", Str "armv8",
+      Str "--uboot-img", In SrcTree "tools" "/tools/qemu-armv8-uboot.bin" ]
+      )
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using U-Boot",
 
     boot_fastmodels "ARM_FastModels_Base_A57x1" [ "armv8" ] 
       "armv8_a57_fvp_base_image"

@@ -24,7 +24,9 @@ BIOS="/home/netos/tftpboot/QEMU_EFI.fd"
 SMP=${SMP:-1}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000e}"
+# U-Boot options
 UBOOT=false
+UBOOT_IMAGE=/home/netos/tftpboot/u-boot.bin
 
 
 usage () {
@@ -44,6 +46,7 @@ usage () {
     echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
     echo "    --bios <file>      (ARMv8 QEMU bios,  defaults to $BIOS)"
     echo "    --uboot            (boot U-Boot instead of EFI on ARMv8)"
+    echo "    --uboot-img <file> (U-Boot binary, defaults to $UBOOT_IMAGE)"
     echo "  "
     echo "  The following environment variables are considered:"
     echo "    QEMU_PATH         (Path for qemu-system-* binary)"
@@ -103,6 +106,10 @@ while test $# != 0; do
         ;;
     "--uboot")
         UBOOT=true
+        ;;
+    "--uboot-img")
+        UBOOT=true
+	shift; UBOOT_IMAGE="$1"
         ;;
     *)
         echo "Unknown option $1 (try: --help)" >&2
@@ -207,7 +214,7 @@ case "$ARCH" in
                  -M gic_version=3 \
                  -smp $SMP"
        if $UBOOT; then
-          QEMU_CMD="$QEMU_CMD -bios /home/netos/tftpboot/u-boot.bin \
+          QEMU_CMD="$QEMU_CMD -bios $UBOOT_IMAGE \
                     -device loader,addr=0x50000000,file=$IMAGE"
        else
            QEMU_CMD="$QEMU_CMD -bios $BIOS \
