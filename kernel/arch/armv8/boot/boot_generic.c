@@ -89,6 +89,22 @@ static void debug_serial_putc(char c)
     while(pl011_uart_FR_txff_rdf(&uart) == 1) ;
     pl011_uart_DR_rawwr(&uart, c);
 }
+#elif defined(IMX8X)
+#include <dev/lpuart.h>
+
+#define IMX8X8_MAP_UART0_OFFSET 0x5A090000UL
+
+static lpuart_t uart;
+
+static void debug_uart_initialize(void) {
+    lpuart_initialize(&uart, (mackerel_addr_t) IMX8X8_MAP_UART0_OFFSET);
+}
+
+static void debug_serial_putc(char c)
+{
+    while(lpuart_stat_tdre_rdf(uart) == 0);
+    lpuart_data_buf_wrf(uart, c);
+}
 #endif
 
 static void debug_serial_putchar(char c) {
