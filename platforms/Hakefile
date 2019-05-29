@@ -516,10 +516,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     platform "imx8x" [ "armv8" ]
       ([ ("armv8", "/sbin/cpu_imx8x"), ("armv8", "/sbin/boot_armv8_generic")  ]
        ++
-       [ ("armv8", f) | f <- armv8_modules ]
-       ++
-       [ ("",       f) | f <- modules_generic]
-       ++
        [ ("root", "/armv8_imx8x_image.efi") ])
     "NXP iMX8QPX",
 
