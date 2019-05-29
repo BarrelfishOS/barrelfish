@@ -27,8 +27,8 @@
 #include <psci.h>
 #include <arch/armv8/global.h>
 
-/* RAM starts at 0x80000000 */
-lpaddr_t phys_memory_start= 0x80000000;
+/* RAM starts at 0, provided by the MMAP */
+lpaddr_t phys_memory_start= 0;
 
 /*
  * ----------------------------------------------------------------------------

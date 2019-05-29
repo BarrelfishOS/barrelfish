@@ -29,6 +29,8 @@
 #include <multiboot2.h>
 #include <barrelfish_kpi/arm_core_data.h>
 
+#define DEBUG 1
+#define IMX8X
 
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
@@ -90,7 +92,7 @@ static void debug_serial_putc(char c)
     pl011_uart_DR_rawwr(&uart, c);
 }
 #elif defined(IMX8X)
-#include <dev/lpuart.h>
+#include <dev/lpuart_dev.h>
 
 #define IMX8X8_MAP_UART0_OFFSET 0x5A090000UL
 
@@ -102,8 +104,8 @@ static void debug_uart_initialize(void) {
 
 static void debug_serial_putc(char c)
 {
-    while(lpuart_stat_tdre_rdf(uart) == 0);
-    lpuart_data_buf_wrf(uart, c);
+    while(lpuart_stat_tdre_rdf(&uart) == 0);
+    lpuart_data_buf_wrf(&uart, c);
 }
 #endif
 
@@ -568,6 +570,11 @@ static void boot_generic_init(struct armv8_core_data *core_data) {
     /* configure EL 1 traps*/
     configure_el1_traps();
 
+    debug_print_string("Jumping to CPU driver\n");
+    __asm volatile(
+        "_break:\n"
+        "b _break"
+    );
     switch(el) {
     case 3:
         configure_el3_traps();
