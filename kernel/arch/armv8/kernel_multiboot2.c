@@ -64,7 +64,7 @@ void multiboot2_dump(struct multiboot_tag *first_tag,
     }
 }
 
-struct multiboot_tag * multiboot2_find_header(struct multiboot_tag *first_tag,
+struct multiboot_tag * multiboot2_find_tag(struct multiboot_tag *first_tag,
                                const size_t size, const multiboot_uint16_t type)
 {
     size_t processed = 0;
@@ -86,7 +86,7 @@ struct multiboot_tag * multiboot2_find_header(struct multiboot_tag *first_tag,
 struct multiboot_tag_string * multiboot2_find_cmdline(
                              struct multiboot_tag *first_tag, const size_t size)
 {
-    return (struct multiboot_tag_string *)multiboot2_find_header(first_tag, size,
+    return (struct multiboot_tag_string *)multiboot2_find_tag(first_tag, size,
         MULTIBOOT_TAG_TYPE_CMDLINE);
 }
 
@@ -97,7 +97,7 @@ struct multiboot_tag_module_64 * multiboot2_find_module_64(
     size_t position = 0;
     struct multiboot_tag *tag;
 
-    tag = multiboot2_find_header(first_tag, size, MULTIBOOT_TAG_TYPE_MODULE_64);
+    tag = multiboot2_find_tag(first_tag, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (tag) {
         struct multiboot_tag_module_64 *module_64 = (struct multiboot_tag_module_64 *)tag;
         // Strip off trailing whitespace
@@ -113,7 +113,7 @@ struct multiboot_tag_module_64 * multiboot2_find_module_64(
         }
         tag = (void *)tag + tag->size;
         position += tag->size;
-        tag = multiboot2_find_header(tag, size - position, MULTIBOOT_TAG_TYPE_MODULE_64);
+        tag = multiboot2_find_tag(tag, size - position, MULTIBOOT_TAG_TYPE_MODULE_64);
     }
     return NULL;
 }

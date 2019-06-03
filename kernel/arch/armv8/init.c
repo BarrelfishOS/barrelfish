@@ -146,7 +146,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 //        serial_console_init(false);
 
         struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
-                multiboot2_find_header(tag, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
+                multiboot2_find_tag(tag, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
         if (!mmap) {
             panic("Multiboot image does not have EFI mmap!");
         } else {

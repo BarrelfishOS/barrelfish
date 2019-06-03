@@ -14,7 +14,7 @@
 void multiboot2_dump(struct multiboot_tag *first_tag, const size_t size);
 
 struct multiboot_tag *
-multiboot2_find_header(struct multiboot_tag *first_tag, const size_t size,
+multiboot2_find_tag(struct multiboot_tag *first_tag, const size_t size,
                        const multiboot_uint16_t type);
 
 struct multiboot_tag_string *

@@ -254,13 +254,13 @@ void create_module_caps(struct spawn_state *st)
     /* add the ACPI regions */
     struct multiboot_tag_new_acpi *acpi_new;
     acpi_new = (struct multiboot_tag_new_acpi *)
-           multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+           multiboot2_find_tag(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
     if (acpi_new) {
         acpi_base = mem_to_local_phys((lvaddr_t)&acpi_new->rsdp[0]);
     } else {
         struct multiboot_tag_old_acpi *acpi_old;
         acpi_old = (struct multiboot_tag_old_acpi *)
-           multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+           multiboot2_find_tag(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
         if (acpi_old) {
             acpi_base = mem_to_local_phys((lvaddr_t)&acpi_old->rsdp[0]);
         }
@@ -275,7 +275,7 @@ void create_module_caps(struct spawn_state *st)
     /* add the module regions */
     position = 0;
     struct multiboot_tag_module_64 *module = (struct multiboot_tag_module_64 *)
-            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
+            multiboot2_find_tag(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (module) {
         // Set memory regions within bootinfo
         region = &bootinfo->regions[bootinfo->regions_length++];
@@ -308,7 +308,7 @@ void create_module_caps(struct spawn_state *st)
 
         module = ((void *) module) + module->size;
         position += module->size;
-        module = (struct multiboot_tag_module_64 *) multiboot2_find_header(
+        module = (struct multiboot_tag_module_64 *) multiboot2_find_tag(
                 (struct multiboot_tag *)module, size - position,
                 MULTIBOOT_TAG_TYPE_MODULE_64);
     }
