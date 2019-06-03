@@ -27,6 +27,8 @@ static lpuart_t uarts[LPUART_MAX_PORTS];
 
 #define MSG(format, ...) printk( LOG_NOTE, "lpuart: "format, ## __VA_ARGS__ )
 
+static void lpuart_hw_init(lpuart_t *uart);
+
 /**
  * \brief Configure the serial interface, from a caller that knows
  * that this is a bunch of PL011s, and furthermore where they are in
@@ -42,9 +44,7 @@ errval_t serial_early_init(unsigned n)
 
     // Make sure that the UART is enabled and transmitting - not all platforms
     // do this for us.
-    lpuart_baud_rawwr(&uarts[n], 0x402008b);
-    lpuart_ctrl_te_wrf(&uarts[n], 1);
-    lpuart_ctrl_re_wrf(&uarts[n], 1);
+    lpuart_hw_init(&uarts[n]);
 
     return SYS_ERR_OK;
 }
@@ -64,9 +64,7 @@ errval_t serial_early_init_mmu_enabled(unsigned n)
 
     // Make sure that the UART is enabled and transmitting - not all platforms
     // do this for us.
-    lpuart_baud_rawwr(&uarts[n], 0x402008b);
-    lpuart_ctrl_te_wrf(&uarts[n], 1);
-    lpuart_ctrl_re_wrf(&uarts[n], 1);
+    lpuart_hw_init(&uarts[n]);
 
     return SYS_ERR_OK;
 }
@@ -84,14 +82,35 @@ void lpuart_init(unsigned port, lvaddr_t base, bool hwinit)
     lpuart_initialize(u, (mackerel_addr_t) base);
 
     if (hwinit) {
-        lpuart_baud_rawwr(u, 0x402008b);
-        lpuart_ctrl_t ctrl = (lpuart_ctrl_t)0;
-        ctrl = lpuart_ctrl_te_insert(ctrl, 1);
-        ctrl = lpuart_ctrl_re_insert(ctrl, 1);
-        lpuart_ctrl_rawwr(u, ctrl);
-
-        //TODO: Figure out more advanced configuration (FIFO etc.)
+        lpuart_hw_init(u);
     }
+}
+
+static void lpuart_hw_init(lpuart_t *uart)
+{
+    // Disable transceiver
+    lpuart_ctrl_t ctrl = lpuart_ctrl_rawrd(uart);
+    ctrl = lpuart_ctrl_te_insert(ctrl, 0);
+    ctrl = lpuart_ctrl_re_insert(ctrl, 0);
+    lpuart_ctrl_rawwr(uart, ctrl);
+
+    //TODO: Figure out more advanced configuration (FIFO etc.)
+
+    // Set baudrate
+    // baudrate = clock rate / (over sampling rate * SBR)
+    // TODO: Currently we assume UART clock is set to 8MHz
+    lpuart_baud_t baud = lpuart_baud_default;
+    baud = lpuart_baud_osr_insert(baud, lpuart_ratio5);
+    // OSR of 5 needs bothedge set
+    baud = lpuart_baud_bothedge_insert(baud, 1);
+    baud = lpuart_baud_sbr_insert(baud, 139);
+    lpuart_baud_rawwr(uart, baud);
+
+    // Enable transceiver
+    ctrl = lpuart_ctrl_default;
+    ctrl = lpuart_ctrl_te_insert(ctrl, 1);
+    ctrl = lpuart_ctrl_re_insert(ctrl, 1);
+    lpuart_ctrl_rawwr(uart, ctrl);
 }
 
 /*
