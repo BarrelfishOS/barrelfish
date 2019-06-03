@@ -797,14 +797,14 @@ module /armv8/sbin/sdma auto
 When booting a \qemu image for 64-bit ARM, a number of options are
 available (see \texttt{make help-boot}).  Building a boot image for
 \qemu with ARMv8 will typically result in a file in the build directory
-called \texttt{platforms/qemu.img}.  This is a disk image which can be
+called \texttt{armv8_<core_type>_qemu_image}.  This is a disk image which can be
 read by Hagfish through EFI calls.
 
 Booting this with a boot target from \texttt{make} will run the
 following:
 \begin{lstlisting}
   srcdir/tools/qemu-wrapper.sh \\
-     --image platforms/qemu.img \\
+     --image armv8_<core_type>_qemu_image \\
      --arch armv8 \\
      --bios ../git/barrelfish/tools/hagfish/QEMU_EFI.fd
 \end{lstlisting}
@@ -821,16 +821,16 @@ This wrapper script is complex, but reasonably well documented (use
   -smp 1 \\
   -bios ../git/barrelfish/tools/hagfish/QEMU_EFI.fd \\
   -device virtio-blk-device,drive=image \\
-  -drive if=none,id=image,file=platforms/qemu.img,format=raw \\
+  -drive if=none,id=image,file=armv8_<core_type>_qemu_image,format=raw \\
   -nographic
 \end{lstlisting}
 
 
 Note that for this script to work, you need to have \texttt{mtools}
 (the MS-DOS file system manipulation tools) installed, since they are
-used to prepare the \texttt{platforms/qemu.img} file.
+used to prepare the \texttt{armv8_<core_type>_qemu_image} file.
 
-More specifically, the \texttt{platforms/qemu.img} file is generated
+More specifically, the \texttt{armv8_<core_type>_qemu_image} file is generated
 by \texttt{tools/harness/efiimage.py}.  This creates an EFI file
 system image out of the plain Barrelfish binaries built in
 \texttt{\textit{builddir}/armv8/sbin}, plus the Hagfish EFI image we

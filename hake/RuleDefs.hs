@@ -1632,24 +1632,27 @@ armv8Image ::[Char] -> [Char] -> [Char] -> [Char] -> [[Char]] -> [[Char]] -> HRu
 armv8Image target menu bootTarget cpuTarget modules_generic modules =
     let bootDriver = "/sbin/boot_" ++ bootTarget
         cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
-        blob       = "/" ++ target ++ "blob"
-        blob_o     = "/" ++ target ++ "blob.o"
+        blob       = "/" ++ target ++ "_blob"
+        blob_o     = "/" ++ target ++ "_blob.o"
         image_o    = "/" ++ target ++ "_image.o"
         image      = "/" ++ target ++ "_image.efi"
     in Rules [
         Rule ([ In BuildTree "tools" "/bin/armv8_bootimage",
             In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
             Out "root" blob,
-            NoDep BuildTree "root" "/" ] ++
+            NoDep BuildTree "root" "/",
+            Dep BuildTree "armv8" bootDriver,
+            Dep BuildTree "armv8" cpuDriver
+            ] ++
             [ (Dep BuildTree "armv8" m) | m <- modules ] ++
             [ (Dep BuildTree "" m) | m <- modules_generic ] ),
         Rule ([ Str Config.aarch64_objcopy,
             Str "-I binary",
             Str "-O elf64-littleaarch64",
             Str "-B aarch64",
-            Str ("--redefine-sym _binary_" ++ target ++ "blob_start=barrelfish_blob_start"),
-            Str ("--redefine-sym _binary_" ++ target ++ "blob_end=barrelfish_blob_end"),
-            Str ("--redefine-sym _binary_" ++ target ++ "blob_size=barrelfish_blob_size"),
+            Str ("--redefine-sym _binary_" ++ target ++ "_blob_start=barrelfish_blob_start"),
+            Str ("--redefine-sym _binary_" ++ target ++ "_blob_end=barrelfish_blob_end"),
+            Str ("--redefine-sym _binary_" ++ target ++ "_blob_size=barrelfish_blob_size"),
             In BuildTree "root" blob,
             Out "root" blob_o ]),
         Rule ([ Str "aarch64-linux-gnu-ld",
@@ -1683,10 +1686,11 @@ armv8EFIImage target menu bootTarget cpuTarget modules_generic modules =
         In SrcTree "tools" "/tools/harness/efiimage.py",
         In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
         Str Config.install_dir,
-        Out "root" target_image
+        Out "root" target_image,
+        Dep SrcTree "tools" "/tools/hagfish/Hagfish.efi",
+        Dep BuildTree "armv8" bootDriver,
+        Dep BuildTree "armv8" cpuDriver
         ]
-        ++ [(Dep BuildTree "armv8" bootDriver)]
-        ++ [(Dep BuildTree "armv8" cpuDriver)]
         ++ [(Dep BuildTree "armv8" f) | f <- modules ]
         ++ [(Dep BuildTree "" f) | f <- modules_generic ]
         ]

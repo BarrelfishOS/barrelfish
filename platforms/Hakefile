@@ -474,6 +474,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic])
     "ARM Virtual Machine Board with ARM Cortex A57 processors in QEMU",
 
+    platform "QEMU_U-Boot" [ "armv8" ]
+    ([ ("armv8", "/sbin/cpu_a57_qemu"), ("armv8", "/sbin/boot_armv8_generic")  ]
+     ++
+     [ ("armv8", f) | f <- armv8_modules ]
+     ++
+     [ ("",       f) | f <- modules_generic]
+     ++
+     [ ("root", "/armv8_a57_qemu_image.efi") ])
+  "ARM Virtual Machine Board with ARM Cortex A57 processors in QEMU",
+
     platform "APM88xxxx" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx"), ("armv8", "/sbin/boot_armv8_generic")]
        ++
@@ -491,16 +501,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic]
     )
     "Cavium ThunderX-1 (CN88xx) boards",
-
-    platform "QEMU_UBoot" [ "armv8" ]
-      ([ ("armv8", "/sbin/cpu_a57_qemu"), ("armv8", "/sbin/boot_armv8_generic")  ]
-       ++
-       [ ("armv8", f) | f <- armv8_modules ]
-       ++
-       [ ("",       f) | f <- modules_generic]
-       ++
-       [ ("root", "/armv8_a57_qemu_image.efi") ])
-    "ARM Virtual Machine Board with ARM Cortex A57 processors in QEMU",
 
     platform "RaspberryPi3" [ "armv8" ]
       ([ ("armv8", "/sbin/cpu_a53_rpi3"), ("armv8", "/sbin/boot_armv8_generic")  ]
@@ -600,6 +600,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     armv8Image "armv8_rpi3" "armv8_rpi3" "armv8_generic" "a53_rpi3" modules_generic armv8_modules,
 
     armv8EFIImage "armv8_a57_fvp_base" "armv8_a57_fvp_base" "armv8_generic" "a57_fvp" modules_generic armv8_modules,
+
+    armv8EFIImage "armv8_a57_qemu" "armv8_a57_qemu" "armv8_generic" "a57_qemu" modules_generic armv8_modules,
 
     --
     -- Booting: various targets for booting Barrelfish under different circumstances
@@ -711,35 +713,25 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--arch", Str "zynq7" ]
     "Boot QEMU in 32-bit ARM mode emulating a Zynq 7000",
 
-    Rule $ [
-      In SrcTree "tools" "/tools/harness/efiimage.py",
-      In BuildTree "root" "/platforms/arm/menu.lst.armv8_a57_qemu",
-      Str Config.install_dir,
-      Out "root" "qemu.img"
-    ] ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
-    ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57_qemu")]
-    ++ [(Dep BuildTree "armv8" "/sbin/boot_armv8_generic")]
-    ++ [(Dep BuildTree "" f) | f <- modules_generic ],
-
-    boot "qemu_a57v" [ "armv8" ] ([
+    boot "qemu_a57" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--image", In BuildTree "root" "qemu.img",
+      Str "--image", In BuildTree "root" "/armv8_a57_qemu_image",
       Str "--arch", Str "armv8",
       Str "--bios", In SrcTree "tools" "/tools/hagfish/QEMU_EFI.fd"
        ]
       )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using UEFI",
 
-    boot "qemu_a57v_debug" [ "armv8" ] ([
+    boot "qemu_a57_debug" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--image", In BuildTree "root" "qemu.img",
+      Str "--image", In BuildTree "root" "/armv8_a57_qemu_image",
       Str "--arch", Str "armv8",
       Str "--bios", In SrcTree "tools" "/tools/hagfish/QEMU_EFI.fd",
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
       )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using UEFI with debugging enabled",
 
-    boot "qemu_a57v_uboot" [ "armv8" ] ([
+    boot "qemu_a57_uboot" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--image", In BuildTree "root" "/armv8_a57_qemu_image.efi",
       Str "--arch", Str "armv8",
