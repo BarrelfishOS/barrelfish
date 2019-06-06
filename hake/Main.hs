@@ -809,6 +809,7 @@ body =  do
     putStrLn $ "Creating " ++ (opt_makefilename opts) ++ "..."
     makefile <- openFile(opt_makefilename opts) WriteMode
     makefilePreamble makefile opts args
+    makeHakeDeps makefile opts $ map fst hakefiles
 
     -- Evaluate Hakefiles
     putStrLn $ "Evaluating " ++ show (length hakefiles) ++ " Hakefiles for dependencies..."
