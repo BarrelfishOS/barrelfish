@@ -379,7 +379,19 @@ struct multiboot_tag_efi_mmap
   multiboot_uint32_t descr_size;
   multiboot_uint32_t descr_vers;
   multiboot_uint8_t efi_mmap[0];
-}; 
+};
+
+struct multiboot_info
+{
+  /* contains the total size of boot information including this field and terminating tag in bytes  */
+  multiboot_uint32_t total_size;
+
+  /* is always set to zero and must be ignored by OS image */
+  multiboot_uint32_t reserved;
+
+  /* The tags follow after this in memory */
+  struct multiboot_tag tags[];
+};
 
 #define MULTIBOOT_MODULE_SIZE(mod)      ((mod).mod_end - (mod).mod_start)
 
