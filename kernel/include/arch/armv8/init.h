@@ -17,10 +17,12 @@
 
 #ifndef __ASSEMBLER__
 
+struct armv8_core_data;
+
 /*
  * \brief Main entry point to C from boot[.S|.c]
  */
-void arch_init(uint32_t magic, void *pointer, uintptr_t stack) __attribute__((noreturn));
+void arch_init(struct armv8_core_data *pointer) __attribute__((noreturn));
 
 /*
  * Checking code for, e.g., platform-specific callouts
@@ -30,7 +32,7 @@ extern bool cpu_is_bsp(void);
 /*
  * Second-stage startup
  */
-void  arm_kernel_startup(void *pointer) __attribute__((noreturn));
+void  arm_kernel_startup(void) __attribute__((noreturn));
 
 #endif // __ASSEMBLER__
 

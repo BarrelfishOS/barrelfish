@@ -33,7 +33,7 @@
     EFI Boot:
     Started by: UEFI (hagfish)
     X0 Value: MULTIBOOT2_BOOTLOADER_MAGIC
-
+    X1 Value: Pointer to ARMV8 core data
 
     PSCI Boot:
     Started by: Running kernel
@@ -49,17 +49,12 @@ boot_entry_bsp:
      /* Calling the boot initialization function for the BSP core.
 
       void boot_bsp_init(uint32_t magic,
-                         lpaddr_t pointer,
-                         lpaddr_t kernel_stack_top)
+                         lpaddr_t pointer)
 
       The function arguments are as follows:
       magic: register x0
       pointer: register x1
-      kernel_stack_top: register x2
     */
-
-    /* store the stack pointer at x2 */
-    mov x2, sp
 
     /* branch to the C function */
     b boot_bsp_init

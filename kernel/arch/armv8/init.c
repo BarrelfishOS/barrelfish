@@ -106,8 +106,7 @@ bool arch_core_is_bsp(void)
  * @param Entry point to architecture specific initialization
  *
  * @param magic     Magic value to tell the kernel it was started by multiboot
- * @param pointer   Pointer to the multiboot structure
- * @param stack     Pointer to the stack
+ * @param pointer   Pointer to the ARMv8 core data
  *
  * ASSUMPTIONS:
  *   - the execution starts in HIGH addresses (e.g. > KERNEL_OFFSET)
@@ -115,88 +114,59 @@ bool arch_core_is_bsp(void)
  *   - ARM exception level is EL1 (privileged)
  */
 void
-arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
+arch_init(struct armv8_core_data *core_data) {
     global = &global_temp;
     memset(&global->locks, 0, sizeof(global->locks));
 
-    switch (magic) {
-    case MULTIBOOT2_BOOTLOADER_MAGIC:
-        {
-        my_core_id = 0;
+    armv8_glbl_core_data = core_data;
 
-        uint32_t size = *(uint32_t *)pointer - 8;
-        struct multiboot_tag_string *kernel_cmd;
-        struct multiboot_tag *tag;
+    my_core_id = armv8_glbl_core_data->dst_core_id;
 
-        // get the first header tag
-        tag = (struct multiboot_tag *)(pointer + 8);
+    /* parse the cmdline */
+    kernel_command_line = (const char *)armv8_glbl_core_data->cpu_driver_cmdline;
+    parse_commandline(kernel_command_line, cmdargs);
 
-        // get the kernel cmdline. this may contain address which UART/GIC to use
-        kernel_cmd = multiboot2_find_cmdline(tag, size);
-        if (kernel_cmd == NULL) {
-            panic("Multiboot did not contain an kernel CMD line\n");
+    /* initialize the serial console */
+    serial_console_init(false);
+
+    /* store the stack pointers */
+    kernel_stack = local_phys_to_mem(core_data->cpu_driver_stack);
+    kernel_stack_top = local_phys_to_mem(core_data->cpu_driver_stack_limit);
+
+    switch (armv8_glbl_core_data->boot_magic) {
+        case ARMV8_BOOTMAGIC_BSP:
+            assert(my_core_id == 0);
+            MSG("Barrelfish CPU driver starting on ARMv8 (BSP)\n");
+
+            struct multiboot_info *multiboot = (struct multiboot_info *)
+                local_phys_to_mem(armv8_glbl_core_data->multiboot_image.base);
+            struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
+                multiboot2_find_tag(multiboot->tags, multiboot->total_size - 8, MULTIBOOT_TAG_TYPE_EFI_MMAP);
+
+            mmap_find_memory(mmap);
+            break;
+        case ARMV8_BOOTMAGIC_PSCI :
+        case ARMV8_BOOTMAGIC_PARKING :
+            assert(my_core_id != 0);
+
+            global = (struct global *)core_data->cpu_driver_globals_pointer;
+
+            MSG("Barrelfish CPU driver starting on ARMv8 (APP) \n");
+
+            break;
+        default: {
+            serial_console_putchar('x');
+            serial_console_putchar('x');
+            serial_console_putchar('\n');
+
+            panic("Implement AP booting!");
+            __asm volatile ("wfi":::);
+            break;
         }
-
-        // parse the cmdline
-        kernel_command_line = (const char *)kernel_cmd->string;
-        parse_commandline(kernel_cmd->string, cmdargs);
-
-        // initialize the serial console.
-        serial_init(serial_console_port, false);
-//        serial_console_init(false);
-
-        struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
-                multiboot2_find_tag(tag, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
-        if (!mmap) {
-            panic("Multiboot image does not have EFI mmap!");
-        } else {
-            printf("Found EFI mmap: %p\n", mmap);
-        }
-
-        mmap_find_memory(mmap);
-
-        armv8_glbl_core_data->multiboot_image.base  = mem_to_local_phys((lvaddr_t)tag);
-        armv8_glbl_core_data->multiboot_image.length = size;
-        armv8_glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
-
-        armv8_glbl_core_data->cpu_driver_stack = stack;
-
-        kernel_stack = stack;
-        kernel_stack_top = stack + 16 - KERNEL_STACK_SIZE;
-        break;
-    }
-    case ARMV8_BOOTMAGIC_PSCI :
-        serial_init(serial_console_port, false);
-
-        struct armv8_core_data *core_data = (struct armv8_core_data*)pointer;
-        armv8_glbl_core_data = core_data;
-        global = (struct global *)core_data->cpu_driver_globals_pointer;
-
-        kernel_stack = stack;
-        kernel_stack_top = local_phys_to_mem(core_data->cpu_driver_stack_limit);
-
-        my_core_id = core_data->dst_core_id;
-
-        MSG("ARMv8 Core magic...\n");
-
-        break;
-    default: {
-        serial_init(serial_console_port, false);
-
-        serial_console_putchar('x');
-        serial_console_putchar('x');
-        serial_console_putchar('\n');
-
-        panic("Implement AP booting!");
-        __asm volatile ("wfi":::);
-        break;
-    }
     }
 
-
-    MSG("Barrelfish CPU driver starting on ARMv8\n");
     MSG("Global data at %p\n", global);
-    MSG("Multiboot record at %p\n", pointer);
+
     MSG("Kernel stack at 0x%016" PRIxPTR ".. 0x%016" PRIxPTR "\n",
         kernel_stack_top, kernel_stack);
     MSG("Kernel first byte at 0x%" PRIxPTR "\n", &kernel_first_byte);
@@ -220,7 +190,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     coreboot_set_spawn_handler(CPU_ARM8, platform_boot_core);
 
     MSG("Calling arm_kernel_startup\n");
-    arm_kernel_startup(pointer);
+    arm_kernel_startup();
     while (1) {
         __asm volatile ("wfi":::);
     }

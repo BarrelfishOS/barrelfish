@@ -32,9 +32,9 @@
 
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
-void boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+void boot_bsp_init(uint32_t magic, lpaddr_t pointer)
     __attribute__((noreturn));
-void boot_app_init(lpaddr_t context)
+void boot_app_init(lpaddr_t pointer)
     __attribute__((noreturn));
 
 /* low level debugging facilities */
@@ -97,7 +97,7 @@ static void debug_print_string(char *str)
 #endif
 
 
-void (*cpu_driver_entry)(uint32_t magic, lpaddr_t pointer, lpaddr_t stack);
+void (*cpu_driver_entry)(lvaddr_t pointer);
 
 static void configure_tcr(void) {
     armv8_TCR_EL1_t tcr_el1 = armv8_TCR_EL1_rd(NULL);
@@ -274,23 +274,9 @@ static void configure_spsr(uint8_t el) {
     }
 }
 
-static void configure_ttbr1(uint8_t el)
+static void configure_ttbr1(lpaddr_t addr)
 {
-    lpaddr_t ttbr1_el1;
-    switch(el) {
-    case 3:
-        ttbr1_el1= armv8_TTBR0_EL3_rawrd(NULL);
-        break;
-    case 2:
-        ttbr1_el1= armv8_TTBR0_EL2_rawrd(NULL);
-        break;
-    case 1:
-        ttbr1_el1= armv8_TTBR0_EL1_rawrd(NULL);
-        break;
-    default:
-        return;
-    }
-    armv8_TTBR1_EL1_rawwr(NULL, ttbr1_el1);
+    armv8_TTBR1_EL1_rawwr(NULL, addr);
 }
 
 static void configure_mair(void)
@@ -444,40 +430,37 @@ static void configure_el1_traps(void)
     armv8_CPACR_EL1_FPEN_wrf(NULL, armv8_fpen_trap_none);
 }
 
-static void drop_to_el2(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+static void drop_to_el2(struct armv8_core_data *pointer)
 {
     /* write the stack pointer for EL1 */
-    armv8_SP_EL1_wr(NULL, stack + KERNEL_OFFSET);
+    armv8_SP_EL1_wr(NULL, pointer->cpu_driver_stack + KERNEL_OFFSET);
 
     /* Set the jump target */
     armv8_ELR_EL3_wr(NULL, (uint64_t)cpu_driver_entry);
 
     /* call exception return */
-    eret(magic, pointer + KERNEL_OFFSET, stack + KERNEL_OFFSET, 0);
+    eret((lpaddr_t)pointer + KERNEL_OFFSET, 0, 0, 0);
 }
 
-static void drop_to_el1(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+static void drop_to_el1(struct armv8_core_data *pointer)
 {
     /* write the stack pointer for EL1 */
-    armv8_SP_EL1_wr(NULL, stack + KERNEL_OFFSET);
+    armv8_SP_EL1_wr(NULL, pointer->cpu_driver_stack + KERNEL_OFFSET);
 
     /* Set the jump target */
     armv8_ELR_EL2_wr(NULL, (uint64_t)cpu_driver_entry);
 
     /* call exception return */
-    eret(magic, pointer + KERNEL_OFFSET, stack + KERNEL_OFFSET, 0);
+    eret((lpaddr_t)pointer + KERNEL_OFFSET, 0, 0, 0);
 }
 
-static void jump_to_cpudriver(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+static void jump_to_cpudriver(struct armv8_core_data *pointer)
 {
     // We are in EL1, so call arch_init directly.
 
-    // we may need to re set the stack pointer
-    uint64_t sp = sysreg_read_sp();
-    if (sp < KERNEL_OFFSET) {
-        sysreg_write_sp(sp + KERNEL_OFFSET);
-    }
-    cpu_driver_entry(magic, pointer + KERNEL_OFFSET, stack + KERNEL_OFFSET);
+    // Re-set the stack pointer
+    sysreg_write_sp(pointer->cpu_driver_stack + KERNEL_OFFSET);
+    cpu_driver_entry((lpaddr_t)pointer + KERNEL_OFFSET);
 
 }
 
@@ -496,19 +479,19 @@ static void jump_to_cpudriver(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
    Generic timer initialized and enabled
    >= 128KiB stack
    ACPI tables available
-   Register x0 contains the multiboot magic value
-   Register x1 contains a pointer to multiboot image
-   Register x1 contains a pointer to top entry in the kernel stack
+   Register x0 contains a pointer to ARMv8 core data
  */
-static void boot_generic_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
+static void boot_generic_init(struct armv8_core_data *core_data) {
+
+    cpu_driver_entry = (void *)core_data->cpu_driver_entry;
 
     uint8_t el = armv8_CurrentEL_EL_rdf(NULL);
 
     /* Configure the EL1 translation regime. */
     configure_tcr();
 
-    /* Copy the current TTBR for EL1. */
-    configure_ttbr1(el);
+    /* Configure the kernel page tables for EL1. */
+    configure_ttbr1(core_data->page_table_root);
 
     /* configure memory attributes */
     configure_mair();
@@ -526,14 +509,14 @@ static void boot_generic_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) 
     case 3:
         configure_el3_traps();
         configure_el2_traps();
-        drop_to_el2(magic, pointer, stack);
+        drop_to_el2(core_data);
         break;
     case 2:
         configure_el2_traps();
-        drop_to_el1(magic, pointer, stack);
+        drop_to_el1(core_data);
         break;
     case 1:
-        jump_to_cpudriver(magic, pointer, stack);
+        jump_to_cpudriver(core_data);
         break;
     default:
         break;
@@ -548,15 +531,12 @@ static void boot_generic_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) 
  * This function is intended to bring the core to the same state as if it
  * has been booted by the UEFI boot loader.
  */
-void boot_app_init(lpaddr_t state)
+void boot_app_init(lpaddr_t pointer)
 {
-
     debug_uart_initialize();
     debug_print_string("APP BOOTING\n");
 
-    struct armv8_core_data *cd = (struct armv8_core_data *)state;
-
-    cpu_driver_entry = (void *)cd->cpu_driver_entry;
+    struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
 
     uint8_t current_el = armv8_CurrentEL_EL_rdf(NULL);
 
@@ -569,7 +549,7 @@ void boot_app_init(lpaddr_t state)
     armv8_disable_interrupts();
 
     /* set the ttbr0/1 */
-    armv8_set_ttbr0(current_el, cd->page_table_root);
+    armv8_set_ttbr0(current_el, core_data->page_table_root);
 
     /* set the TCR */
     armv8_set_tcr(current_el);
@@ -584,7 +564,7 @@ void boot_app_init(lpaddr_t state)
     armv8_invalidate_icache();
     armv8_instruction_synchronization_barrier();
 
-    boot_generic_init(cd->boot_magic, state, cd->cpu_driver_stack);
+    boot_generic_init(core_data);
 
     while(1) {
         __asm volatile("wfi \n");
@@ -606,34 +586,26 @@ void boot_app_init(lpaddr_t state)
    >= 128KiB stack
    ACPI tables available
    Register x0 contains the multiboot magic value
-   Register x1 contains a pointer to multiboot image
-   Register x1 contains a pointer to top entry in the kernel stack
+   Register x1 contains a pointer to ARMv8 core data
  */
 void
-boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
+boot_bsp_init(uint32_t magic, lpaddr_t pointer) {
 
     debug_uart_initialize();
     debug_print_string("BSP BOOTING\n");
 
     /* Boot magic must be set */
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
+        debug_print_string("Invalid bootloader magic\n");
         goto stop;
     }
 
-    /*
-     * get the first entry in the multiboot structure, this holds a pointer
-     * to the CPU driver entry point
-     */
-    struct multiboot_tag_efi64 *tag;
-    tag = (void *)pointer + 8;
-    if (tag->type == MULTIBOOT_TAG_TYPE_EFI64) {
-        cpu_driver_entry = (void *)tag->pointer;
-    }
+    struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
 
     /* disable interrupts */
     armv8_disable_interrupts();
     
-    boot_generic_init(magic, pointer, stack);
+    boot_generic_init(core_data);
 
     stop:
     while(1) {

@@ -717,7 +717,7 @@ struct dcb *spawn_app_init(struct armv8_core_data *core_data,
 
 }
 
-void arm_kernel_startup(void *pointer)
+void arm_kernel_startup(void)
 {
     /* Initialize the core_data */
     /* Used when bringing up other cores, must be at consistent global address
@@ -741,22 +741,17 @@ void arm_kernel_startup(void *pointer)
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME);
     } else {
         MSG("Doing non-BSP related bootup \n");
-        struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
-
-        my_core_id = core_data->dst_core_id;
-
+        
         /* Initialize the allocator */
-
-
-        app_alloc_phys_start = (core_data->memory.base);
-        app_alloc_phys_end   = (core_data->memory.length + app_alloc_phys_start);
+        app_alloc_phys_start = (armv8_glbl_core_data->memory.base);
+        app_alloc_phys_end   = (armv8_glbl_core_data->memory.length + app_alloc_phys_start);
 
         MSG("Memory: %lx, %lx, size=%zu kB\n", app_alloc_phys_start, app_alloc_phys_end,
             (app_alloc_phys_end - app_alloc_phys_start + 1) >> 10);
 
-        kcb_current= (struct kcb *)local_phys_to_mem(core_data->kcb);
+        kcb_current= (struct kcb *)local_phys_to_mem(armv8_glbl_core_data->kcb);
 
-        init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
+        init_dcb = spawn_app_init(armv8_glbl_core_data, APP_INIT_MODULE_NAME);
     }
     // enable interrupt forwarding to cpu
 

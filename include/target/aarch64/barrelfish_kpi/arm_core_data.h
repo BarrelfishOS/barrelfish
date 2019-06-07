@@ -24,7 +24,8 @@ struct armv8_coredata_elf {
     uint32_t    shndx;
 };
 
-#define ARMV8_BOOTMAGIC_PSCI 0xb001b001
+#define ARMV8_BOOTMAGIC_BSP     0xb001b000
+#define ARMV8_BOOTMAGIC_PSCI    0xb001b001
 #define ARMV8_BOOTMAGIC_PARKING 0xb001b002
 
 struct armv8_coredata_memreg
