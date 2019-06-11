@@ -63,13 +63,12 @@ static struct cmdarg cmdargs[] = {
 static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
 {
     lpaddr_t physical_mem = 0;
-    uint64_t pages = ARMV8_CORE_DATA_PAGES;
 
     for (size_t i = 0; i < mmap->size; i += mmap->descr_size) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + i);
-        if (desc->Type == EfiConventionalMemory && desc->NumberOfPages > pages) {
+        if (desc->Type == EfiConventionalMemory && desc->NumberOfPages > ARMV8_CORE_DATA_PAGES) {
             physical_mem = ROUND_UP(desc->PhysicalStart, BASE_PAGE_SIZE);
-            pages = desc->NumberOfPages;
+            break;
         }
     }
 
@@ -77,9 +76,8 @@ static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
         panic("No free memory found!\n");
     }
 
-    armv8_glbl_core_data = (void*) local_phys_to_mem(physical_mem);
     armv8_glbl_core_data->start_kernel_ram = physical_mem;
-    armv8_glbl_core_data->start_free_ram = physical_mem + sizeof(*armv8_glbl_core_data);
+    armv8_glbl_core_data->start_free_ram = physical_mem;
 
     global = (void*) local_phys_to_mem(armv8_glbl_core_data->start_free_ram);
 
