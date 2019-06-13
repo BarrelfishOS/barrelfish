@@ -19,7 +19,7 @@ struct Blob {                   // offsets
     union {
         struct {
             uint64_t magic;
-            uint64_t multiboot; // offset of the Multiboot2 image
+            uint64_t multiboot; // offset of the Multiboot2 boot info
             uint64_t boot_driver_entry;
             uint64_t boot_driver_segment;       // offset of the boot driver image
             uint64_t boot_driver_relocations;

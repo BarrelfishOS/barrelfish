@@ -15,43 +15,17 @@
 
 #include <efi/efi.h>
 #include <efi/efilib.h>
-#include "multiboot2.h"
+#include <multiboot2.h>
 #include "blob.h"
 
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
 
 extern uint64_t barrelfish_blob_start[1];
-extern unsigned char barrelfish_blob_end[1];
+extern uint64_t barrelfish_blob_end[1];
 
 #define HIGH_MEMORY 0xffff000000000000
 
-// Multiboot2 tags
-struct Tag {
-    uint32_t type;
-    uint32_t size;
-};
-
-struct Module64_Tag {
-    uint32_t type;
-    uint32_t size;
-    uint64_t mod_start;
-    uint64_t mod_end;
-    char cmdline[0];
-};
-
-struct Efi_Mmap_Tag {
-    uint32_t type;
-    uint32_t size;
-    uint32_t descr_size;
-    uint32_t descr_vers;
-    uint8_t efi_mmap[0];
-};
-
-struct Efi64_Tag {
-    uint32_t type;
-    uint32_t size;
-    uint64_t pointer;
-};
+#define ROUND_UP(x, y) (((x) + ((y) - 1)) & ~((y) - 1))
 
 #define MEM_MAP_SIZE 8192
 char mmap[MEM_MAP_SIZE];
@@ -64,7 +38,7 @@ void get_memory_map(void)
     unsigned mmap_n_desc, i;
 
     /* Grab the current table from UEFI. */
-    mmap_size = 8192;
+    mmap_size = MEM_MAP_SIZE;
     status = ST->BootServices->GetMemoryMap(&mmap_size, (void *) &mmap,
                                             &mmap_key, &mmap_d_size,
                                             &mmap_d_ver);
@@ -89,58 +63,47 @@ void get_memory_map(void)
         (L"Type          VStart           PStart           PEnd      Attributes\n");
     for (i = 0; i < mmap_n_desc; i++) {
         EFI_MEMORY_DESCRIPTOR *desc = ((void *) mmap) + (mmap_d_size * i);
-        const CHAR16 *description;
-        Print(L"%3d %016lx %016lx %16lx %016lx\n",
+        desc->VirtualStart = desc->PhysicalStart + HIGH_MEMORY;
+        Print(L"%3d %016lx %016lx %016lx %016lx\n",
               desc->Type, desc->VirtualStart,
               desc->PhysicalStart,
               desc->PhysicalStart + (desc->NumberOfPages << 12),
               desc->Attribute);
-        desc->VirtualStart = desc->PhysicalStart;
     }
 }
 
 void relocateMultiboot(void *base, uint64_t offset,
                        uint64_t kernel_segment)
 {
-    uint32_t *magic = base + offset;
-    struct Tag *tag;
+    struct multiboot_info *multiboot = (struct multiboot_info *)(base + offset);
 
     get_memory_map();
 
-    Print(L"Relocating multiboot: %lx %08x %08x %08x %08x\n", magic,
-          magic[0], magic[1], magic[2], magic[3]);
-    tag = base + offset + 8;
-    for (;;) {
+    struct multiboot_tag *tag;
+    Print(L"Relocating multiboot: %lx\n", multiboot);
+    for (tag = multiboot->tags; tag->type != MULTIBOOT_TAG_TYPE_END; tag = (void *)tag + tag->size) {
         Print(L"%lx: tag %d:%d\n", tag, tag->type, tag->size);
-        if (tag->type == 12) {
-            struct Efi64_Tag *etag = (struct Efi64_Tag *) tag;
-            Print(L"before %lx\n", etag->pointer);
-            etag->pointer +=
-                kernel_segment + (uint64_t) base + HIGH_MEMORY;
-            Print(L"after %lx\n", etag->pointer);
-        } else if (tag->type == 19) {
-            struct Module64_Tag *mtag = (struct Module64_Tag *) tag;
+        if (tag->type == MULTIBOOT_TAG_TYPE_MODULE_64) {
+            struct multiboot_tag_module_64 *mtag = (struct multiboot_tag_module_64 *) tag;
             Print(L"\tbefore %lx:%lx\n", mtag->mod_start, mtag->mod_end);
             mtag->mod_start += (uint64_t) base;
             mtag->mod_end += (uint64_t) base;
             Print(L"\tafter  %lx:%lx\n", mtag->mod_start, mtag->mod_end);
-        } else if (tag->type == 17) {
-            struct Efi_Mmap_Tag *emtag = (struct Efi_Mmap_Tag *) tag;
+        } else if (tag->type == MULTIBOOT_TAG_TYPE_EFI_MMAP) {
+            struct multiboot_tag_efi_mmap *emtag = (struct multiboot_tag_efi_mmap *)tag;
             emtag->descr_size = mmap_d_size;
             emtag->descr_vers = mmap_d_ver;
-            emtag->size = sizeof(struct Efi_Mmap_Tag) + mmap_size;
-            memcpy((void *) emtag + sizeof(struct Efi_Mmap_Tag),
+            emtag->size = sizeof(struct multiboot_tag_efi_mmap) + mmap_size;
+            memcpy((void *) emtag + sizeof(struct multiboot_tag_efi_mmap),
                    (uint64_t *) mmap, mmap_size);
 
-            struct Tag *tag = (void *) emtag + emtag->size;
-            tag->type = 0;
-            tag->size = 8;
-            uint32_t size = (void *) tag + 8 - base - offset;
-            *(uint32_t *) (base + offset) = size;
-            Print(L"Size: %x\n", size);
-            break;
+            /* Add the end tag now that we know how large the memory map is */
+            struct multiboot_tag *end_tag = (void *)emtag + emtag->size;
+            end_tag->type = MULTIBOOT_TAG_TYPE_END;
+            end_tag->size = ROUND_UP(sizeof(struct multiboot_tag), MULTIBOOT_TAG_ALIGN);
+            multiboot->total_size = (void *)end_tag + end_tag->size - (void *)multiboot;
+            Print(L"Size: %x\n", multiboot->total_size);
         }
-        tag = (void *) tag + tag->size;
     }
 }
 
@@ -159,70 +122,9 @@ void relocateElf(void *base, uint64_t offset, uint64_t virtual_offset,
     }
 }
 
-typedef void boot_driver(uint32_t magic, void *pointer, void *stack_top);
+struct armv8
 
-// remove the no-execute protection from all pages
-void remove_protection(void)
-{
-    uint64_t i, j, k, l;
-
-    uint64_t el, ttbr0;
-  __asm("mrs %0, currentel\n":"=r"(el));
-    el = el / 4;
-
-    if (el == 1) {
-      __asm("mrs %0, ttbr0_el1\n":"=r"(ttbr0));
-    } else {                    // 2
-      __asm("mrs %0, ttbr0_el2\n":"=r"(ttbr0));
-        // __asm("mrs %0, ttbr1_el2\n": "=r" (ttbr1));
-    }
-    uint64_t *table0, *table1, *table2, *table3;
-    uint64_t offset0, offset1, offset2, offset3;
-
-    table0 = (uint64_t *) ttbr0;
-    for (i = 0; i < 512; i++) {
-        if (table0[i]) {
-            offset0 = i << 39;
-            if (!(table0[i] & 2)) {
-                table0[i] &= 0x0000ffffffffffff;
-                table0[i] |= 0x0000000000000304;
-                continue;
-            }
-            table1 = (uint64_t *) (table0[i] & 0x0000fffffffff000);
-            for (j = 0; j < 512; j++) {
-                if (table1[j]) {
-                    offset1 = offset0 | (j << 30);
-                    if (!(table1[j] & 2)) {
-                        table1[j] &= 0x0000ffffffffffff;
-                        table1[j] |= 0x0000000000000304;
-                        continue;
-                    }
-                    table2 = (uint64_t *) (table1[j] & 0x0000fffffffff000);
-                    for (k = 0; k < 512; k++) {
-                        if (table2[k]) {
-                            offset2 = offset1 | (k << 21);
-                            if (!(table2[k] & 2)) {
-                                table2[k] &= 0x0000ffffffffffff;
-                                table2[k] |= 0x0000000000000304;
-                                continue;
-                            }
-                            table3 =
-                                (uint64_t *) (table2[k] &
-                                              0x0000fffffffff000);
-                            for (l = 0; l < 512; l++) {
-                                if (table3[l]) {
-                                    offset3 = offset2 | (l << 12);
-                                    table3[l] &= 0x0000ffffffffffff;
-                                    table3[l] |= 0x0000000000000304;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+typedef void boot_driver(uint32_t magic, void *pointer);
 
 void dump_pages(void)
 {
@@ -309,7 +211,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
         Print(L"AllocatePages: ERROR %d, %x\n", status, mmap_key);
         return status;
     }
-    Print(L"Blob  size:%ld  pages:%ld -> %lx %d\n", blob_size,
+    Print(L"Blob  size:%ld  pages:%ld -> %lx\n", blob_size,
           blob_no_pages, relocated_blob);
     // move the blob to the unprotected region so we can execute it
     memcpy(relocated_blob, barrelfish_blob_start, blob_size);
@@ -344,20 +246,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
     pc = (void *) blob + blob->boot_driver_segment +
         blob->boot_driver_entry;
 
-    void *multiboot, *stack;
+    void *multiboot;
     multiboot = (void *) blob + blob->multiboot;
-    stack = blob;
 
-    // uint64_t sctlr, tcr;
-    // uint64_t el;
-    // __asm(  "mrs %0, currentel\n"
-    //         "mrs %1, sctlr_el2\n"
-    //         "mrs %2, tcr_el2\n": "=r" (el), "=r" (sctlr), "=r" (tcr));
-    // el = el / 4;
-    // Print(L"EL:%ld  SCTLR:%016lx  TCR:%016lx\n", el, sctlr, tcr);
-    Print(L"args(%lx, %lx, %lx)\n", MULTIBOOT2_BOOTLOADER_MAGIC, multiboot,
-          blob + 4096 - 16);
-    Print(L"%x %x %x %x\n", pc[0], pc[1], pc[2], pc[3]);
+    Print(L"args(%lx, %lx)\n", MULTIBOOT2_BOOTLOADER_MAGIC, multiboot);
 
     status = ST->BootServices->ExitBootServices(ImageHandle, mmap_key);
     if (EFI_ERROR(status)) {
@@ -373,16 +265,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
         Print(L"SetVirtualAddressMap: ERROR %d\n", status);
         return status;
     }
-    // remove_protection();
 
-    // __asm(  "tlbi alle2\n"
-    //         "ic iallu\n"
-    //         "dsb sy\n"
-    //         "isb\n");
-
-// Jump to the bootloader, the blob can be reused
-    (*((boot_driver *) (pc))) (MULTIBOOT2_BOOTLOADER_MAGIC, multiboot,
-                               blob + 4096 - 16);
+    // Jump to the bootloader, the blob can be reused
+    (*((boot_driver *) (pc))) (MULTIBOOT2_BOOTLOADER_MAGIC, multiboot);
 
     return EFI_SUCCESS;
 }

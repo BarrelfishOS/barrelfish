@@ -185,8 +185,6 @@ void *create_multiboot_info(struct menu_lst *menu,
     /* Calculate the boot information size. */
     /* Multiboot2 information data structure */
     size = 8;
-    /* CPU Driver entry point */
-    size += ALIGN(sizeof(struct multiboot_tag_efi64));
     /* cpu driver command line */
     size += ALIGN(sizeof(struct multiboot_tag_string)
                   + strlen(menu->kernel.args) + 1);
@@ -223,16 +221,6 @@ void *create_multiboot_info(struct menu_lst *menu,
     cursor = mb;
     /* Skip the information structure for now */
     cursor += 8;
-
-    /* Add the ELF section headers. */
-    {
-        struct multiboot_tag_efi64 *efi =
-            (struct multiboot_tag_efi64 *) cursor;
-        efi->type = MULTIBOOT_TAG_TYPE_EFI64;
-        efi->size = ALIGN(sizeof(struct multiboot_tag_efi64));
-        efi->pointer = (uint64_t) entry;
-        cursor += efi->size;
-    }
 
     /* Add the boot command line */
     {
