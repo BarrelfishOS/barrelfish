@@ -33,113 +33,183 @@ typedef enum {
     EfiBarrelfishMaxMemType
 } EFI_BARRELFISH_MEMORY_TYPE;
 
+static const char *mmap_types[] = {
+    "reserved",
+    "LD code",
+    "LD data",
+    "BS code",
+    "BS data",
+    "RS code",
+    "RS data",
+    "available",
+    "unusable",
+    "ACPI reclaim",
+    "ACPI NVS",
+    "MMIO",
+    "ports",
+    "PAL code",
+    "persist"
+};
+
+static const char *bf_mmap_types[] = {
+    "BF code",
+    "BF stack",
+    "BF multiboot",
+    "BF module",
+    "BF page table",
+    "BF core data",
+};
+
+struct config {
+    struct multiboot_info *multiboot;
+    struct multiboot_tag_efi_mmap *mmap_tag;
+    struct multiboot_tag_string *cmd_tag;
+    EFI_PHYSICAL_ADDRESS modules;
+    EFI_VIRTUAL_ADDRESS boot_driver_entry;
+    EFI_PHYSICAL_ADDRESS cpu_driver_entry;
+    EFI_PHYSICAL_ADDRESS cpu_driver_stack;
+    size_t cpu_driver_stack_size;
+};
+
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
+void *memset(void *dest, int value, __SIZE_TYPE__ n);
 
-extern uint64_t barrelfish_blob_start[1];
-extern uint64_t barrelfish_blob_end[1];
+typedef void boot_driver(uint32_t magic, void *pointer);
 
-#define HIGH_MEMORY 0xffff000000000000
+extern char barrelfish_blob_start[1];
+
+#define KERNEL_OFFSET       0xffff000000000000
+#define KERNEL_STACK_SIZE   0x4000
 
 #define ROUND_UP(x, y) (((x) + ((y) - 1)) & ~((y) - 1))
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+
+#define BLOB_ADDRESS(offset) (barrelfish_blob_start + (offset))
+
+/* Copy a base+length string into a null-terminated string.  Destination
+ * buffer must be large enough to hold the terminator i.e. n+1 characters. */
+static inline void
+ntstring(char *dest, const char *src, size_t len) {
+    memcpy(dest, src, len);
+    dest[len]= '\0';
+}
 
 #define MEM_MAP_SIZE 8192
 char mmap[MEM_MAP_SIZE];
 UINTN mmap_size, mmap_key, mmap_d_size;
 UINT32 mmap_d_ver;
 
-void get_memory_map(void)
+static EFI_STATUS
+update_memory_map(void)
 {
     EFI_STATUS status;
-    unsigned mmap_n_desc, i;
+    size_t mmap_n_desc, i;
 
     /* Grab the current table from UEFI. */
     mmap_size = MEM_MAP_SIZE;
-    status = ST->BootServices->GetMemoryMap(&mmap_size, (void *) &mmap,
-                                            &mmap_key, &mmap_d_size,
-                                            &mmap_d_ver);
+    status = ST->BootServices->GetMemoryMap(
+        &mmap_size,
+        (void *) &mmap,
+        &mmap_key,
+        &mmap_d_size,
+        &mmap_d_ver
+    );
     if (status == EFI_BUFFER_TOO_SMALL) {
         Print(L"The memory map is %dB, but MEM_MAP_SIZE is %d.\n",
-              mmap_size, MEM_MAP_SIZE);
+            mmap_size, MEM_MAP_SIZE);
         Print(L"This is compile-time limit in Hagfish - please report "
               L"this overflow, it's a bug.\n");
-        return;
+        return status;
     } else if (EFI_ERROR(status)) {
-        Print(L"GetMemoryMap: %r\n", status);
-        return;
+        Print(L"Unable to get memory map: %x\n", status);
+        return status;
     }
 
-    Print(L"Memory map at %lx, key: %x, descriptor version: %x\n",
-          mmap, mmap_key, mmap_d_ver);
     mmap_n_desc = mmap_size / mmap_d_size;
-    Print(L"Got %d memory map entries of %dB (%dB).\n",
-          mmap_n_desc, mmap_d_size, mmap_size);
 
-    Print
-        (L"Type          VStart           PStart           PEnd      Attributes\n");
-    for (i = 0; i < mmap_n_desc; i++) {
+    return EFI_SUCCESS;
+}
+
+static EFI_STATUS
+relocate_memory_map(void) {
+    if (!mmap_size) {
+        return EFI_LOAD_ERROR;
+    }
+
+    size_t mmap_n_desc = mmap_size / mmap_d_size;
+
+    for (size_t i= 0; i < mmap_n_desc; i++) {
+        EFI_MEMORY_DESCRIPTOR *desc =
+            (EFI_MEMORY_DESCRIPTOR *)(mmap + i * mmap_d_size);
+        // 1:1 mapping into kernel window
+        desc->VirtualStart = desc->PhysicalStart + KERNEL_OFFSET;
+    }
+
+    return EFI_SUCCESS;
+}
+
+static void
+print_memory_map(int update)
+{
+    if (update) {
+        update_memory_map();
+    }
+
+    size_t mmap_n_desc = mmap_size / mmap_d_size;
+
+    Print(L"Memory map at %lx, key: %x, descriptor version: %x\n",
+            mmap, mmap_key, mmap_d_ver);
+    Print(L"Got %d memory map entries of %dB (%dB).\n",
+               mmap_n_desc, mmap_d_size, mmap_size);
+
+    Print(L"Type          PStart           PEnd        "
+               "      Size       Attributes\n");
+    for (UINTN i = 0; i < mmap_n_desc; i++) {
         EFI_MEMORY_DESCRIPTOR *desc = ((void *) mmap) + (mmap_d_size * i);
-        desc->VirtualStart = desc->PhysicalStart + HIGH_MEMORY;
-        Print(L"%3d %016lx %016lx %016lx %016lx\n",
-              desc->Type, desc->VirtualStart,
+
+        const char *description;
+        if (desc->Type < EfiMaxMemoryType) {
+            description= mmap_types[desc->Type];
+        }
+        else if (
+            EfiBarrelfishFirstMemType <= desc->Type &&
+            desc->Type < EfiBarrelfishMaxMemType
+        ) {
+            description = bf_mmap_types[desc->Type - EfiBarrelfishFirstMemType];
+        }
+        else {
+            description= "???";
+        }
+        
+        Print(L"%-13a %016lx %016lx %9ldkB %01x\n",
+              description,
               desc->PhysicalStart,
-              desc->PhysicalStart + (desc->NumberOfPages << 12),
+              desc->PhysicalStart + (desc->NumberOfPages << 12) - 1,
+              (desc->NumberOfPages << 12) / 1024,
               desc->Attribute);
     }
 }
 
-void relocateMultiboot(void *base, uint64_t offset,
-                       uint64_t kernel_segment)
-{
-    struct multiboot_info *multiboot = (struct multiboot_info *)(base + offset);
+static lpaddr_t get_root_table(void) {
+    Print(L"Getting page table address\n");
+    uint64_t el, ttbr0;
+  __asm("mrs %0, currentel\n":"=r"(el));
+    el >>= 2;
+    Print(L"Currently in EL%lx\n", el);
 
-    get_memory_map();
-
-    struct multiboot_tag *tag;
-    Print(L"Relocating multiboot: %lx\n", multiboot);
-    for (tag = multiboot->tags; tag->type != MULTIBOOT_TAG_TYPE_END; tag = (void *)tag + tag->size) {
-        Print(L"%lx: tag %d:%d\n", tag, tag->type, tag->size);
-        if (tag->type == MULTIBOOT_TAG_TYPE_MODULE_64) {
-            struct multiboot_tag_module_64 *mtag = (struct multiboot_tag_module_64 *) tag;
-            Print(L"\tbefore %lx:%lx\n", mtag->mod_start, mtag->mod_end);
-            mtag->mod_start += (uint64_t) base;
-            mtag->mod_end += (uint64_t) base;
-            Print(L"\tafter  %lx:%lx\n", mtag->mod_start, mtag->mod_end);
-        } else if (tag->type == MULTIBOOT_TAG_TYPE_EFI_MMAP) {
-            struct multiboot_tag_efi_mmap *emtag = (struct multiboot_tag_efi_mmap *)tag;
-            emtag->descr_size = mmap_d_size;
-            emtag->descr_vers = mmap_d_ver;
-            emtag->size = sizeof(struct multiboot_tag_efi_mmap) + mmap_size;
-            memcpy((void *) emtag + sizeof(struct multiboot_tag_efi_mmap),
-                   (uint64_t *) mmap, mmap_size);
-
-            /* Add the end tag now that we know how large the memory map is */
-            struct multiboot_tag *end_tag = (void *)emtag + emtag->size;
-            end_tag->type = MULTIBOOT_TAG_TYPE_END;
-            end_tag->size = ROUND_UP(sizeof(struct multiboot_tag), MULTIBOOT_TAG_ALIGN);
-            multiboot->total_size = (void *)end_tag + end_tag->size - (void *)multiboot;
-            Print(L"Size: %x\n", multiboot->total_size);
-        }
+    if (el == 1) {
+      __asm("mrs %0, ttbr0_el1\n":"=r"(ttbr0));
+    } else if (el == 2) {                    // 2
+      __asm("mrs %0, ttbr0_el2\n":"=r"(ttbr0));
+    } else {
+        Print(L"Can't get page table\n");
+        return 0;
     }
+    Print(L"Page table at 0x%lx\n", ttbr0);
+    return ttbr0;
 }
 
-void relocateElf(void *base, uint64_t offset, uint64_t virtual_offset,
-                 struct Blob_relocation *relocations,
-                 unsigned no_relocations)
-{
-    unsigned i;
-
-    Print(L"Relocating ELF %lx %lx %lx %d\n", base, offset, relocations,
-          no_relocations);
-    for (i = 0; i < no_relocations; i++) {
-        *(uint64_t *) (base + offset + relocations[i].offset) =
-            relocations[i].addend + (uint64_t) base + offset +
-            virtual_offset;
-    }
-}
-
-typedef void boot_driver(uint32_t magic, void *pointer);
-
-void dump_pages(void)
+static void dump_pages(void)
 {
     uint64_t i, j, k, l;
 
@@ -200,145 +270,308 @@ void dump_pages(void)
     }
 }
 
-static lpaddr_t get_root_table(void) {
-    Print(L"Getting page table address\n");
-    uint64_t el, ttbr0;
-  __asm("mrs %0, currentel\n":"=r"(el));
-    el >>= 2;
-    Print(L"Currently in EL%lx\n", el);
-
-    if (el == 1) {
-      __asm("mrs %0, ttbr0_el1\n":"=r"(ttbr0));
-    } else if (el == 2) {                    // 2
-      __asm("mrs %0, ttbr0_el2\n":"=r"(ttbr0));
-    } else {
-        Print(L"Can't get page table\n");
-        return 0;
+static void
+relocate_elf(EFI_PHYSICAL_ADDRESS segment_start, uint64_t virtual_offset,
+                 struct Blob_relocation *relocations,
+                 uint64_t no_relocations)
+{
+    Print(L"Relocating ELF %lx %lx %d\n",
+        segment_start, relocations, no_relocations);
+    for (uint64_t i = 0; i < no_relocations; i++) {
+        *(uint64_t *)(segment_start + relocations[i].offset) =
+            segment_start + virtual_offset + relocations[i].addend;
     }
-    Print(L"Page table at 0x%lx\n", ttbr0);
-    return ttbr0;
+}
+
+static EFI_STATUS
+relocate_boot_driver(struct Blob *blob_info, struct config *cfg)
+{
+    EFI_STATUS status;
+
+    /* Should be page aligend */
+    ASSERT(blob_info->boot_driver_segment_size % BASE_PAGE_SIZE == 0);
+
+    EFI_PHYSICAL_ADDRESS boot_driver;
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishCPUDriver,
+        blob_info->boot_driver_segment_size / BASE_PAGE_SIZE,
+        &boot_driver
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Error allocating memory for boot driver segment: %d\n", status);
+        return status;
+    }
+
+    memcpy((void *)boot_driver, BLOB_ADDRESS(blob_info->boot_driver_segment), blob_info->boot_driver_segment_size);
+
+    struct Blob_relocation *boot_driver_relocations =
+        (struct Blob_relocation *)BLOB_ADDRESS(blob_info->boot_driver_relocations);
+    relocate_elf(
+        boot_driver,
+        0,
+        boot_driver_relocations,
+        blob_info->boot_driver_relocations_count
+    );
+
+    cfg->boot_driver_entry = boot_driver + blob_info->boot_driver_entry;
+    
+    return EFI_SUCCESS;
+}
+
+static EFI_STATUS
+relocate_cpu_driver(struct Blob *blob_info, struct config *cfg)
+{
+    EFI_STATUS status;
+
+    /* Should be page aligend */
+    ASSERT(blob_info->cpu_driver_segment_size % BASE_PAGE_SIZE == 0);
+
+    EFI_PHYSICAL_ADDRESS cpu_driver;
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishCPUDriver,
+        blob_info->cpu_driver_segment_size / BASE_PAGE_SIZE,
+        &cpu_driver
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Error allocating memory for CPU driver segment: %d\n", status);
+        return status;
+    }
+
+    memcpy((void *)cpu_driver, BLOB_ADDRESS(blob_info->cpu_driver_segment), blob_info->cpu_driver_segment_size);
+
+    struct Blob_relocation *cpu_driver_relocations =
+        (struct Blob_relocation *)BLOB_ADDRESS(blob_info->cpu_driver_relocations);
+    relocate_elf(
+        cpu_driver,
+        KERNEL_OFFSET,
+        cpu_driver_relocations,
+        blob_info->cpu_driver_relocations_count
+    );
+
+    cfg->cpu_driver_entry = cpu_driver + blob_info->cpu_driver_entry + KERNEL_OFFSET;
+
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishCPUDriverStack,
+        KERNEL_STACK_SIZE / BASE_PAGE_SIZE,
+        &cfg->cpu_driver_stack
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Error allocating memory for CPU driver stack: %d\n", status);
+        return status;
+    }
+
+    cfg->cpu_driver_stack_size = KERNEL_STACK_SIZE;
+
+    Print(
+        L"Relocated CPU driver entry point is %lx, stack at %lx\n",
+        cfg->cpu_driver_entry,
+        cfg->cpu_driver_stack
+    );
+    
+    return EFI_SUCCESS;
+}
+
+static EFI_STATUS
+relocate_modules(struct Blob *blob_info, struct config *cfg)
+{
+    EFI_STATUS status;
+    
+    /* Should be page aligend */
+    ASSERT(blob_info->modules_size % BASE_PAGE_SIZE == 0);
+
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishELFData,
+        blob_info->modules_size / BASE_PAGE_SIZE,
+        &cfg->modules
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Error allocating memory for modules: %d\n", status);
+        return status;
+    }
+
+    memcpy((void *)cfg->modules, BLOB_ADDRESS(blob_info->modules), blob_info->modules_size);
+    return EFI_SUCCESS;
+}
+
+static EFI_STATUS
+relocate_multiboot(struct Blob *blob_info, struct config *cfg)
+{
+    EFI_STATUS status;
+
+    /* Should be page aligend */
+    ASSERT(blob_info->multiboot_size % BASE_PAGE_SIZE == 0);
+
+    EFI_PHYSICAL_ADDRESS memory;
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishMultibootData,
+        blob_info->multiboot_size / BASE_PAGE_SIZE,
+        (EFI_PHYSICAL_ADDRESS *)&cfg->multiboot
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Error allocating memory for multiboot info: %d\n", status);
+        return status;
+    }
+
+    memcpy(cfg->multiboot, BLOB_ADDRESS(blob_info->multiboot), blob_info->multiboot_size);
+
+    /* Module start & end pointed into the blob.
+     * Now they need to point into the module region
+     */
+    uint64_t module_offset = (uint64_t)cfg->modules - blob_info->modules;
+
+    Print(L"Relocating multiboot info: %lx\n", cfg->multiboot);
+    /* We don't have an end tag yet, but EFI mmap tag is last */
+    struct multiboot_tag *tag;
+    for (tag = cfg->multiboot->tags; tag->type != MULTIBOOT_TAG_TYPE_EFI_MMAP; tag = (void *)tag + tag->size) {
+        Print(L"%lx: tag %d:%d\n", tag, tag->type, tag->size);
+
+        if (tag->type == MULTIBOOT_TAG_TYPE_MODULE_64) {
+            struct multiboot_tag_module_64 *mtag = (struct multiboot_tag_module_64 *)tag;
+            Print(L"\tbefore %lx:%lx\n", mtag->mod_start, mtag->mod_end);
+            mtag->mod_start += module_offset;
+            mtag->mod_end += module_offset;
+            Print(L"\tafter  %lx:%lx\n", mtag->mod_start, mtag->mod_end);
+        }
+        else if (tag->type == MULTIBOOT_TAG_TYPE_CMDLINE) {
+            cfg->cmd_tag = (struct multiboot_tag_string *)tag;
+        }
+    }
+
+    ASSERT(tag->type == MULTIBOOT_TAG_TYPE_EFI_MMAP);
+    cfg->mmap_tag = (struct multiboot_tag_efi_mmap *)tag;
+
+    return EFI_SUCCESS;
+}
+
+static struct armv8_core_data *
+create_core_data(struct config *cfg)
+{
+    EFI_STATUS status;
+
+    struct armv8_core_data *core_data;
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishCoreData,
+        1,
+        (EFI_PHYSICAL_ADDRESS *)&core_data
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Error allocating memory for core data: %d\n", status);
+        return NULL;
+    }
+
+    memset(core_data, 0, BASE_PAGE_SIZE);
+
+    core_data->boot_magic = ARMV8_BOOTMAGIC_BSP;
+    core_data->cpu_driver_stack =
+        (lpaddr_t)cfg->cpu_driver_stack + cfg->cpu_driver_stack_size - 16;
+    core_data->cpu_driver_stack_limit = (lpaddr_t)cfg->cpu_driver_stack;
+    core_data->cpu_driver_entry = (lvaddr_t)cfg->cpu_driver_entry;
+    core_data->page_table_root = get_root_table();
+    ntstring(
+        core_data->cpu_driver_cmdline,
+        cfg->cmd_tag->string,
+        MIN(
+            cfg->cmd_tag->size - sizeof(struct multiboot_tag_string),
+            sizeof(core_data->cpu_driver_cmdline) - 1
+        )
+    );
+    
+    core_data->multiboot_image.base = (lpaddr_t)cfg->multiboot;
+    core_data->multiboot_image.length = cfg->multiboot->total_size;
+    core_data->efi_mmap = (lpaddr_t)cfg->mmap_tag;
+
+    return core_data;
 }
 
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
                            EFI_SYSTEM_TABLE * SystemTable)
 {
-    uint64_t i, j, k, l;
     EFI_STATUS status;
 
     InitializeLib(ImageHandle, SystemTable);
-
-    Print(L"Blob: %lx %lx\n", barrelfish_blob_start, barrelfish_blob_end);
-
-    uint64_t blob_size =
-        (void *) barrelfish_blob_end - (void *) barrelfish_blob_start;
-    uint64_t blob_no_pages = (blob_size + 4095) / 4096;
-
-    void *relocated_blob;
-    status =
-        BS->AllocatePages(AllocateAnyPages, EfiLoaderCode, blob_no_pages,
-                          (uint64_t *) & relocated_blob);
-    if (EFI_ERROR(status)) {
-        Print(L"AllocatePages: ERROR %d, %x\n", status, mmap_key);
-        return status;
-    }
-    Print(L"Blob  size:%ld  pages:%ld -> %lx\n", blob_size,
-          blob_no_pages, relocated_blob);
-    // move the blob to the unprotected region so we can execute it
-    memcpy(relocated_blob, barrelfish_blob_start, blob_size);
-
-    struct Blob *blob = (struct Blob *) relocated_blob;
-    Print(L"Magic: %lx\n", blob->magic);
-    Print(L"Multiboot: %lx\n", blob->multiboot);
-    Print(L"Boot driver entry: %lx\n", blob->boot_driver_entry);
-    Print(L"Boot driver segment: %lx\n", blob->boot_driver_segment);
-    Print(L"Boot driver relocations: %lx\n",
-          blob->boot_driver_relocations);
-    Print(L"Boot driver relocations count: %lx\n",
-          blob->boot_driver_relocations_count);
-    Print(L"Kernel entry: %lx\n", blob->kernel_entry);
-    Print(L"Kernel segment: %lx\n", blob->kernel_segment);
-    Print(L"Kernel relocations: %lx\n", blob->kernel_relocations);
-    Print(L"Kernel relocations count: %lx\n",
-          blob->kernel_relocations_count);
-
-    relocateMultiboot((void *) blob, blob->multiboot,
-                      blob->kernel_segment);
-    relocateElf((void *) blob, blob->boot_driver_segment, 0,
-                (struct Blob_relocation *) ((void *) blob +
-                                            blob->boot_driver_relocations),
-                blob->boot_driver_relocations_count);
-    relocateElf((void *) blob, blob->kernel_segment, HIGH_MEMORY,
-                (struct Blob_relocation *) ((void *) blob +
-                                            blob->kernel_relocations),
-                blob->kernel_relocations_count);
-
-    uint32_t *pc;
-    pc = (void *) blob + blob->boot_driver_segment +
-        blob->boot_driver_entry;
-
-    void *multiboot;
-    multiboot = (void *) blob + blob->multiboot;
-
-    void *stack;
-    status = BS->AllocatePages(AllocateAnyPages, EfiBarrelfishCPUDriverStack, 4, &stack);
-    if (EFI_ERROR(status)) {
-        Print(L"AllocatePages: ERROR %d, %x\n", status, mmap_key);
-        return status;
-    }
-
-    struct armv8_core_data *core_data;
-    status = BS->AllocatePages(AllocateAnyPages, EfiBarrelfishCoreData, 1, &core_data);
-    if (EFI_ERROR(status)) {
-        Print(L"AllocatePages: ERROR %d, %x\n", status, mmap_key);
-        return status;
-    }
-
-    core_data->boot_magic = ARMV8_BOOTMAGIC_BSP;
-    core_data->cpu_driver_stack = (lpaddr_t)(stack + (4 * 4096) - 16);
-    core_data->cpu_driver_stack_limit = (lpaddr_t)stack;
-    core_data->cpu_driver_entry = (lvaddr_t)((void *) blob + blob->kernel_segment +
-        blob->kernel_entry + HIGH_MEMORY);
-    core_data->page_table_root = get_root_table();
-
-    struct multiboot_tag_string *cmd_tag = ((struct multiboot_info *)multiboot)->tags;
-    while (cmd_tag->type != MULTIBOOT_TAG_TYPE_CMDLINE) {
-        cmd_tag = (void *)cmd_tag + cmd_tag->size;
-    }
-    memcpy(
-        core_data->cpu_driver_cmdline,
-        cmd_tag->string,
-        cmd_tag->size - sizeof(cmd_tag->type)
-    );
-    core_data->cpu_driver_cmdline[cmd_tag->size - sizeof(cmd_tag->type)] = 0;
     
-    core_data->multiboot_image.base = (lpaddr_t)multiboot;
-    core_data->multiboot_image.length = ((struct multiboot_info *)multiboot)->total_size;
+    struct Blob *blob_info = (struct Blob *)BLOB_ADDRESS(0);
+    Print(L"Blob is at: 0x%lx\n", blob_info);
+    Print(L"Magic: %lx\n", blob_info->magic);
 
-    struct multiboot_tag_string *mmap_tag = ((struct multiboot_info *)multiboot)->tags;
-    while (mmap_tag->type != MULTIBOOT_TAG_TYPE_EFI_MMAP) {
-        mmap_tag = (void *)mmap_tag + mmap_tag->size;
+    struct config cfg;
+
+    status = relocate_boot_driver(blob_info, &cfg);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to relocate boot driver\n");
+        return status;
     }
-    core_data->efi_mmap = (lpaddr_t)mmap_tag;
 
-    Print(L"args(%lx, %lx)\n", MULTIBOOT2_BOOTLOADER_MAGIC, core_data);
+    status = relocate_cpu_driver(blob_info, &cfg);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to relocate CPU driver\n");
+        return status;
+    }
+
+    status = relocate_modules(blob_info, &cfg);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to relocate modules\n");
+        return status;
+    }
+
+    status = relocate_multiboot(blob_info, &cfg);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to relocate multiboot info\n");
+        return status;
+    }
+
+    struct armv8_core_data *core_data = create_core_data(&cfg);
+
+    Print(L"Terminating boot services and jumping to image at 0x%lx\n", cfg.boot_driver_entry);
+    Print(L"Core data pointer is %lx\n", core_data);
+
+    print_memory_map(1);
+
+    update_memory_map();
 
     status = ST->BootServices->ExitBootServices(ImageHandle, mmap_key);
     if (EFI_ERROR(status)) {
-        Print(L"ExitBootServices: ERROR %d, %x\n", status, mmap_key);
+        Print(L"Error exiting boot services: %d, %x\n", status, mmap_key);
         return status;
     }
 
-    status =
-        ST->RuntimeServices->SetVirtualAddressMap(mmap_size, mmap_d_size,
-                                                  mmap_d_ver,
-                                                  (void *) &mmap);
+    /*** EFI boot services are now terminated, we're on our own. */
+    status = relocate_memory_map();
     if (EFI_ERROR(status)) {
-        Print(L"SetVirtualAddressMap: ERROR %d\n", status);
+        return EFI_SUCCESS;
+    }
+
+    /* The last thing we do is complete the multiboot info:
+     * Set the EFI mmap and end tag
+     */
+    cfg.mmap_tag->size = ROUND_UP(sizeof(struct multiboot_tag_efi_mmap) + mmap_size, 8);
+    cfg.mmap_tag->descr_size = mmap_d_size;
+    cfg.mmap_tag->descr_vers = mmap_d_ver;
+    memcpy(cfg.mmap_tag->efi_mmap, mmap, mmap_size);
+
+    struct multiboot_tag *end_tag = (void *)cfg.mmap_tag + cfg.mmap_tag->size;
+    end_tag->type = MULTIBOOT_TAG_TYPE_END;
+    end_tag->size = ROUND_UP(sizeof(struct multiboot_tag), 8);
+    cfg.multiboot->total_size = (void *)end_tag + end_tag->size - (void *)cfg.multiboot;
+
+    status = ST->RuntimeServices->SetVirtualAddressMap(
+        mmap_size,
+        mmap_d_size,
+        mmap_d_ver,
+        (void *) &mmap
+    );
+    if (EFI_ERROR(status)) {
         return status;
     }
 
     // Jump to the bootloader, the blob can be reused
-    (*((boot_driver *) (pc))) (MULTIBOOT2_BOOTLOADER_MAGIC, core_data);
+    (*((boot_driver *) (cfg.boot_driver_entry))) (MULTIBOOT2_BOOTLOADER_MAGIC, core_data);
 
     return EFI_SUCCESS;
 }

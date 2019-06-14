@@ -282,9 +282,9 @@ void *create_multiboot_info(struct menu_lst *menu,
     }
     /* Add the EFI MMAP tag */
     {
-        struct multiboot_tag_efi_mmap *tag =
+        struct multiboot_tag_efi_mmap *mmap_tag =
             (struct multiboot_tag_efi_mmap *) cursor;
-        tag->type = MULTIBOOT_TAG_TYPE_EFI_MMAP;
+        mmap_tag->type = MULTIBOOT_TAG_TYPE_EFI_MMAP;
         cursor += sizeof(struct multiboot_tag_efi_mmap);
     }
     return mb;
@@ -555,6 +555,10 @@ int main(int argc, char *argv[])
 
     memset(blob.data, 0, sizeof(blob.data));
 
+    for (size_t i = 0; i < menu->nmodules + 2; i++) {
+        blob.modules_size += modules[i].len;
+    }
+
     pa = phys_alloc(bd_image[0].no_relocations *
                     sizeof(struct Blob_relocation), BASE_PAGE_SIZE);
     printf("Boot relocations PA %016zx,%d\n", pa,
@@ -562,13 +566,16 @@ int main(int argc, char *argv[])
     blob.boot_driver_relocations = pa;
     blob.boot_driver_relocations_count = bd_image[0].no_relocations;
     blob.boot_driver_segment = bd_image[0].segment.base;
+    blob.boot_driver_segment_size = bd_image[0].segment.npages * BASE_PAGE_SIZE;
+
     pa = phys_alloc(bd_image[1].no_relocations *
                     sizeof(struct Blob_relocation), BASE_PAGE_SIZE);
     printf("Kernel relocations PA %016zx,%d\n", pa,
            bd_image[1].no_relocations);
-    blob.kernel_relocations = pa;
-    blob.kernel_relocations_count = bd_image[1].no_relocations;
-    blob.kernel_segment = bd_image[1].segment.base;
+    blob.cpu_driver_relocations = pa;
+    blob.cpu_driver_relocations_count = bd_image[1].no_relocations;
+    blob.cpu_driver_segment = bd_image[1].segment.base;
+    blob.cpu_driver_segment_size = bd_image[1].segment.npages * BASE_PAGE_SIZE;
 
     /*** Create the multiboot info header. ***/
     size_t mb_size, size;
@@ -582,8 +589,9 @@ int main(int argc, char *argv[])
 
     blob.magic = 0x12345678fedcba90;
     blob.multiboot = mb_base;
+    blob.multiboot_size = mb_size;
     blob.boot_driver_entry = (paddr_t) bd_image[0].entry;
-    blob.kernel_entry = (paddr_t) bd_image[1].entry;
+    blob.cpu_driver_entry = (paddr_t) bd_image[1].entry;
 
     size_t r;
     int fd = open(outfile, O_CREAT | O_WRONLY,
