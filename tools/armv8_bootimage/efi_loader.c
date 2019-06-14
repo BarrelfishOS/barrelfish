@@ -16,7 +16,22 @@
 #include <efi/efi.h>
 #include <efi/efilib.h>
 #include <multiboot2.h>
+#include "../../include/barrelfish_kpi/types.h"
+#include "../../include/target/aarch64/barrelfish_kpi/arm_core_data.h"
 #include "blob.h"
+
+typedef enum {
+    EfiBarrelfishFirstMemType=      0x80000000,
+
+    EfiBarrelfishCPUDriver=         0x80000000,
+    EfiBarrelfishCPUDriverStack=    0x80000001,
+    EfiBarrelfishMultibootData=     0x80000002,
+    EfiBarrelfishELFData=           0x80000003,
+    EfiBarrelfishBootPageTable=     0x80000004,
+    EfiBarrelfishCoreData=          0x80000005,
+
+    EfiBarrelfishMaxMemType
+} EFI_BARRELFISH_MEMORY_TYPE;
 
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
 
@@ -122,8 +137,6 @@ void relocateElf(void *base, uint64_t offset, uint64_t virtual_offset,
     }
 }
 
-struct armv8
-
 typedef void boot_driver(uint32_t magic, void *pointer);
 
 void dump_pages(void)
@@ -187,13 +200,30 @@ void dump_pages(void)
     }
 }
 
+static lpaddr_t get_root_table(void) {
+    Print(L"Getting page table address\n");
+    uint64_t el, ttbr0;
+  __asm("mrs %0, currentel\n":"=r"(el));
+    el >>= 2;
+    Print(L"Currently in EL%lx\n", el);
+
+    if (el == 1) {
+      __asm("mrs %0, ttbr0_el1\n":"=r"(ttbr0));
+    } else if (el == 2) {                    // 2
+      __asm("mrs %0, ttbr0_el2\n":"=r"(ttbr0));
+    } else {
+        Print(L"Can't get page table\n");
+        return 0;
+    }
+    Print(L"Page table at 0x%lx\n", ttbr0);
+    return ttbr0;
+}
+
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
                            EFI_SYSTEM_TABLE * SystemTable)
 {
     uint64_t i, j, k, l;
     EFI_STATUS status;
-    EFI_RUNTIME_SERVICES *RuntimeServices = SystemTable->RuntimeServices;
-    EFI_GET_VARIABLE GetVariable = RuntimeServices->GetVariable;
 
     InitializeLib(ImageHandle, SystemTable);
 
@@ -249,7 +279,48 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
     void *multiboot;
     multiboot = (void *) blob + blob->multiboot;
 
-    Print(L"args(%lx, %lx)\n", MULTIBOOT2_BOOTLOADER_MAGIC, multiboot);
+    void *stack;
+    status = BS->AllocatePages(AllocateAnyPages, EfiBarrelfishCPUDriverStack, 4, &stack);
+    if (EFI_ERROR(status)) {
+        Print(L"AllocatePages: ERROR %d, %x\n", status, mmap_key);
+        return status;
+    }
+
+    struct armv8_core_data *core_data;
+    status = BS->AllocatePages(AllocateAnyPages, EfiBarrelfishCoreData, 1, &core_data);
+    if (EFI_ERROR(status)) {
+        Print(L"AllocatePages: ERROR %d, %x\n", status, mmap_key);
+        return status;
+    }
+
+    core_data->boot_magic = ARMV8_BOOTMAGIC_BSP;
+    core_data->cpu_driver_stack = (lpaddr_t)(stack + (4 * 4096) - 16);
+    core_data->cpu_driver_stack_limit = (lpaddr_t)stack;
+    core_data->cpu_driver_entry = (lvaddr_t)((void *) blob + blob->kernel_segment +
+        blob->kernel_entry + HIGH_MEMORY);
+    core_data->page_table_root = get_root_table();
+
+    struct multiboot_tag_string *cmd_tag = ((struct multiboot_info *)multiboot)->tags;
+    while (cmd_tag->type != MULTIBOOT_TAG_TYPE_CMDLINE) {
+        cmd_tag = (void *)cmd_tag + cmd_tag->size;
+    }
+    memcpy(
+        core_data->cpu_driver_cmdline,
+        cmd_tag->string,
+        cmd_tag->size - sizeof(cmd_tag->type)
+    );
+    core_data->cpu_driver_cmdline[cmd_tag->size - sizeof(cmd_tag->type)] = 0;
+    
+    core_data->multiboot_image.base = (lpaddr_t)multiboot;
+    core_data->multiboot_image.length = ((struct multiboot_info *)multiboot)->total_size;
+
+    struct multiboot_tag_string *mmap_tag = ((struct multiboot_info *)multiboot)->tags;
+    while (mmap_tag->type != MULTIBOOT_TAG_TYPE_EFI_MMAP) {
+        mmap_tag = (void *)mmap_tag + mmap_tag->size;
+    }
+    core_data->efi_mmap = (lpaddr_t)mmap_tag;
+
+    Print(L"args(%lx, %lx)\n", MULTIBOOT2_BOOTLOADER_MAGIC, core_data);
 
     status = ST->BootServices->ExitBootServices(ImageHandle, mmap_key);
     if (EFI_ERROR(status)) {
@@ -267,7 +338,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
     }
 
     // Jump to the bootloader, the blob can be reused
-    (*((boot_driver *) (pc))) (MULTIBOOT2_BOOTLOADER_MAGIC, multiboot);
+    (*((boot_driver *) (pc))) (MULTIBOOT2_BOOTLOADER_MAGIC, core_data);
 
     return EFI_SUCCESS;
 }

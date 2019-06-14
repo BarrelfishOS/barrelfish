@@ -16,6 +16,8 @@
 #ifndef _AARCH64_COREDATA_H
 #define _AARCH64_COREDATA_H
 
+#include <barrelfish/static_assert.h>
+
 
 struct armv8_coredata_elf {
     uint32_t    num;
@@ -113,12 +115,8 @@ struct armv8_core_data {
 
 };
 
-#include <barrelfish_kpi/paging_arch.h>
-
-STATIC_ASSERT(sizeof(struct armv8_core_data) < BASE_PAGE_SIZE,
+STATIC_ASSERT(sizeof(struct armv8_core_data) < 4096,
         "Core Data structure must not exceed page size");
-
-
 
 #define ARMV8_CORE_DATA_PAGES 1100
 
