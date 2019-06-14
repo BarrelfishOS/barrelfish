@@ -37,6 +37,9 @@ void boot_bsp_init(uint32_t magic, lpaddr_t pointer)
 void boot_app_init(lpaddr_t pointer)
     __attribute__((noreturn));
 
+#define DEBUG 1
+#define QEMU
+
 /* low level debugging facilities */
 #if DEBUG
 #ifdef THUNDERX
@@ -73,7 +76,22 @@ static void debug_serial_putc(char c)
     // Write character
     apm88xxxx_pc16550_THR_thr_wrf(&uart, c);
 }
+#elif defined(QEMU)
+#include <dev/pl011_uart_dev.h>
 
+#define QEMU_MAP_UART0_OFFSET 0x9000000UL
+
+static pl011_uart_t uart;
+
+static void debug_uart_initialize(void) {
+    pl011_uart_initialize(&uart, (mackerel_addr_t) QEMU_MAP_UART0_OFFSET);
+}
+
+static void debug_serial_putc(char c)
+{
+    while(pl011_uart_FR_txff_rdf(&uart) == 1) ;
+    pl011_uart_DR_rawwr(&uart, c);
+}
 #endif
 
 static void debug_serial_putchar(char c) {
@@ -461,7 +479,6 @@ static void jump_to_cpudriver(struct armv8_core_data *pointer)
     // Re-set the stack pointer
     sysreg_write_sp(pointer->cpu_driver_stack + KERNEL_OFFSET);
     cpu_driver_entry((lpaddr_t)pointer + KERNEL_OFFSET);
-
 }
 
 
@@ -571,6 +588,35 @@ void boot_app_init(lpaddr_t pointer)
     }
 }
 
+char chars[] = {
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    'a',
+    'b',
+    'c',
+    'd',
+    'e',
+    'f',
+};
+
+static inline void printhex(uint64_t num) {
+    char buf[17];
+    for (int i = 0; i < 16; i++) {
+        int d = (num >> 4*i) & 0xf;
+        buf[15-i] = chars[d];
+    }
+    buf[16] = '\0';
+    debug_print_string(buf);
+}
+
 /* On entry:
 
    Execution is starting in LOW addresses
@@ -593,6 +639,11 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer) {
 
     debug_uart_initialize();
     debug_print_string("BSP BOOTING\n");
+    debug_print_string("Magic: ");
+    printhex(magic);
+    debug_print_string(", Pointer: ");
+    printhex(pointer);
+    debug_print_string("\n");
 
     /* Boot magic must be set */
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
@@ -601,6 +652,10 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer) {
     }
 
     struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
+
+    debug_print_string("CPU driver entry: ");
+    printhex(core_data->cpu_driver_entry);
+    debug_print_string("\n");
 
     /* disable interrupts */
     armv8_disable_interrupts();
