@@ -13,12 +13,16 @@
  * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdlib.h>
+#include <string.h>
+
 #include <efi/efi.h>
 #include <efi/efilib.h>
 #include <multiboot2.h>
 #include "../../include/barrelfish_kpi/types.h"
 #include "../../include/target/aarch64/barrelfish_kpi/arm_core_data.h"
 #include "blob.h"
+#include "vm.h"
 
 typedef enum {
     EfiBarrelfishFirstMemType=      0x80000000,
@@ -60,6 +64,14 @@ static const char *bf_mmap_types[] = {
     "BF core data",
 };
 
+#define MAX_L1_TABLES 512
+struct page_tables {
+    size_t nL1;
+
+    union aarch64_descriptor *L0_table;
+    union aarch64_descriptor *L1_tables[MAX_L1_TABLES];
+} page_tables;
+
 struct config {
     struct multiboot_info *multiboot;
     struct multiboot_tag_efi_mmap *mmap_tag;
@@ -69,10 +81,8 @@ struct config {
     EFI_PHYSICAL_ADDRESS cpu_driver_entry;
     EFI_PHYSICAL_ADDRESS cpu_driver_stack;
     size_t cpu_driver_stack_size;
+    struct page_tables *tables;
 };
-
-void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
-void *memset(void *dest, int value, __SIZE_TYPE__ n);
 
 typedef void boot_driver(uint32_t magic, void *pointer);
 
@@ -81,7 +91,12 @@ extern char barrelfish_blob_start[1];
 #define KERNEL_OFFSET       0xffff000000000000
 #define KERNEL_STACK_SIZE   0x4000
 
+#define ATTR_CACHED 0
+#define ATTR_DEVICE 1
+
 #define ROUND_UP(x, y) (((x) + ((y) - 1)) & ~((y) - 1))
+#define COVER(x, y) (((x) + ((y)-1)) / (y))
+#define ROUND_DOWN(x, y) (((x) / (y)) * (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 #define BLOB_ADDRESS(offset) (barrelfish_blob_start + (offset))
@@ -190,84 +205,192 @@ print_memory_map(int update)
     }
 }
 
-static lpaddr_t get_root_table(void) {
-    Print(L"Getting page table address\n");
-    uint64_t el, ttbr0;
-  __asm("mrs %0, currentel\n":"=r"(el));
-    el >>= 2;
-    Print(L"Currently in EL%lx\n", el);
+#define BLOCK_16G (ARMv8_HUGE_PAGE_SIZE * 16ULL)
+#define BLOCK_16G_MASK (ARMv8_HUGE_PAGE_SIZE * 16ULL)
 
-    if (el == 1) {
-      __asm("mrs %0, ttbr0_el1\n":"=r"(ttbr0));
-    } else if (el == 2) {                    // 2
-      __asm("mrs %0, ttbr0_el2\n":"=r"(ttbr0));
-    } else {
-        Print(L"Can't get page table\n");
-        return 0;
+static EFI_STATUS
+page_table_set_attr(struct config *cfg, uint64_t start, uint64_t end, uint64_t attr) {
+    uint64_t base = ROUND_DOWN(start, ARMv8_HUGE_PAGE_SIZE)
+            / ARMv8_HUGE_PAGE_SIZE;
+
+    uint64_t last = COVER(end, ARMv8_HUGE_PAGE_SIZE);
+
+    while (base < last) {
+        size_t table_number = base >> ARMv8_BLOCK_BITS;
+        size_t table_index = base & ARMv8_BLOCK_MASK;
+        union aarch64_descriptor *desc =
+            &cfg->tables->L1_tables[table_number][table_index];
+        desc->block_l1.attrindex = attr;
+
+        base++;
     }
-    Print(L"Page table at 0x%lx\n", ttbr0);
-    return ttbr0;
+
+    return EFI_SUCCESS;
 }
 
-static void dump_pages(void)
-{
-    uint64_t i, j, k, l;
+static EFI_STATUS
+build_page_tables(struct config *cfg) {
+    EFI_STATUS status = EFI_SUCCESS;
 
-    uint64_t el, ttbr0;
-  __asm("mrs %0, currentel\n":"=r"(el));
-    el = el / 4;
+    /* Page table book keeping in static buffer
+     * so we don't need malloc & friends
+     */
+    cfg->tables = &page_tables;
 
-    if (el == 1) {
-      __asm("mrs %0, ttbr0_el1\n":"=r"(ttbr0));
-    } else {                    // 2
-      __asm("mrs %0, ttbr0_el2\n":"=r"(ttbr0));
+    /* Map up to the highest RAM address supplied by EFI.  XXX - this is a
+     * heuristic, and may fail.  Unless there's a more clever way to do
+     * discovery, we might need to bite the bullet and map all 48 bits (2MB of
+     * kernel page tables!).  All we really need is that the kernel gets all
+     * RAM, and the debug serial port - it shouldn't actually touch anything
+     * else. */
+    uint64_t first_address, last_address;
+    first_address = 0;
+    last_address = ((1UL << 48) - 1);
+
+    /* We will map in aligned 16G blocks, as each requires only one TLB
+     * entry. */
+    uint64_t window_start, window_length;
+    window_start = first_address & ~BLOCK_16G;
+    window_length = ROUND_UP(last_address - window_start, BLOCK_16G);
+
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishBootPageTable,
+        1,
+        (EFI_PHYSICAL_ADDRESS *)&cfg->tables->L0_table
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to allocate L0 page table.\n");
+        goto build_page_tables_fail;
     }
-    Print(L"el:%ld  ttbr0:%lx\n", el, ttbr0);
+    memset(cfg->tables->L0_table, 0, BASE_PAGE_SIZE);
 
-    uint64_t *table0, *table1, *table2, *table3;
-    uint64_t offset0, offset1, offset2, offset3;
+    /* Count the number of L1 tables (512GB) blocks required to cover the
+     * physical mapping window. */
+    cfg->tables->nL1 = 0;
+    uint64_t L1base = window_start & ~ARMv8_TOP_TABLE_SIZE;
+    uint64_t L1addr;
+    for (L1addr = window_start & ~ARMv8_TOP_TABLE_SIZE;
+        L1addr < window_start + window_length;
+        L1addr += ARMv8_TOP_TABLE_SIZE) {
+        cfg->tables->nL1++;
+    }
+    ASSERT(cfg->tables->nL1 <= MAX_L1_TABLES)
 
-    table0 = (uint64_t *) ttbr0;
-    for (i = 0; i < 512; i++) {
-        if (table0[i]) {
-            offset0 = i << 39;
-            Print(L"%016lx: %016lx\n", offset0, table0[i]);
-            if (!(table0[i] & 2)) {
-                continue;
+    /* Allocate the L1 tables.
+     * We allocate them all in one big chunk
+     * as otherwise the memory map size explodes
+     */
+    Print(L"Allocating %d L1 tables (%dB)\n", cfg->tables->nL1, cfg->tables->nL1 * BASE_PAGE_SIZE);
+    EFI_PHYSICAL_ADDRESS L1_memory;
+    status = BS->AllocatePages(
+        AllocateAnyPages,
+        EfiBarrelfishBootPageTable,
+        cfg->tables->nL1,
+        &L1_memory
+    );
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to allocate L1 page tables.\n");
+        goto build_page_tables_fail;
+    }
+    memset((void *)L1_memory, 0, cfg->tables->nL1 * BASE_PAGE_SIZE);
+    Print(L"L1 tables start at 0x%lx\n", L1_memory);
+
+    for (size_t i = 0; i < cfg->tables->nL1; i++) {
+        cfg->tables->L1_tables[i] = (union aarch64_descriptor *)(L1_memory + i * BASE_PAGE_SIZE);
+
+        /* Map the L1 into the L0. */
+        size_t L0_index = (L1base >> ARMv8_TOP_TABLE_BITS) + i;
+        cfg->tables->L0_table[L0_index].d.base =
+            (uint64_t)cfg->tables->L1_tables[i] >> ARMv8_BASE_PAGE_BITS;
+        cfg->tables->L0_table[L0_index].d.mb1 = 1; /* Page table */
+        cfg->tables->L0_table[L0_index].d.valid = 1;
+    }
+
+    /* Install the 1GB block mappings. */
+    uint64_t firstblock = window_start / ARMv8_HUGE_PAGE_SIZE;
+    uint64_t nblocks = window_length / ARMv8_HUGE_PAGE_SIZE;
+    for (uint64_t block = firstblock; block < firstblock + nblocks; block++) {
+        size_t table_number= block >> ARMv8_BLOCK_BITS;
+        size_t table_index= block & ARMv8_BLOCK_MASK;
+        union aarch64_descriptor *desc =
+            &cfg->tables->L1_tables[table_number][table_index];
+
+        // We first map all block non-contiguous but later set the bit
+        // if possible
+        desc->block_l1.contiguous = 0;
+        desc->block_l1.base = block;
+        /* Mark the accessed flag, so we don't get a fault. */
+        desc->block_l1.af = 1;
+        /* Outer shareable - coherent. */
+        desc->block_l1.sh = 3;
+        /* EL1+ only. */
+        desc->block_l1.ap = 0;
+        // device memory by default
+        desc->block_l1.attrindex = ATTR_DEVICE;
+        /* A block. */
+        desc->block_l1.mb0 = 0;
+        desc->block_l1.valid = 1;
+    }
+
+    // set all memory regions to cached
+    size_t mmap_n_desc = mmap_size / mmap_d_size;
+    for (size_t i = 0; i < mmap_n_desc; i++) {
+        EFI_MEMORY_DESCRIPTOR *desc = (void *) (mmap + i * mmap_d_size);
+        /* We're only looking for MMIO. */
+        if (desc->Type != EfiMemoryMappedIO
+                && desc->Type != EfiMemoryMappedIOPortSpace) {
+            page_table_set_attr(cfg, desc->PhysicalStart, desc->PhysicalStart + BASE_PAGE_SIZE * desc->NumberOfPages, ATTR_CACHED);
+        }
+    }
+
+    // set the contiguous bit if possible
+    for (uint64_t block = firstblock; block < firstblock + nblocks; block += 16) {
+        BOOLEAN all_same = TRUE;
+        uint64_t attr;
+        for (uint64_t offset = 0; offset < 16; offset++) {
+            size_t table_number = (block + offset) >> ARMv8_BLOCK_BITS;
+            size_t table_index = (block + offset) & ARMv8_BLOCK_MASK;
+            union aarch64_descriptor *desc =
+                &cfg->tables->L1_tables[table_number][table_index];
+            if (offset == 0) {
+                attr = desc->block_l1.attrindex;
             }
-            table1 = (uint64_t *) (table0[i] & 0x0000fffffffff000);
-            for (j = 0; j < 512; j++) {
-                if (table1[j]) {
-                    offset1 = offset0 | (j << 30);
-                    Print(L"  %016lx: %016lx\n", offset1, table1[j]);
-                    if (!(table1[j] & 2)) {
-                        continue;
-                    }
-                    table2 = (uint64_t *) (table1[j] & 0x0000fffffffff000);
-                    for (k = 0; k < 512; k++) {
-                        if (table2[k]) {
-                            offset2 = offset1 | (k << 21);
-                            Print(L"    %016lx: %016lx\n", offset2,
-                                  table2[k]);
-                            if (!(table2[k] & 2)) {
-                                continue;
-                            }
-                            table3 =
-                                (uint64_t *) (table2[k] &
-                                              0x0000fffffffff000);
-                            for (l = 0; l < 512; l++) {
-                                if (table3[l]) {
-                                    offset3 = offset2 | (l << 12);
-                                    Print(L"      %016lx: %016lx\n",
-                                          offset3, table3[l]);
-                                }
-                            }
-                        }
-                    }
-                }
+            else if (attr != desc->block_l1.attrindex) {
+                all_same = FALSE;
+                break;
+            }
+        }
+        if (all_same) {
+            // all entries in current block have the same attrindex value
+            // so we can set the contiguous bit
+            for (uint64_t offset = 0; offset < 16; offset++) {
+                size_t table_number = (block + offset) >> ARMv8_BLOCK_BITS;
+                size_t table_index = (block + offset) & ARMv8_BLOCK_MASK;
+                union aarch64_descriptor *desc =
+                    &cfg->tables->L1_tables[table_number][table_index];
+                desc->block_l1.contiguous = 1;
             }
         }
     }
+
+    return EFI_SUCCESS;
+
+build_page_tables_fail:
+    if (cfg->tables) {
+        if (cfg->tables->L1_tables) {
+            size_t i;
+            for (i= 0; i < cfg->tables->nL1; i++) {
+                if (cfg->tables->L1_tables[i])
+                    BS->FreePages((EFI_PHYSICAL_ADDRESS)cfg->tables->L1_tables[i], 1);
+            }
+        }
+        if (cfg->tables->L0_table) {
+            BS->FreePages((EFI_PHYSICAL_ADDRESS)cfg->tables->L0_table, 1);
+        }
+    }
+
+    return status;
 }
 
 static void
@@ -472,7 +595,7 @@ create_core_data(struct config *cfg)
         (lpaddr_t)cfg->cpu_driver_stack + cfg->cpu_driver_stack_size - 16;
     core_data->cpu_driver_stack_limit = (lpaddr_t)cfg->cpu_driver_stack;
     core_data->cpu_driver_entry = (lvaddr_t)cfg->cpu_driver_entry;
-    core_data->page_table_root = get_root_table();
+    core_data->page_table_root = (genpaddr_t)cfg->tables->L0_table;
     ntstring(
         core_data->cpu_driver_cmdline,
         cfg->cmd_tag->string,
@@ -523,6 +646,12 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
     status = relocate_multiboot(blob_info, &cfg);
     if (EFI_ERROR(status)) {
         Print(L"Failed to relocate multiboot info\n");
+        return status;
+    }
+
+    status = build_page_tables(&cfg);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to build page tables\n");
         return status;
     }
 
