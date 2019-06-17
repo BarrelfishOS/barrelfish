@@ -232,6 +232,12 @@ static EFI_STATUS
 build_page_tables(struct config *cfg) {
     EFI_STATUS status = EFI_SUCCESS;
 
+    /* We need the current memory map to set memory attributes */
+    status = update_memory_map();
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to update memory map\n");
+    }
+
     /* Page table book keeping in static buffer
      * so we don't need malloc & friends
      */
@@ -662,7 +668,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
 
     print_memory_map(1);
 
-    update_memory_map();
+    status = update_memory_map();
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to update memory map\n");
+    }
 
     status = ST->BootServices->ExitBootServices(ImageHandle, mmap_key);
     if (EFI_ERROR(status)) {
