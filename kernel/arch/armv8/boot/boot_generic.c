@@ -29,9 +29,6 @@
 #include <multiboot2.h>
 #include <barrelfish_kpi/arm_core_data.h>
 
-#define DEBUG 1
-#define IMX8X
-
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
 void boot_bsp_init(uint32_t magic, lpaddr_t pointer)
@@ -571,10 +568,7 @@ static void boot_generic_init(struct armv8_core_data *core_data) {
     configure_el1_traps();
 
     debug_print_string("Jumping to CPU driver\n");
-    __asm volatile(
-        "_break:\n"
-        "b _break"
-    );
+    
     switch(el) {
     case 3:
         configure_el3_traps();
