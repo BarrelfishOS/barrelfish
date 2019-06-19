@@ -23,16 +23,16 @@ struct Blob {                   // offsets
             uint64_t multiboot_size;
             uint64_t modules;
             uint64_t modules_size;
-            uint64_t boot_driver_entry;
             uint64_t boot_driver_segment;       // offset of the boot driver image
             uint64_t boot_driver_segment_size;
             uint64_t boot_driver_relocations;
             uint64_t boot_driver_relocations_count;
-            uint64_t cpu_driver_entry;
+            uint64_t boot_driver_entry;
             uint64_t cpu_driver_segment;    // offset of the cpu kernel image
             uint64_t cpu_driver_segment_size;
             uint64_t cpu_driver_relocations;
             uint64_t cpu_driver_relocations_count;
+            uint64_t cpu_driver_entry;
         };
         unsigned char data[BASE_PAGE_SIZE];
     };

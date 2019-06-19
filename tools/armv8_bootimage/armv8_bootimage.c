@@ -554,10 +554,7 @@ int main(int argc, char *argv[])
     struct Blob blob;
 
     memset(blob.data, 0, sizeof(blob.data));
-
-    for (size_t i = 0; i < menu->nmodules + 2; i++) {
-        blob.modules_size += modules[i].len;
-    }
+    blob.magic = 0x12345678fedcba90;
 
     pa = phys_alloc(bd_image[0].no_relocations *
                     sizeof(struct Blob_relocation), BASE_PAGE_SIZE);
@@ -567,6 +564,7 @@ int main(int argc, char *argv[])
     blob.boot_driver_relocations_count = bd_image[0].no_relocations;
     blob.boot_driver_segment = bd_image[0].segment.base;
     blob.boot_driver_segment_size = bd_image[0].segment.npages * BASE_PAGE_SIZE;
+    blob.boot_driver_entry = (uint64_t)bd_image[0].entry;
 
     pa = phys_alloc(bd_image[1].no_relocations *
                     sizeof(struct Blob_relocation), BASE_PAGE_SIZE);
@@ -576,6 +574,7 @@ int main(int argc, char *argv[])
     blob.cpu_driver_relocations_count = bd_image[1].no_relocations;
     blob.cpu_driver_segment = bd_image[1].segment.base;
     blob.cpu_driver_segment_size = bd_image[1].segment.npages * BASE_PAGE_SIZE;
+    blob.cpu_driver_entry = (uint64_t)bd_image[1].entry;
 
     /*** Create the multiboot info header. ***/
     size_t mb_size, size;
@@ -587,11 +586,13 @@ int main(int argc, char *argv[])
     endpa = phys_alloc(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     printf("Final PA %016zx\n", endpa);
 
-    blob.magic = 0x12345678fedcba90;
     blob.multiboot = mb_base;
     blob.multiboot_size = mb_size;
-    blob.boot_driver_entry = (paddr_t) bd_image[0].entry;
-    blob.cpu_driver_entry = (paddr_t) bd_image[1].entry;
+    
+    blob.modules = modules[0].paddr;
+    for (size_t i = 0; i < menu->nmodules + 2; i++) {
+        blob.modules_size += modules[i].len;
+    }
 
     size_t r;
     FILE *fp = fopen(outfile, "wb");
