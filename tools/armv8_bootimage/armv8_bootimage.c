@@ -594,41 +594,40 @@ int main(int argc, char *argv[])
     blob.cpu_driver_entry = (paddr_t) bd_image[1].entry;
 
     size_t r;
-    int fd = open(outfile, O_CREAT | O_WRONLY,
-                  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    assert(fd >= 0);
+    FILE *fp = fopen(outfile, "wb");
+    assert(fp >= 0);
     // write the blob info
-    r = write(fd, &blob, BASE_PAGE_SIZE);
+    r = fwrite(&blob, 1, BASE_PAGE_SIZE, fp);
     assert(r == BASE_PAGE_SIZE);
     // write the modules
     for (size_t i = 0; i < menu->nmodules + 2; i++) {
-        r = write(fd, modules[i].data, modules[i].len);
+        r = fwrite(modules[i].data, 1, modules[i].len, fp);
         assert(r == modules[i].len);
     }
     // write the boot driver's ELF section
-    r = write(fd, bd_image[0].segment.buffer,
-              bd_image[0].segment.npages * BASE_PAGE_SIZE);
+    r = fwrite(bd_image[0].segment.buffer, 1,
+              bd_image[0].segment.npages * BASE_PAGE_SIZE, fp);
     assert(r == bd_image[0].segment.npages * BASE_PAGE_SIZE);
     // write the kernel's ELF section
-    r = write(fd, bd_image[1].segment.buffer,
-              bd_image[1].segment.npages * BASE_PAGE_SIZE);
+    r = fwrite(bd_image[1].segment.buffer, 1,
+              bd_image[1].segment.npages * BASE_PAGE_SIZE, fp);
     assert(r == bd_image[1].segment.npages * BASE_PAGE_SIZE);
     // write the boot driver's relocations
     size =
         round_up(bd_image[0].no_relocations *
                  sizeof(struct Blob_relocation), BASE_PAGE_SIZE);
-    r = write(fd, bd_image[0].relocations, size);
+    r = fwrite(bd_image[0].relocations, 1, size, fp);
     assert(r == size);
     // write the kernel's relocations
     size =
         round_up(bd_image[1].no_relocations *
                  sizeof(struct Blob_relocation), BASE_PAGE_SIZE);
-    r = write(fd, bd_image[1].relocations, size);
+    r = fwrite(bd_image[1].relocations, 1, size, fp);
     assert(r == size);
     // write the multiboot info
-    r = write(fd, mb_image, mb_size);
+    r = fwrite(mb_image, 1, mb_size, fp);
     assert(r == mb_size);
-    close(fd);
+    fclose(fp);
 
     return 0;
 }
