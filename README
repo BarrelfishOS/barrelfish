@@ -84,7 +84,7 @@ of writing), this means the following:
      gcc-aarch64-linux-gnu and g++-aarch64-linux-gnu on Ubuntu LTS
  * GNU binutils (2.24 and 2.26 are known to work)
  * GNU make
- * GHC v7.10.3 and Parsec 3.1
+ * [GHC 8.6.5](https://www.haskell.org/ghc/download_ghc_8_6_5.html) and Parsec 3.1
    - older versions of the tree supported v6.10 or v6.12.2 with Parsec
      2.1 or v7.4 with Parsec 3.1, or v7.6.3 with Parsec 3.1; GHC v6.12.1 has a
      known bug and is unable to build our tools, but now earlier versions of
@@ -113,7 +113,15 @@ architecture(s) ::
     $ ../hake/hake.sh -s ../ -a x86_64
 
 This will configure the build directory and use GHC to compile and then run
-hake, a tool used to generate the ``Makefile``.
+hake, a tool used to generate the ``Makefile``. You may need to install some
+extra Haskell packages e.g.
+```
+$ cabal install ghc-mtl
+$ cabal install ghc-paths
+$ cabal install bytestring-trie
+$ cabal install async
+$ cabal install haskell-src-exts
+```
 
 3. Optionally, edit the configuration parameters in ``hake/Config.hs`` and
 run ``make rehake`` to apply them.
