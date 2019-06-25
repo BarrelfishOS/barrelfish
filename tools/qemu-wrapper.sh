@@ -175,7 +175,7 @@ case "$ARCH" in
         -device $NIC_MODEL,netdev=network0 \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
-        -drive id=disk,file="$HDFILE",if=none"
+        -drive id=disk,file="$HDFILE",if=none,format=raw"
     QEMU_NONDEBUG=-nographic
     GDB=gdb-multiarch
     echo "Creating hard disk image $HDFILE"

@@ -83,10 +83,10 @@ instance Instantiatable CheckAST.SockeyeSpec InstAST.SockeyeSpec where
             mods  = CheckAST.modules ast
             specContext = context
                 { modules = mods }
-        [instRoot] <- instantiate specContext root
+        instRoots <- instantiate specContext root
         modules <- get
         return InstAST.SockeyeSpec
-            { InstAST.root = instRoot
+            { InstAST.root = head instRoots -- There should only be one.
             , InstAST.modules = modules
             }
 
@@ -353,7 +353,7 @@ instance Instantiatable a b => Instantiatable (CheckAST.For a) [b] where
         let body = CheckAST.body ast
             varRanges = CheckAST.varRanges ast
         concreteRanges <- instantiate context varRanges
-        let valueList = Map.foldWithKey iterations [] concreteRanges
+        let valueList = Map.foldrWithKey iterations [] concreteRanges
             iterContexts = map iterationContext valueList
         mapM (\c -> instantiate c body) iterContexts
         where
