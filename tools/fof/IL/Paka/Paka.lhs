@@ -14,6 +14,7 @@
 > module IL.Paka.Paka where
 
 > import Debug.Trace
+> import Prelude hiding ((<>))
 
 > import Text.PrettyPrint.HughesPJ as Pprinter 
 
