@@ -74,23 +74,20 @@ Our toolchain tracks Ubuntu LTS releases, and this is what we use to
 run our nightly tests.  If you are running Ubuntu LTS (18.04.1 at time
 of writing), this means the following:
 
- * GCC 7.3.0 for x86_64, ARMv7 and ARMv8
+ * GCC 7.4.0 for x86_64, ARMv7 and ARMv8
    - On Ubuntu LTS install packages:
      build-essential g++
      gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
      gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
  * GNU binutils (2.30 is supported)
  * GNU make
- * GHC v7.10.3 and Parsec 3.1
-   - older versions of the tree supported v6.10 or v6.12.2 with Parsec
-     2.1 or v7.4 with Parsec 3.1, or v7.6.3 with Parsec 3.1; GHC v6.12.1 has a
-     known bug and is unable to build our tools, but now earlier versions of
-     GHC are unsupported.
+ * GHC v8.0.2 and Parsec 3.1
    - On Ubuntu LTS, install the following packages: 
-     libghc-mtl-dev libghc-ghc-mtl-dev cabal-install libghc-src-exts-dev
-     libghc-async-dev libghc-ghc-paths-dev libghc-parsec3-dev
-     libghc-random-dev
-   - Then, run cabal update && cabal install bytestring-trie
+     cabal-install libghc-src-exts-dev libghc-ghc-paths-dev
+     libghc-parsec3-dev libghc-random-dev libghc-ghc-mtl-dev
+     libghc-async-dev libghc-aeson-pretty-dev libghc-aeson-dev
+     libghc-missingh-dev
+   - Then, run cabal update && cabal install bytestring-trie pretty-simple
  * FreeBSD's libelf:
    - On Ubuntu install the following packages:
      libelf-freebsd-dev freebsd-glue
@@ -106,7 +103,7 @@ of writing), this means the following:
     - prefix all deb entries in /etc/apt/sources.list with [arch=amd64]
     - add "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports bionic main universe"
       to sources.list
-    - dpkg --add-architecture arm64 && apt update && apt install gnu-efi:arm64
+    - dpkg --add-architecture arm64 && apt update && apt install gnu-efi:arm64 libefiboot-dev
 
 Building
 --------------------------------
