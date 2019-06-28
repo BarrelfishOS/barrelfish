@@ -90,6 +90,7 @@ let
     simjobs "x86_64" = ["x86_64-qemu"]
     simjobs "armv8" = ["armv8-qemu", "armv8-fvp"]
     simjobs "armv7" = ["armv7-qemu", "armv7-qemu-zynq7"]
+    simjobs _       = []
     simjob = testJob "sim_tests" "Memtest for current architectures on simulators" $
         map PhonyDep $ concat $ map simjobs Config.architectures
 
