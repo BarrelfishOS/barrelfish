@@ -274,6 +274,8 @@ class Machine(object):
         # coreboot should work on armv7 now
         if a == "armv7":
             m.add_module("kaluga", machine.get_kaluga_args())
+            m.add_module("driverdomain_pl390", ["auto"])
+
         return m
 
 class MachineOperations(object):
