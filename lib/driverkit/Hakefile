@@ -18,7 +18,8 @@
         flounderDefs = [
             "ddomain",
             "dcontrol",
-            "iommu"
+            "iommu", 
+            "mem"
         ],
         flounderBindings = [
             "ddomain",
@@ -43,7 +44,8 @@
     build library {
         target = "driverkit_iommu",
         flounderDefs = [
-            "iommu"
+            "iommu",
+            "mem"
         ],
         flounderBindings = [
             "iommu"

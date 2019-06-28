@@ -62,6 +62,7 @@
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
                       architectures = [ "x86_32", "x86_64"],
+                      mackerelDevices = ["pc16550d"],
                       addLibraries = [ "serial_common", "int_route_client", "thc", "term_server"]
                     },
 
