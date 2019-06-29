@@ -269,6 +269,9 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl,
     errval_t err;
 
     assert(cl->vnode_l3);
+    assert(ret_vnode);
+    *ret_vnode = NULL;
+    
 
     enum objtype l3_vnode_type;
     struct capref mapping;
@@ -389,12 +392,14 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
 {
     errval_t err;
 
-    struct iommu_vnode_l3 *vnode_l3;
+    struct iommu_vnode_l3 *vnode_l3 = NULL;
     uint64_t slot;
     err = driverkit_iommu_vnode_create_l3(cl, addr, &slot, &vnode_l3);
     if (err_is_fail(err)) {
         return err;
     }
+
+    assert(vnode_l3);
 
     enum objtype l2_vnode_type;
 
