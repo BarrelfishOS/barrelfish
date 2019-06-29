@@ -252,7 +252,7 @@ int main(int argc, char **argv)
     }  
 
     printf("Testing wait on different core process\n");
-    char *spawn_argv2[] = { "proc_mgmt_test", "0", "sleeper"};
+    char *spawn_argv2[] = { "proc_mgmt_test", "0", "sleeper", NULL};
     err = test_spawn(disp_get_core_id()+1, spawn_argv2, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
