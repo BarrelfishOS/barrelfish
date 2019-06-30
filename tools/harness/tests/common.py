@@ -14,8 +14,8 @@ from tests import Test
 from harness import Harness
 
 RAW_TEST_OUTPUT_FILENAME = Harness.RAW_FILE_NAME
-DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
-DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
+DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=600)
+DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=300)
 AFTER_FINISH_TIMEOUT = datetime.timedelta(seconds=30)
 TEST_NO_OUTPUT_LINE = '[Error: could not read output from test]\n'
 TEST_TIMEOUT_LINE = '[Error: test timed out]\n'
