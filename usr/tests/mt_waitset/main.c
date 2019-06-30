@@ -16,15 +16,15 @@
 
 const static char *service_name = "mt_waitset_service";
 coreid_t my_core_id, num_cores;
-struct thread *threads[256];
+struct thread *threads[1024];
 
 static int server_threads = 10;
 static int client_threads = 1;
 static int iteration_count = 1000;
 
 static int client_counter = 0;
-static int64_t server_calls[256];
-static int64_t client_calls[256][256];
+static int64_t server_calls[1024];
+static int64_t client_calls[1024][1024];
 
 static void show_stats(void)
 {
