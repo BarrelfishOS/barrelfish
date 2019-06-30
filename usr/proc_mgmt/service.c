@@ -72,6 +72,11 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
     struct pending_client *cl =
             (struct pending_client*) spawnd_state_dequeue_recv(b->st);
 
+    /* there's no pending client, return */
+    if (cl == NULL) {
+        return;    
+    }
+
     struct pending_spawn *spawn = NULL;
     struct pending_span *span = NULL;
     struct pending_kill_cleanup *kc = NULL;
