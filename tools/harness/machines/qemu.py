@@ -136,7 +136,7 @@ for n in [1, 2, 4]:
         def get_test_timeout(self):
             return self.get_ncores() * 120
 
-    MachineFactory.addMachine('qemu%d' % n, TmpMachine,
+    MachineFactory.addMachine('qemu_x86_64_c%d' % n, TmpMachine,
                               ncores=n,
                               bootarch='x86_64',
                               _class=TmpMachine)
@@ -183,20 +183,14 @@ class QEMUMAchineARMv7Operations(QEMUMachineBaseOperations):
         return ([qemu_wrapper, '--arch', 'a15ve', '--image', self._machine.kernel_img,
             "--smp", "%s" % self._machine.get_ncores()])
 
-MachineFactory.addMachine(QEMUMachineARMv7.name, QEMUMachineARMv7,
-                          bootarch = "armv7",
-                          platform = "a15ve",
-                          ncores = 1)
 
-MachineFactory.addMachine(QEMUMachineARMv7.name + "_1", QEMUMachineARMv7,
-                          bootarch = "armv7",
-                          platform = "a15ve",
-                          ncores = 1)
+for n in [1, 2, 4]:
+    MachineFactory.addMachine(QEMUMachineARMv7.name + ("_c%d" % n),
+                              QEMUMachineARMv7,
+                              bootarch = "armv7",
+                              platform = "a15ve",
+                              ncores = n)
 
-MachineFactory.addMachine(QEMUMachineARMv7.name + "_4", QEMUMachineARMv7,
-                          bootarch = "armv7",
-                          platform = "a15ve",
-                          ncores = 4)
 
 class QEMUMachineZynq7(ARMMachineBase):
     '''Zynq7000 as modelled by QEMU'''
@@ -241,7 +235,7 @@ class QEMUMachineZync7Operations(QEMUMachineBaseOperations):
 
         return ([qemu_wrapper, '--arch', 'zynq7', '--image', self._machine.kernel_img])
 
-MachineFactory.addMachine(QEMUMachineZynq7.name, QEMUMachineZynq7,
+MachineFactory.addMachine(QEMUMachineZynq7.name + "_c1", QEMUMachineZynq7,
                           bootarch="armv7",
                           platform='zynq7')
 
@@ -305,26 +299,14 @@ class QEMUMAchineARMv8Operations(QEMUMachineBaseOperations):
         return [qemu_wrapper, '--arch', 'armv8', '--image', self._machine.kernel_img,
                 "--smp", "%s" % self._machine.get_ncores()]
 
-MachineFactory.addMachine(QEMUMachineARMv8.name + '_1', QEMUMachineARMv8,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          ncores = 1,
-                          platform = "a57_qemu")
-MachineFactory.addMachine(QEMUMachineARMv8.name + '_2', QEMUMachineARMv8,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          ncores = 2,
-                          platform = "a57_qemu")
-MachineFactory.addMachine(QEMUMachineARMv8.name + '_4', QEMUMachineARMv8,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          ncores = 4,
-                          platform = "a57_qemu")
-MachineFactory.addMachine(QEMUMachineARMv8.name + '_8', QEMUMachineARMv8,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          ncores = 8,
-                          platform = "a57_qemu")
+for n in [1, 2, 4]:
+    MachineFactory.addMachine(QEMUMachineARMv8.name + ('_c%d' % n),
+                              QEMUMachineARMv8,
+                              boot_driver = 'boot_armv8_generic',
+                              bootarch = "armv8",
+                              ncores = n,
+                              platform = "a57_qemu")
+
 
 class QEMUMachineARMv8UBoot(ARMMachineBase):
     '''ARMv8 QEMU with U-Boot'''
@@ -369,23 +351,11 @@ class QEMUMAchineARMv8UBootOperations(QEMUMachineBaseOperations):
         return ([qemu_wrapper, '--arch', 'armv8', '--uboot', '--image', self._machine.kernel_img,
             "--smp", "%s" % self._machine.get_ncores()])
 
-MachineFactory.addMachine(QEMUMachineARMv8UBoot.name, QEMUMachineARMv8UBoot,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          platform = "a57_qemu",
-                          qemu = True,
-                          ncores = 1)
-
-MachineFactory.addMachine(QEMUMachineARMv8UBoot.name + "_1", QEMUMachineARMv8UBoot,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          platform = "a57_qemu",
-                          qemu = True,
-                          ncores = 1)
-
-MachineFactory.addMachine(QEMUMachineARMv8UBoot.name + "_4", QEMUMachineARMv8UBoot,
-                          boot_driver = 'boot_armv8_generic',
-                          bootarch = "armv8",
-                          platform = "a57_qemu",
-                          qemu = True,
-                          ncores = 4)
+for n in [1, 2, 4]:
+    MachineFactory.addMachine(QEMUMachineARMv8UBoot.name + ('_c%d' % n),
+                              QEMUMachineARMv8UBoot,
+                              boot_driver = 'boot_armv8_generic',
+                              bootarch = "armv8",
+                              ncores = n,
+                              qemu = True,
+                              platform = "a57_qemu")
