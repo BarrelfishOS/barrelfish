@@ -267,7 +267,7 @@ class Scalebench:
 
     def write_xml_report(self, testcases, path):
         assert(have_junit_xml)
-        debug.log("producing junit-xml report")
+        debug.log("producing junit-xml report, file: %s" % path)
         ts = TestSuite('harness suite', testcases)
         with open(os.path.join(path, 'report.xml'), 'w') as f:
             TestSuite.to_file(f, [ts], prettyprint=False)
