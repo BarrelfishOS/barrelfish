@@ -24,6 +24,29 @@
     } \
 } while (0)
 
+
+static errval_t frame_ram_identify(struct capref cap, struct frame_identity *id)
+{
+    errval_t err;
+
+
+
+    struct capability thecap;
+    err = cap_direct_identify(bunch_o_ram, &thecap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    assert(type_is_mappable(thecap.type) || thecap.type == ObjType_RAM);
+
+    id->base  = get_address(&thecap);
+    id->bytes = get_size(&thecap);
+    id->pasid = get_pasid(&thecap);
+
+    return SYS_ERR_OK;
+}
+
+
 //{{{1 setup & helpers
 static struct capref bunch_o_ram;
 static struct frame_identity bor_id;
@@ -33,7 +56,7 @@ static void setup(size_t bytes)
     errval_t err;
     err = ram_alloc(&bunch_o_ram, log2ceil(bytes));
     assert(err_is_ok(err));
-    err = frame_identify(bunch_o_ram, &bor_id);
+    err = frame_ram_identify(bunch_o_ram, &bor_id);
     assert(err_is_ok(err));
 }
 
