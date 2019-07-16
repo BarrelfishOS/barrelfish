@@ -42,8 +42,15 @@ static void setup(size_t bytes)
     errval_t err;
     err = ram_alloc(&bunch_o_ram, log2ceil(bytes));
     assert(err_is_ok(err));
-    err = frame_identify(bunch_o_ram, &bor_id);
+
+    struct capability thecap;
+    err = cap_direct_identify(bunch_o_ram, &thecap);
     assert(err_is_ok(err));
+    assert(thecap.type == ObjType_RAM);
+
+    bor_id.base  = get_address(&thecap);
+    bor_id.bytes = get_size(&thecap);
+    bor_id.pasid = get_pasid(&thecap);
 }
 
 static void cleanup(void)
