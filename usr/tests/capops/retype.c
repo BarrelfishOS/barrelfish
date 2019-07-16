@@ -37,20 +37,36 @@ do { \
 static struct capref bunch_o_ram;
 static struct frame_identity bor_id;
 
+
+static errval_t frame_ram_identify(struct capref cap, struct frame_identity *id)
+{
+    errval_t err;
+
+
+
+    struct capability thecap;
+    err = cap_direct_identify(bunch_o_ram, &thecap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    assert(type_is_mappable(thecap.type) || thecap.type == ObjType_RAM);
+
+    id->base  = get_address(&thecap);
+    id->bytes = get_size(&thecap);
+    id->pasid = get_pasid(&thecap);
+
+    return SYS_ERR_OK;
+}
+
 static void setup(size_t bytes)
 {
     errval_t err;
     err = ram_alloc(&bunch_o_ram, log2ceil(bytes));
     assert(err_is_ok(err));
 
-    struct capability thecap;
-    err = cap_direct_identify(bunch_o_ram, &thecap);
-    assert(err_is_ok(err));
-    assert(thecap.type == ObjType_RAM);
-
-    bor_id.base  = get_address(&thecap);
-    bor_id.bytes = get_size(&thecap);
-    bor_id.pasid = get_pasid(&thecap);
+    err = frame_ram_identify(bunch_o_ram, &bor_id);
+    assert(err_is_ok(err));    
 }
 
 static void cleanup(void)
@@ -95,7 +111,7 @@ static int test_retype_single(void)
     OUT("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = frame_identify(cap, &fi);
+    err = frame_ram_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -109,7 +125,7 @@ static int test_retype_single(void)
     OUT("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     GOTO_IF_ERR(err, out);
-    err = frame_identify(cap2, &fi);
+    err = frame_ram_identify(cap2, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
@@ -132,7 +148,7 @@ static int test_retype_single(void)
     GOTO_IF_ERR(err, out);
     // offset of slot 0 is 8kB --> addrs should be (2+slot) * BASE_PAGE_SIZE
     for (tmp.slot = 0; tmp.slot <= 2; tmp.slot++) {
-        err = frame_identify(tmp, &fi);
+        err = frame_ram_identify(tmp, &fi);
         assert(err_is_ok(err));
         if (bor_id.base + (2+tmp.slot)*BASE_PAGE_SIZE != fi.base ||
             fi.bytes != BASE_PAGE_SIZE)
@@ -181,7 +197,7 @@ static int test_retype_multi(void)
     OUT("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = frame_identify(cap, &fi);
+    err = frame_ram_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -195,7 +211,7 @@ static int test_retype_multi(void)
     OUT("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     GOTO_IF_ERR(err, out);
-    err = frame_identify(cap2, &fi);
+    err = frame_ram_identify(cap2, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
@@ -213,7 +229,7 @@ static int test_retype_multi(void)
     OUT("  allocating first 4kB again: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = frame_identify(cap, &fi);
+    err = frame_ram_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
