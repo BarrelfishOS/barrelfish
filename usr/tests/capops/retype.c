@@ -45,7 +45,7 @@ static errval_t frame_ram_identify(struct capref cap, struct frame_identity *id)
 
 
     struct capability thecap;
-    err = cap_direct_identify(bunch_o_ram, &thecap);
+    err = cap_direct_identify(cap, &thecap);
     if (err_is_fail(err)) {
         return err;
     }
