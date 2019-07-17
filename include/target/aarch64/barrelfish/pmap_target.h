@@ -42,4 +42,15 @@ struct pmap_aarch64 {
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
 };
 
+struct pmap_dump_info {
+    size_t l0_index, l1_index, l2_index, l3_index;
+    vregion_flags_t flags;
+    struct capref cap;
+    genvaddr_t offset;
+};
+
+#define PRIfmtPTIDX "%zd.%zd.%zd.%zd"
+#define GET_PTIDX(dump_info) (dump_info)->l0_index, (dump_info)->l1_index, \
+                             (dump_info)->l2_index, (dump_info)->l3_index
+                             
 #endif // TARGET_AARCH64_BARRELFISH_PMAP_H
