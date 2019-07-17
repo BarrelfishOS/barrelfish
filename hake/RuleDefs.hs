@@ -1501,7 +1501,7 @@ vfsdeps :: [VFSModules] -> String -> [LibDepTree]
 vfsdeps [] t                  = [LibDep t]
 vfsdeps (VFS_RamFS:xs) t      = [] ++ vfsdeps xs t
 vfsdeps (VFS_NFS:xs) t        = [libnfs_deps] ++ vfsdeps xs t
-vfsdeps (VFS_BlockdevFS:xs) t = [LibDep "ahci", LibDep "megaraid"] ++ vfsdeps xs t
+vfsdeps (VFS_BlockdevFS:xs) t = [LibDep "ahci"] ++ vfsdeps xs t
 vfsdeps (VFS_FAT:xs) t        = [] ++ vfsdeps xs t
 
 libvfs_deps_all t        = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,

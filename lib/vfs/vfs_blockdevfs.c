@@ -86,6 +86,7 @@ struct backend_ops backends[3] = {
         .write = blockdevfs_ata_write,
         .flush = blockdevfs_ata_flush
     },
+#ifndef DISABLE_MEGARAID
     {
         .open = blockdevfs_megaraid_open,
         .close = blockdevfs_megaraid_close,
@@ -93,6 +94,7 @@ struct backend_ops backends[3] = {
         .write = blockdevfs_megaraid_write,
         .flush = blockdevfs_megaraid_flush,
     },
+#endif    
 };
 
 
@@ -353,10 +355,12 @@ errval_t vfs_blockdevfs_mount(const char *uri, void **retst, struct vfs_ops **re
         err = blockdevfs_ahci_init();       // AHCI
         assert(err_is_ok(err));
         err = blockdevfs_ata_init();
-        assert(err_is_ok(err));             // Flounder
+        assert(err_is_ok(err)); 
+#ifndef DISABLE_MEGARAID // Flounder
     } else if(!strcmp(service, "megaraid")) {
         err = blockdevfs_megaraid_init();
         assert(err_is_ok(err));
+#endif        
     } else {
         return VFS_ERR_BAD_URI;
     }

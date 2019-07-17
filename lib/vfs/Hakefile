@@ -15,6 +15,28 @@
                              "vfs_nfs.c", "vfs_ramfs.c", "cache.c",
                              "vfs_blockdevfs.c", "vfs_blockdevfs_ahci.c",
                              "vfs_blockdevfs_ata.c", "vfs_cache.c", "vfs_fat.c",
+                             "vfs_fat_conv.c", "fdtab.c", "vfs_fd.c"
+                           ],
+                  addCFlags = [ "-DDISABLE_MEGARAID" ],
+                  addLibraries = [ "nfs", "net_sockets" , "ahci"],
+                  mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
+                                      "fat32_ebpb", "fat_direntry", "ahci_port",
+                                      "ahci_hba"
+                                    ],
+                  flounderBindings = [ "trivfs", "bcache", "ahci_mgmt", "ata_rw28" ],
+                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
+                                            ("bcache", ["rpcclient"]),
+                                            ("ahci_mgmt", ["rpcclient"]),
+                                            ("ata_rw28", ["ahci", "rpcclient"])
+                                          ],
+                  flounderDefs = [ "monitor" ]
+                },
+
+  build library { target = "vfs_megaraid",
+                  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c",
+                             "vfs_nfs.c", "vfs_ramfs.c", "cache.c",
+                             "vfs_blockdevfs.c", "vfs_blockdevfs_ahci.c",
+                             "vfs_blockdevfs_ata.c", "vfs_cache.c", "vfs_fat.c",
                              "vfs_fat_conv.c", "fdtab.c", "vfs_fd.c",
                              "vfs_blockdevfs_megaraid.c"
                            ],
@@ -31,14 +53,15 @@
                                           ],
                   flounderDefs = [ "monitor" ]
                 },
+
   build library { target = "vfs_nonfs",
                   cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c",
                              "cache.c", "vfs_blockdevfs.c",
                              "vfs_blockdevfs_ahci.c", "vfs_blockdevfs_ata.c",
                              "vfs_cache.c", "vfs_fat.c", "vfs_fat_conv.c",
-                             "fdtab.c", "vfs_fd.c", "vfs_blockdevfs_megaraid.c"
+                             "fdtab.c", "vfs_fd.c"
                            ],
-                  addCFlags = [ "-DDISABLE_NFS" ],
+                  addCFlags = [ "-DDISABLE_NFS", "-DDISABLE_MEGARAID" ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
@@ -50,7 +73,7 @@
                                             ("ata_rw28", ["ahci", "rpcclient"])
                                           ],
                   flounderDefs = [ "monitor" ]
-                },
+                },        
  build library { target = "vfs_noblockdev",
                   cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c",
                              "vfs_nfs.c", "vfs_ramfs.c", "cache.c",
