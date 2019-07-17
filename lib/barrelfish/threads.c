@@ -1532,8 +1532,8 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
 
     registers_set_initial(&thread->regs, thread,
                           (lvaddr_t)exception_handler_wrapper,
-                          stack_top, (lvaddr_t)cpuframe, 0,
-                          hack_arg, (lvaddr_t)addr);
+                          stack_top, (lvaddr_t)cpuframe,
+                          hack_arg, (lvaddr_t)addr, 0);
 
     disp_resume(handle, &thread->regs);
 }
