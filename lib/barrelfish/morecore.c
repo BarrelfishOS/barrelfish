@@ -17,10 +17,11 @@
 #include <barrelfish/core_state.h>
 #include <barrelfish/morecore.h>
 #include <stdio.h>
+#include <stdint.h>
 
-/// Amount of virtual space for malloc
-#ifdef __x86_64__
-#       define HEAP_REGION (32UL * 1024UL * 1024 * 1024) /* 32GB */
+/// Amount of virtual space for malloc depending on 32/64 bits architectures
+#if (UINTPTR_MAX == UINT64_MAX)
+#       define HEAP_REGION (128UL * 1024UL * 1024 * 1024) /* 128GB */
 #else
 #       define HEAP_REGION (512UL * 1024 * 1024) /* 512MB */
 #endif
