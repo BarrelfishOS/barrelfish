@@ -187,7 +187,7 @@ case "$ARCH" in
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35 \
         -smp $SMP \
-        -m 1024 \
+        -m 4G \
         -netdev user,id=network0 \
         -device $NIC_MODEL,netdev=network0 \
         -device ahci,id=ahci \
@@ -200,7 +200,7 @@ case "$ARCH" in
     ;;
     "a15ve")
         QEMU_CMD="${QEMU_PATH}qemu-system-arm \
-        -m 1024 \
+        -m 2G \
         -smp $SMP \
         -machine vexpress-a15"
     GDB=gdb
@@ -208,7 +208,7 @@ case "$ARCH" in
     ;;
     "armv8")
        QEMU_CMD="${QEMU_PATH}qemu-system-aarch64 \
-                 -m 1024 \
+                 -m 4G \
                  -cpu cortex-a57 \
                  -M virt -d guest_errors \
                  -M gic_version=3 \
@@ -228,7 +228,7 @@ case "$ARCH" in
     "zynq7")
         QEMU_CMD="${QEMU_PATH}qemu-system-arm \
         -machine xilinx-zynq-a9 \
-        -m 1024 \
+        -m 2G \
         -serial /dev/null \
         -serial mon:stdio"
     GDB=gdb
