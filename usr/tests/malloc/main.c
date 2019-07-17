@@ -40,7 +40,7 @@ int main(void)
 #if (UINTPTR_MAX == UINT64_MAX)
     test_malloc(512*1024*1024ULL);
 #else
-    test_malloc(400*1024*1024ULL); 
+    test_malloc(256*1024*1024ULL); 
 #endif
 
     printf("malloctest done.\n");
