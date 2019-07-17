@@ -27,7 +27,7 @@ static errval_t test_spawn(coreid_t core_id, char *argv[],
 {
 	assert(ret_domain_cap != NULL);
 
-	errval_t err = spawn_program(core_id, "/x86_64/sbin/proc_mgmt_test",
+	errval_t err = spawn_program(core_id, "proc_mgmt_test",
 		                         argv, NULL, 0, ret_domain_cap);
 	if (err_is_fail(err)) {
         return err;
