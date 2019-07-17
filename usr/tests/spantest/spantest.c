@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
     }
 
 
-    //printf("main running on %d\n", disp_get_core_id());
+    printf("main running on %d\n", disp_get_core_id());
 
     int cores = strtol(argv[1], NULL, 10) + 1;
 
@@ -346,6 +346,7 @@ int main(int argc, char *argv[])
 
     trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
     for (int i = 1; i < cores; i++) {
+        printf("spantest: spanning to core %" PRIuCOREID "\n", i);
         err = domain_new_dispatcher(i + disp_get_core_id(),
                                     domain_spanned_callback,
                                     (void*)(uintptr_t)i);
@@ -367,6 +368,7 @@ int main(int argc, char *argv[])
     //trace_dump();
 
     for(int i = 1; i < cores; i++) {
+        printf("spantest: create thread oncore %" PRIuCOREID "\n", i);
         err = domain_thread_create_on(i, remote, NULL, NULL);
         assert(err_is_ok(err));
     }
