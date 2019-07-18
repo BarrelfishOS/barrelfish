@@ -266,6 +266,10 @@ static int update_cpu(int argc, char** argv)
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
 
+    if (cpu_type == CPU_ARM7 || cpu_type == CPU_ARM8) {
+        USER_PANIC("don't know how to update core on this architecture!");
+    }
+
     struct capref kcb;
     err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
@@ -313,6 +317,10 @@ static int stop_cpu(int argc, char** argv)
     errval_t err = get_core_info(target_id, &target_hwid, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
+    }
+
+    if (cpu_type == CPU_ARM7 || cpu_type == CPU_ARM8) {
+        USER_PANIC("don't know how to stop core on this architecture!");
     }
 
     err = sys_debug_send_ipi(target_hwid, 0, APIC_INTER_HALT_VECTOR);
