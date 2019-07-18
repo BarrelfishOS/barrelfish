@@ -648,13 +648,12 @@ max_slabs_required(size_t bytes)
     size_t pages     = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
     // Perform a slab allocation for every L2 (get_ptable -> find_vnode)
     size_t l2entries = DIVIDE_ROUND_UP(pages, ARM_L2_MAX_ENTRIES);
-    // Perform a slab allocation for every L1 (do_map -> find_vnode)
-    size_t l1entries = DIVIDE_ROUND_UP(l2entries, ARM_L1_MAX_ENTRIES);
-    return pages + l2entries + l1entries;
+
+    return 2 * l2entries;
 }
 static size_t max_slabs_required_large(size_t bytes)
 {
-    // always need only one slab, as we can represent any size section mapping
+    // always need only 1 slab, as we can represent any size section mapping
     // in a single struct vnode.
     return 1;
 }
