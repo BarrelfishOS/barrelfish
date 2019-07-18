@@ -275,6 +275,8 @@ class Machine(object):
         if a == "armv7":
             m.add_module("kaluga", machine.get_kaluga_args())
             m.add_module("driverdomain_pl390", ["auto"])
+            m.add_module("serial_kernel", ["auto"])
+            m.add_module("serial_pl011",  ["auto"])
             m.add_module("int_route", [])
 
         return m
