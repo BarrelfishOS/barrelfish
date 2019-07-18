@@ -395,24 +395,14 @@ errval_t do_map(struct pmap *pmap_gen, genvaddr_t vaddr,
 size_t
 max_slabs_required(size_t bytes)
 {
-    // Perform a slab allocation for every page (do_map -> slab_alloc)
-    size_t pages     = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
-
-    // Perform a slab allocation for every L2 (get_ptable -> find_vnode)
-    size_t l3entries = DIVIDE_ROUND_UP(pages, 512);
-
-    // Perform a slab allocation for every L2 (get_ptable -> find_vnode)
-    size_t l2entries = DIVIDE_ROUND_UP(l3entries, 512);
-
-    // Perform a slab allocation for every L1 (do_map -> find_vnode)
-    size_t l1entries = DIVIDE_ROUND_UP(l2entries, 512);
-
-    // Perform a slab allocation for every L0 (do_map -> find_vnode)
-    size_t l0entries = DIVIDE_ROUND_UP(l1entries, 512);
-
-    return pages + l3entries + l2entries + l1entries + l0entries;
+    //XXX: use the definitions here
+    size_t max_pages  = DIVIDE_ROUND_UP(bytes, 4096);
+    size_t max_l3 = DIVIDE_ROUND_UP(max_pages, 512);
+    size_t max_l2   = DIVIDE_ROUND_UP(max_l3, 512);
+    size_t max_l1   = DIVIDE_ROUND_UP(max_l2, 512);
+    // Worst case, our mapping spans over two pdpts
+    return 2 * (max_l3 + max_l2 + max_l1);
 }
-
 /**
  * \brief Create page mappings
  *
@@ -441,7 +431,7 @@ map(struct pmap     *pmap,
     size    = ROUND_UP(size, BASE_PAGE_SIZE);
     offset -= BASE_PAGE_OFFSET(offset);
 
-    const size_t slabs_reserve = 3; // == max_slabs_required(1)
+    const size_t slabs_reserve = 6; // == max_slabs_required(1)
     size_t    slabs_required   = max_slabs_required(size) + slabs_reserve;
 
     err = pmap_refill_slabs(pmap, slabs_required);
