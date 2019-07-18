@@ -35,6 +35,7 @@
 #include <if/monitor_defs.h>
 #include "threads_priv.h"
 #include "waitset_chan_priv.h"
+#include "domain_priv.h"
 
 ///< Struct to maintain per dispatcher domain library state
 struct domain_state {
@@ -710,18 +711,9 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     snprintf(disp->name, DISP_NAME_LEN, "%s%d", disp_name(),
              span_domain_state->core_id);
 
-#ifdef __x86_64__
-    // XXX: share LDT state between all dispatchers
-    // this needs to happen before the remote core starts, otherwise the segment
-    // selectors in the new thread state are invalid
-    struct dispatcher_shared_x86_64 *disp_x64
-        = get_dispatcher_shared_x86_64(handle);
-    struct dispatcher_shared_x86_64 *mydisp_x64
-        = get_dispatcher_shared_x86_64(curdispatcher());
-
-    disp_x64->ldt_base = mydisp_x64->ldt_base;
-    disp_x64->ldt_npages = mydisp_x64->ldt_npages;
-#endif
+    // arch specific setup
+    err = domain_new_dispatcher_arch(handle);
+    assert(err_is_ok(err));
 
     threads_prepare_to_span(handle);
 
