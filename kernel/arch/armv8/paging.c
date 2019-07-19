@@ -320,7 +320,8 @@ paging_set_flags(union armv8_ttable_entry *entry, uintptr_t kpi_paging_flags)
     else if (kpi_paging_flags & KPI_PAGING_FLAGS_READ)
         entry->page.ap = 3;
     else
-        panic("oops: wrong page flags");
+        panic("oops: wrong page flags : %lx %lu\n", kpi_paging_flags, kpi_paging_flags);
+
 
     entry->page.af = 1;
 }

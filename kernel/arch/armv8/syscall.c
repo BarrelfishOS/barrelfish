@@ -387,7 +387,7 @@ handle_mapping_modify(
         int argc
         )
 {
-    assert(4 == argc);
+    assert(6 == argc);
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     // Modify flags of (part of) mapped region of frame
