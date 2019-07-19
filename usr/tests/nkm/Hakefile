@@ -43,13 +43,13 @@
                                  "modify_flags.c", "nkmtest.c",
                                  "vspace_dump.c" ],
                       addLibraries = [ "cap_predicates" ],
-                      architectures = [ "x86_64", "k1om" ]
+                      architectures = [ "x86_64", "k1om", "armv8" ]
                     },
   build application { target = "nkmtest_all",
                       cFiles = [ "main.c",
                                  "modify_flags.c", "nkmtest.c",
                                  "vspace_dump.c" ],
                       addLibraries = [ "cap_predicates" ],
-                      architectures = [ "x86_32", "armv7", "armv8" ]
+                      architectures = [ "x86_32", "armv7" ]
                     }
 ]

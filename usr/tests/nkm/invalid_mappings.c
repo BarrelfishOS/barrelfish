@@ -19,6 +19,8 @@
 #include "debug.h"
 #include "tests.h"
 
+#ifdef __x86_64__
+
 #define FRAME_ACCESS_DEFAULT \
         (PTABLE_USER_SUPERVISOR | PTABLE_EXECUTE_DISABLE | PTABLE_READ_WRITE)
 
@@ -33,27 +35,67 @@ static enum objtype types[7] =
     ObjType_Frame
 };
 
+static const char *types_string[7] = 
+{
+    "ObjType_VNode_x86_64_pml4",
+    "ObjType_VNode_x86_64_pdpt",
+    "ObjType_VNode_x86_64_pdir",
+    "ObjType_VNode_x86_64_ptable",
+    "ObjType_Frame",
+    "ObjType_Frame",
+    "ObjType_Frame"
+};
+#else
+
+#define FRAME_ACCESS_DEFAULT (KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE)
+
+static enum objtype types[7] =
+{
+    ObjType_VNode_AARCH64_l0,
+    ObjType_VNode_AARCH64_l1,
+    ObjType_VNode_AARCH64_l2,
+    ObjType_VNode_AARCH64_l3,
+    ObjType_Frame,
+    ObjType_Frame,
+    ObjType_Frame
+};
+
+static const char *types_string[7] = 
+{
+    "ObjType_VNode_AARCH64_l0",
+    "ObjType_VNode_AARCH64_l1",
+    "ObjType_VNode_AARCH64_l2",
+    "ObjType_VNode_AARCH64_l3",
+    "ObjType_Frame",
+    "ObjType_Frame",
+    "ObjType_Frame"
+};
+#endif
+
 #define W SYS_ERR_WRONG_MAPPING
 #define O SYS_ERR_OK
 #define S SYS_ERR_VM_FRAME_TOO_SMALL
+#define R SYS_ERR_VM_MAP_RIGHTS
 
 static errval_t mapping_ok[4][7] =
 {         /*pml4*/ /*pdpt*/ /*pdir*/ /*pt*/ /*frm*/ /*2mfrm*/ /*1gfrm*/
 /*pml4*/{   W,       O,       W,       W,     W,      W,        W  },
 /*pdpt*/{   W,       W,       O,       W,     S,      S,        O  },
 /*pdir*/{   W,       W,       W,       O,     S,      O,        O  },
-/*pt  */{   W,       W,       W,       W,     O,      O,        O  },
+/*pt  */{   R,       R,       R,       R,     O,      O,        O  },
 };
 
 static int pass = 0, fail = 0;
 static void check_result(errval_t err, int dest, int src)
 {
     if (err_no(err) == mapping_ok[dest][src]) {
-        printf("%d<-%d PASSED (%s)\n", dest, src, err_getstring(err));
+        printf("%s<-%s PASSED (%s)\n", types_string[dest], types_string[src], 
+                err_getstring(err));
         pass++;
     } else {
-        printf("%d<-%d FAILED (expected: %s, was %s)\n",
-                dest, src, err_getstring(mapping_ok[dest][src]),
+        printf("%s<-%s FAILED (expected: %s, was %s)\n",
+                types_string[dest], types_string[src], 
+                err_getstring(mapping_ok[dest][src]),
                 err_getstring(err));
         fail++;
     }
@@ -121,14 +163,14 @@ int invalid_mappings(void)
 
     // cap 6: 2M frame
     size_t rb = 0;
-    err = frame_alloc(&caps[5], X86_64_LARGE_PAGE_SIZE, &rb);
-    if (err_is_fail(err) || rb != X86_64_LARGE_PAGE_SIZE) {
+    err = frame_alloc(&caps[5], LARGE_PAGE_SIZE, &rb);
+    if (err_is_fail(err) || rb != LARGE_PAGE_SIZE) {
         debug_printf("frame_alloc: %s (%ld)\n", err_getstring(err), err);
         return 1;
     }
     // cap 7: 1G frame
-    err = frame_alloc(&caps[6], X86_64_HUGE_PAGE_SIZE, &rb);
-    if (err_is_fail(err) || rb != X86_64_HUGE_PAGE_SIZE) {
+    err = frame_alloc(&caps[6], HUGE_PAGE_SIZE, &rb);
+    if (err_is_fail(err) || rb != HUGE_PAGE_SIZE) {
         debug_printf("Cannot allocate 1GB frame (%s)\n", err_getcode(err));
         last_source = 6;
     }
