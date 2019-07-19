@@ -661,14 +661,14 @@ modify_flags(struct pmap     *pmap,
 
     if (VMSAv8_64_L012_BASE(vaddr) == VMSAv8_64_L012_BASE(vend - 1)) {
         // fast path
-        err = do_single_modify_flags(pmap_aarch64, vaddr, pte_count, false);
+        err = do_single_modify_flags(pmap_aarch64, vaddr, pte_count, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
     } else { // slow path
         // unmap first leaf
         uint32_t c = VMSAv8_64_PTABLE_NUM_ENTRIES - VMSAv8_64_L3_BASE(vaddr);
-        err = do_single_modify_flags(pmap_aarch64, vaddr, c, false);
+        err = do_single_modify_flags(pmap_aarch64, vaddr, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -677,7 +677,7 @@ modify_flags(struct pmap     *pmap,
         vaddr += c * BASE_PAGE_SIZE;
         while (VMSAv8_64_L012_BASE(vaddr) < VMSAv8_64_L012_BASE(vend)) {
             c = VMSAv8_64_PTABLE_NUM_ENTRIES;
-            err = do_single_modify_flags(pmap_aarch64, vaddr, c, true);
+            err = do_single_modify_flags(pmap_aarch64, vaddr, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -687,7 +687,7 @@ modify_flags(struct pmap     *pmap,
         // unmap remaining part
         c = VMSAv8_64_L3_BASE(vend) - VMSAv8_64_L3_BASE(vaddr);
         if (c) {
-            err = do_single_modify_flags(pmap_aarch64, vaddr, c, true);
+            err = do_single_modify_flags(pmap_aarch64, vaddr, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
