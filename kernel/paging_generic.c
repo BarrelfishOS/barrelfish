@@ -407,6 +407,15 @@ errval_t paging_tlb_flush_range(struct cte *mapping_cte, size_t offset, size_t p
             break;
 #elif defined(__ARM_ARCH_8A__)
             // TODO: define ARMv8 paging
+        case ObjType_VNode_AARCH64_l3:
+            page_size = VMSAv8_64_BASE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_AARCH64_l2:
+            page_size = VMSAv8_64_L2_BLOCK_SIZE;
+            break;
+        case ObjType_VNode_AARCH64_l1:
+            page_size = VMSAv8_64_L1_BLOCK_SIZE;
+            break;            
 #else
 #error setup page sizes for arch
 #endif
