@@ -294,7 +294,6 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     if (src->type != ObjType_Frame &&
         src->type != ObjType_DevFrame &&
         //(!type_is_ept(dest->type) &&
-        src->type != ObjType_RAM &&
         !type_is_vnode(src->type) &&
         src->type != ObjType_EndPointUMP) { // Right mapping
         debug(SUBSYS_PAGING, "src type invalid\n");
@@ -336,8 +335,7 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         !dcb_current->is_vm_guest)
     {
         if (flags & X86_64_PTABLE_READ_WRITE) {
-            printk(LOG_NOTE, "masking WRITE permission on page table.\n");
-            flags &= ~X86_64_PTABLE_READ_WRITE;
+            return SYS_ERR_VM_MAP_RIGHTS;
         }
     }
 
