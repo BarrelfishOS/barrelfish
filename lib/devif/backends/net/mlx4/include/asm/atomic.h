@@ -33,12 +33,14 @@
 /*
  #include <sys/cdefs.h>
  #include <sys/types.h>
- #include <machine/atomic.h>
+ 
  */
 
-#define	mb()	__asm __volatile("mfence;" : : : "memory")
-#define	wmb()	__asm __volatile("sfence;" : : : "memory")
-#define	rmb()	__asm __volatile("lfence;" : : : "memory")
+#include <machine/atomic.h>
+
+//#define	mb()	__asm __volatile("mfence;" : : : "memory")
+//#define	wmb()	__asm __volatile("sfence;" : : : "memory")
+//#define	rmb()	__asm __volatile("lfence;" : : : "memory")
 
 typedef struct {
 	volatile u_int counter;
