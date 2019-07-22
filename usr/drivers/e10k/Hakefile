@@ -20,7 +20,8 @@
                       flounderExtraBindings = [ ("net_filter", ["rpcclient"])],
                       flounderExtraDefs = [("net_filter",["rpcclient"])],
                       mackerelDevices = [ "e10k" ],
-                      addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ]
+                      addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ],
+                      architectures = ["x86_64", "armv8"]
                     },
 
   build library { target = "devif_backend_e10k",
@@ -31,7 +32,8 @@
                       flounderDefs = [ "e10k_vf", "e10k" ],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
                       mackerelDevices = [ "e10k_vf", "e10k", "e10k_q"],
-                      addLibraries = libDeps ["pci", "skb", "driverkit", "driverkit_iommu" ]
+                      addLibraries = libDeps ["pci", "skb", "driverkit", "driverkit_iommu" ],
+                      architectures = ["x86_64", "armv8"]
                   },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to

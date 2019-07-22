@@ -56,6 +56,6 @@
         addLibraries = [ "collections", "skb" ],
         cFiles = [ "hwmodel.c", 
                    "iommu_client.c" ],
-        architectures = [ "x86_64", "k1om"]
+        architectures = [ "x86_64", "k1om", "armv8"]
     }
 ]

@@ -21,6 +21,7 @@
 #include <devif/backends/net/e10k_devif.h>
 #include <dev/e10k_dev.h>
 #include <dev/e10k_q_dev.h>
+#include <machine/atomic.h>
 
 //#define BENCH_QUEUE 1
 
@@ -671,7 +672,7 @@ static inline bool e10k_queue_get_rxbuf_avd(e10k_queue_t* q, regionid_t* rid,
 
     // Barrier needed according to linux driver to make sure nothing else is
     // read before the dd bit TODO: make sure
-    lfence();
+    rmb();
 
     // TODO add code for RSC
 

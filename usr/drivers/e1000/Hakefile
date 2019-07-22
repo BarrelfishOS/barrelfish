@@ -18,7 +18,7 @@
         flounderDefs = [ "octopus", "e1000_devif" ],
         mackerelDevices = [ "e1000" ],
         addLibraries = [ "pci_driver_client", "int_msix_ctrl" ],
-        architectures = [ "x86_64" ],
+        architectures = ["x86_64", "armv8"],
         addCFlags = [ "-DLIBRARY" ]
     },
 
@@ -29,7 +29,8 @@
                     flounderBindings = [ "e1000_devif" ],
                     flounderDefs = [ "e1000_devif" ],
                     mackerelDevices = ["e1000"],
-                    addLibraries = libDeps ["driverkit_iommu"]
+                    addLibraries = libDeps ["driverkit_iommu"],
+                    architectures = ["x86_64", "armv8"]
     },
 
     build driverdomain {
@@ -54,14 +55,14 @@
         flounderDefs = [ "octopus", "e1000_devif" ],
         mackerelDevices = [ "e1000" ],
         addLibraries = [ "pci", "pci_driver_client", "int_msix_ctrl" ],
-        architectures = [ "x86_64" ],
+        architectures = ["x86_64", "armv8"],
         addCFlags = [ "-DLIBRARY", "-DUNDER_TEST" ]
     },
 
     build driverdomain {
         target = "e1000n_irqtest",
         addModules = ["e1000n_irqtest_module"],
-        architectures = ["x86_64"],
+        architectures = ["x86_64", "armv8"],
         addCFlags = [ "-DUNDER_TEST"]
     }
 

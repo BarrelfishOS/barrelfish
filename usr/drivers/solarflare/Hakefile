@@ -24,7 +24,8 @@
                         ("net_filter",["rpcclient"])
                       ],
                       mackerelDevices = [ "sfn5122f"],
-                      addIncludes  = [ "/lib/net/include/", "/lib/lwip-2.0.2/src/include/", "/include/lwip2/"]
+                      addIncludes  = [ "/lib/net/include/", "/lib/lwip-2.0.2/src/include/", "/include/lwip2/"],
+                      architectures = ["x86_64", "armv8"]
                     },
 
     build library { target = "devif_backend_solarflare",
@@ -36,7 +37,8 @@
                       mackerelDevices = [ "sfn5122f", "sfn5122f_q"],
                       addLibraries = libDeps ["skb", "devif_internal", 
                                               "driverkit_iommu"],
-                      addIncludes = ["/lib/devif/"]
+                      addIncludes = ["/lib/devif/"],
+                      architectures = ["x86_64", "armv8"]
                     },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to
@@ -52,7 +54,7 @@
                                "contmng", "net_device_manager", "bench", "trace", "skb",
                                 "spawndomain", "netd" , "net", "lwip2", "driverkit_iommu"],
         addModules = ["sfn5122f_module"],
-        architectures = ["x86_64"]
+        architectures = ["x86_64", "armv8"]
     }
   ]
 
