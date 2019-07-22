@@ -46,6 +46,10 @@ static inline uint64_t rdtsc(void)
     return timestamp;
 }
 
+static inline uint64_t rdtscp(void)
+{
+    return rdtsc();
+}
 
 #endif
 
