@@ -46,7 +46,6 @@ static regionid_t regid_tx;
 static struct frame_identity id;
 static lpaddr_t phys_rx;
 static lpaddr_t phys_tx;
-static struct net_filter_state* filter;
 
 
 static volatile uint32_t num_tx = 0;
@@ -74,10 +73,13 @@ struct list_ele{
 };
 
 
+static struct devif_test_binding* binding;
+
+#ifndef __ARM_ARCH_7A__
+static struct net_filter_state* filter;
+
 static struct waitset_chanstate *chan = NULL;
 static struct waitset card_ws;
-
-static struct devif_test_binding* binding;
 
 static uint8_t udp_header[8] = {
     0x07, 0xD0, 0x07, 0xD0,
@@ -395,7 +397,7 @@ static void test_net_rx(void)
 
     printf("SUCCESS: %s rx test ended\n", card);
 }
-
+#endif
 
 static errval_t descq_notify(struct descq* q)
 {
@@ -642,6 +644,7 @@ int main(int argc, char *argv[])
         card = "e10k";
     }
 
+    #ifndef __ARM_ARCH_7A__
     if (strcmp(argv[1], "net_tx") == 0) {
         test_net_tx();
     }
@@ -649,6 +652,7 @@ int main(int argc, char *argv[])
     if (strcmp(argv[1], "net_rx") == 0) {
         test_net_rx();
     }
+    #endif
 
     if (strcmp(argv[1], "idc") == 0) {
         test_idc_queue(true);
