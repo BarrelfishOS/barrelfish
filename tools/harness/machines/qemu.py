@@ -134,7 +134,7 @@ class TmpMachine(QEMUMachineBase):
 
     # 120 seconds per core
     def get_test_timeout(self):
-        return self.get_ncores() * 120
+        return self.get_ncores() * 240
 
 for n in [1, 2, 4]:
     MachineFactory.addMachine('qemu_x86_64_c%d' % n, TmpMachine,
@@ -151,6 +151,14 @@ class QEMUMachineARMv7(ARMMachineBase):
     def __init__(self, options, **kwargs):
         super(QEMUMachineARMv7, self).__init__(options, QEMUMAchineARMv7Operations(self), **kwargs)
         self._set_kernel_image()
+
+    # 60 seconds per core
+    def get_boot_timeout(self):
+        return self.get_ncores() * 60
+
+    # 120 seconds per core
+    def get_test_timeout(self):
+        return self.get_ncores() * 240
 
     def get_buildall_target(self):
         return "VExpressEMM-A15"
@@ -250,6 +258,14 @@ class QEMUMachineARMv8(ARMMachineBase):
         super(QEMUMachineARMv8, self).__init__(options, QEMUMAchineARMv8Operations(self), **kwargs)
         self._set_kernel_image()
         self.menulst_template = "menu.lst.armv8_a57_qemu"
+
+    # 60 seconds per core
+    def get_boot_timeout(self):
+        return self.get_ncores() * 60
+
+    # 120 seconds per core
+    def get_test_timeout(self):
+        return self.get_ncores() * 240
 
     def get_buildall_target(self):
         return "QEMU"
