@@ -123,19 +123,20 @@ class QEMUMachineX64Operations(QEMUMachineBaseOperations):
 
 # create 1, 2 and 4 core x86_64 qemu machines
 
+class TmpMachine(QEMUMachineBase):
+    name = 'qemu_x86_64'
+    def __init__(self, options, _class=None, **kwargs):
+        super(_class, self).__init__(options, QEMUMachineX64Operations(self), **kwargs)
+
+    # 60 seconds per core
+    def get_boot_timeout(self):
+        return self.get_ncores() * 60
+
+    # 120 seconds per core
+    def get_test_timeout(self):
+        return self.get_ncores() * 120
+
 for n in [1, 2, 4]:
-    class TmpMachine(QEMUMachineBase):
-        def __init__(self, options, _class=None, **kwargs):
-            super(_class, self).__init__(options, QEMUMachineX64Operations(self), **kwargs)
-
-        # 60 seconds per core
-        def get_boot_timeout(self):
-            return self.get_ncores() * 60
-
-        # 120 seconds per core
-        def get_test_timeout(self):
-            return self.get_ncores() * 120
-
     MachineFactory.addMachine('qemu_x86_64_c%d' % n, TmpMachine,
                               ncores=n,
                               bootarch='x86_64',
