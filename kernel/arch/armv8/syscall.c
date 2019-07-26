@@ -826,22 +826,18 @@ static struct sysret dispatcher_dump_capabilities(struct capability *cap,
     return SYSRET(err);
 }
 
-static struct sysret handle_idcap_identify(struct capability *to,
+static struct sysret handle_idcap_identify(struct capability *cap,
                                            arch_registers_state_t *context,
                                            int argc)
 {
-    assert(to->type == ObjType_ID);
-    assert(3 == argc);
+    assert(cap->type == ObjType_ID);
+    assert(2 == argc);
 
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-    idcap_id_t *idp = (idcap_id_t *) sa->arg2;
+    idcap_id_t id;
+    struct sysret sysret = sys_idcap_identify(cap, &id);
+    sysret.value = id;
 
-    // Check validity of user space pointer
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t) idp, sizeof(*idp)))  {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    return sys_idcap_identify(to, idp);
+    return sysret;
 }
 
 static struct sysret handle_cap_identify(struct capability *root,
