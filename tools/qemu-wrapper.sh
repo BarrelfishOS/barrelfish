@@ -21,9 +21,14 @@ ARCH=""
 DEBUG_SCRIPT=""
 BIOS="/home/netos/tftpboot/QEMU_EFI.fd"
 # Grab SMP from env, if unset default to 1
-SMP=${SMP:-1}
+SMP=${SMP:-4}
+# Grab the MEMORY from the enf
+MEMORY=${MEMORY:-4G}
+# Grab the KVM fenable from the env
+KVM=${KVM:-"-enable-kvm"}
+
 # Grab NIC_MODEL from env, if unset default to e1000
-NIC_MODEL="${NIC_MODEL:-e1000e}"
+NIC_MODEL="${NIC_MODEL:-e1000}"
 # U-Boot options
 UBOOT=false
 UBOOT_IMAGE=/home/netos/tftpboot/u-boot.bin
@@ -186,8 +191,9 @@ case "$ARCH" in
 
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35 \
-        -smp $SMP \
-        -m 4G \
+        -smp ${SMP} \
+        -m ${MEMORY} \
+        ${KVM} \
         -netdev user,id=network0 \
         -device $NIC_MODEL,netdev=network0 \
         -device ahci,id=ahci \
@@ -208,11 +214,11 @@ case "$ARCH" in
     ;;
     "armv8")
        QEMU_CMD="${QEMU_PATH}qemu-system-aarch64 \
-                 -m 4G \
+                 -m ${MEMORY} \
                  -cpu cortex-a57 \
                  -M virt -d guest_errors \
                  -M gic_version=3 \
-                 -smp $SMP"
+                 -smp ${SMP}"
        if $UBOOT; then
           QEMU_CMD="$QEMU_CMD -bios $UBOOT_IMAGE \
                     -device loader,addr=0x50000000,file=$IMAGE"
