@@ -31,6 +31,7 @@ static struct lmp_chan *chan;
 
 static bool reply_received;
 
+#ifdef __x86_64__
 static void set_xmm1(double val)
 {
     __asm volatile(
@@ -50,6 +51,67 @@ static double get_xmm1(void)
 
     return val;
 }
+#elif defined(__ARM_ARCH_7A__)
+
+static void set_xmm1(double val)
+{    
+    #if 0
+    __asm volatile(
+        "str %0, %%d0   \n\t"
+        : /* no output registers */
+        : "r" (val)
+        : "d0");
+#endif        
+    __asm volatile("vmov.32 d15[0], %[val]\n\t" : : [val] "r" (val));    
+}
+
+static float get_xmm1(void)
+{
+    float val = -1;
+
+    __asm volatile("vmov.32 %[val], d15[0]\n\t" : [val] "=r" (val));
+    #if 0
+    __asm volatile(
+        "ldr %0, %%d0   \n\t"
+        :
+        : "=r" (val)
+        : "d0");
+#endif
+    return val;
+}
+
+#elif defined(__ARM_ARCH_8A__)
+
+static void set_xmm1(    val)
+{    
+    #if 0
+    __asm volatile(
+        "str %0, %%d0   \n\t"
+        : /* no output registers */
+        : "r" (val)
+        : "d0");
+#endif        
+    __asm volatile("fmov d15, %[val]" : : [val] "r" (val));    
+}
+
+static double get_xmm1(void)
+{
+    double val = -1;
+
+    __asm volatile("fmov %[val], d15" : [val] "=r" (val));
+    #if 0
+    __asm volatile(
+        "ldr %0, %%d0   \n\t"
+        :
+        : "=r" (val)
+        : "d0");
+#endif
+    return val;
+}
+
+#else
+#error unkonown arch
+#endif
 
 // server side handler
 static void lrpc_bench_handler(void *arg)
