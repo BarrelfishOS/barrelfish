@@ -387,7 +387,7 @@ el0_abort_enabled:
     /* All registers are now available. */
 
     /* Pass the EPC and the save area address to the handler. */
-    mov x0, x12
+    mrs x0, far_el1
     mov x1, x14
     mov x2, x13
 
