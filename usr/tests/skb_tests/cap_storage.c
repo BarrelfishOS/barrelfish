@@ -50,12 +50,22 @@ int main(int argc, char** argv)
     struct frame_identity f2;
     err = frame_identify(c2, &f2);
     assert(err_is_ok(err));
+
+    #ifdef __ARM_ARCH_7A__
+    debug_printf("armv7 hack: right shift of base address by 12\n");
+    assert(!(f2.base & 0xfff));
+    assert(!(f1.base & 0xfff));
+    f2.base = f2.base >> 12;
+    f1.base = f1.base >> 12;
+    #endif
+
     printf("%s:%s:%d: storing cap with caddr=%#"PRIxCADDR" in SKB\n",
             __FILE__, __FUNCTION__, __LINE__, get_cap_addr(c1));
 
     // Store them in the SKB
     err = skb_add_fact("cap(frame(%s, p(%"PRIuGENPADDR", %Q))).", "cap1", f1.base, c1);
     if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Cap storage in SKB failed.");
         USER_PANIC_ERR(err, "Cap storage in SKB failed.");
     }
     printf("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
@@ -80,8 +90,15 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Parsing frame address from fact failed.");
     }
 
+    #ifdef __ARM_ARCH_7A__
+    debug_printf("armv7 hack: left shift of base address by 12\n");
+    f1.base = f1.base << 12;
+    #endif
+
     struct frame_identity rcf1;
     err = frame_identify(rc1, &rcf1);
+    assert(err_is_ok(err));
+
     if (f1.base != rcf1.base) {
         USER_PANIC_ERR(err, "Address doesn't match. We got the wrong cap?");
     }
@@ -99,8 +116,15 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Parsing frame address from fact failed.");
     }
 
+    #ifdef __ARM_ARCH_7A__
+    debug_printf("armv7 hack: left shift of base address by 12\n");
+    f2.base = f2.base << 12;
+    #endif
+
     struct frame_identity rcf2;
     err = frame_identify(rc2, &rcf2);
+    assert(err_is_ok(err));
+
     if (f2.base != rcf2.base) {
         USER_PANIC_ERR(err, "Address doesn't match. We got the wrong cap?");
     }
