@@ -26,6 +26,12 @@ static int client_counter = 0;
 static int64_t server_calls[1024];
 static int64_t client_calls[1024][1024];
 
+#ifdef __x86_64__
+#define START_ON_ALL_CORES true
+#else
+#define START_ON_ALL_CORES false
+#endif
+
 static void show_stats(void)
 {
     debug_printf("Stats: %zd %zd %zd %zd %zd %zd %zd %zd %zd %zd\n",
@@ -94,7 +100,8 @@ static int client_thread(void * arg)
 
     dispatcher_handle_t handle = disp_disable();
 
-    client_counter--;
+    __sync_fetch_and_sub(&client_counter, 1);
+
     debug_printf("Done, threads left:%d\n", client_counter);
 
     if (client_counter == 0) {
@@ -115,9 +122,20 @@ static void bind_cb(void *st, errval_t err, struct mt_waitset_binding *b)
     mt_waitset_rpc_client_init(b);
 
     client_counter = client_threads;
-    for (i = 1; i < client_threads; i++)
-        thread_create(client_thread, b);
+    for (i = 1; i < client_threads; i++) {
+        threads[i] = thread_create(client_thread, b);
+        assert(threads[i]);
+    }
+
     client_thread(b);
+
+    for (i = 1; i < client_threads; i++) {
+        int res;
+        err = thread_join(threads[i], &res);
+        assert(err_is_ok(err));
+    }
+
+    debug_printf("client done.\n");
 }
 
 static void start_client(void)
@@ -168,7 +186,7 @@ static errval_t server_rpc_method_call(struct mt_waitset_binding *b, uint64_t i1
     }
 
     if (i2 == 65536) {
-        count++;    // client has finished
+        __sync_fetch_and_add(&count, 1);    // client has finished
     } else
         client_calls[i2 >> 8][i2 & 255]++;
 
@@ -182,13 +200,22 @@ static errval_t server_rpc_method_call(struct mt_waitset_binding *b, uint64_t i1
     }
     if (k != j && i2 != 65536)
         debug_printf("%s: binding:%p %08x %08x  %d %d   %016lx:%d\n", __func__, b, i2, b->incoming_token, k, j, response[0], me);
+#if START_ON_ALL_CORES
     if (count == num_cores) {
+#else    
+    if (count == num_cores - 1) {
+#endif        
         bool failed = false;
 
         debug_printf("Final statistics\n");
         show_stats();
         show_client_stats();
         for (i = 0; i < num_cores; i++) {
+            #if !START_ON_ALL_CORES
+            if (i == my_core_id) {
+                continue;
+            }
+            #endif
             for (j = 0; j < client_threads; j++) {
                 if (client_calls[i][j] != iteration_count) {
                     failed = true;
@@ -281,10 +308,19 @@ int main(int argc, char *argv[])
         client_threads = atoi(argv[2]);
         iteration_count = atoi(argv[3]);
 
-        err = spawn_program_on_all_cores(true, xargv[0], xargv, NULL,
+        #if !START_ON_ALL_CORES
+        debug_printf("XXX: disabling starting on the same core\n");
+        #endif
+
+        err = spawn_program_on_all_cores(START_ON_ALL_CORES, xargv[0], xargv, NULL,
             SPAWN_FLAGS_DEFAULT, NULL, &num_cores);
         debug_printf("spawn program on all cores (%d)\n", num_cores);
         assert(err_is_ok(err));
+
+        #if !START_ON_ALL_CORES
+        num_cores += 1;
+        #endif
+
 
         start_server();
 
