@@ -628,7 +628,9 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
                 // new set of flags with cap permissions.
                 size_t off = ptentry - page->v.entry;
                 flags &= ~(VREGION_FLAGS_LARGE | VREGION_FLAGS_HUGE);
+                // debug_printf("Vregion flags: %zx\n", flags);
                 paging_aarch64_flags_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+                // debug_printf("KPI flags: %zx\n", pmap_flags);
                 // VA hinting NYI on ARMv8, always passing 0
                 err = invoke_mapping_modify_flags(page->v.mapping, off, pages, pmap_flags, 0);
                 return err;
