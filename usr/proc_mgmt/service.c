@@ -19,6 +19,8 @@
 #include <if/proc_mgmt_defs.h>
 #include <if/spawn_defs.h>
 
+#include <dist/barrier.h>
+
 #include "domain.h"
 #include "internal.h"
 #include "pending_clients.h"
@@ -48,8 +50,11 @@ static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
         DEBUG_ERR(err, "spawnd_state_alloc");
     }
 
-    debug_printf("Process manager bound with spawnd.%u on iref %u\n", core_id,
-            iref);
+    // Tell name service that we're ready on the core spawnd just came up
+    err = nsb_register_n(core_id, SERVICE_BASENAME);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "nsb_register_n failed");
+    }
 }
 
 /**
@@ -351,13 +356,11 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
                                      struct capref argcn_cap, uint8_t flags)
 {
     if (!spawnd_state_exists(core_id)) {
-        // XXX fixes race condition for between proc_mgmt and spawnd for 
-        // now, but is a problem when spawnd on a certain core is not started 
-        // because the cpu driver on that core is not started
-        while(!spawnd_state_exists(core_id)) {
-            event_dispatch(get_default_waitset());
-        }
-        //return PROC_MGMT_ERR_INVALID_SPAWND;
+        /* Spawnd on the requested core is not up
+         * Clients can do nsb_wait_n(core_id, "proc_mgmt") to avoid
+         * this situation 
+         */
+        return PROC_MGMT_ERR_INVALID_SPAWND;
     }
 
     struct spawnd_state *spawnd = spawnd_state_get(core_id);
