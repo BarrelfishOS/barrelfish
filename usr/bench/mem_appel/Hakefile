@@ -18,42 +18,42 @@
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DDIRECT_INVOKE" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     },
   build application { target = "benchmarks/mem_appel_ff",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DFULL_FLUSH" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     },
   build application { target = "benchmarks/mem_appel_di_ff",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DFULL_FLUSH", "-DDIRECT_INVOKE" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     },
   build application { target = "benchmarks/mem_appel_sf",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DSELECTIVE_FLUSH" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     },
   build application { target = "benchmarks/mem_appel_sfh",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DSELECTIVE_FLUSH", "-DSF_HINT" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     },
   build application { target = "benchmarks/mem_appel_di_sf",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DDIRECT_INVOKE", "-DSELECTIVE_FLUSH" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     },
   build application { target = "benchmarks/mem_appel_di_sfh",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DDIRECT_INVOKE", "-DSELECTIVE_FLUSH", "-DSF_HINT" ],
-                      architectures = ["x86_64", "armv8", "k1om"]
+                      architectures = ["x86_64", "k1om"]
                     }
 ]

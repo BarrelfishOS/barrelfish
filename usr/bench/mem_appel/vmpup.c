@@ -239,24 +239,20 @@ bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
         fprintf(stderr, "vspace_map: %s\n", err_getstring(err));
         abort();
     }
+#ifdef __x86_64__
     struct pmap *pmap = get_current_pmap();
     struct pmap_mapping_info info;
     pmap->f.lookup(pmap, (genvaddr_t)bfmem->vmem, &info);
     bfmem->mapping = info.mapping;
     genvaddr_t mem = (genvaddr_t) bfmem->vmem;
 
-    #ifdef __ARM_ARCH_8A__
-    if (VMSAv8_64_L2_BASE(mem) != VMSAv8_64_L2_BASE(mem + retfsize - 1)) {
-        debug_printf("WARN: mapping overlaps leaf pt!\n");
-    }
-    #else
     if (X86_64_PDIR_BASE(mem) != X86_64_PDIR_BASE(mem + retfsize - 1)) {
         debug_printf("WARN: mapping overlaps leaf pt!\n");
     }
-    #endif
-
+#endif
 }
 
+#ifdef __x86_64__
 __attribute__((unused))
 static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 {
@@ -277,8 +273,10 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 
     return pmap_flags;
 }
+#endif
 
 extern int pmap_selective_flush;
+
 static void
 bf_protect(struct bf_mem *bfm, size_t off, size_t len,
            vs_prot_flags_t flags)
@@ -288,6 +286,7 @@ bf_protect(struct bf_mem *bfm, size_t off, size_t len,
     size_t pages = len / pagesize;
     // default flush: assisted for single page, full otherwise
     genvaddr_t va_hint = pages == 1 ? (genvaddr_t)bfm->vmem + off : 0;
+
     pmap_selective_flush = 0;
 #if defined(SELECTIVE_FLUSH) && defined(SF_HINT)
     // always do hint-based selective flush
@@ -371,7 +370,7 @@ bf_handler(enum exception_type type, int subtype,
 #endif
 
 int main(int argc, char **argv)
-{
+{    
     register int i, j, k;
 
     char *mem;
