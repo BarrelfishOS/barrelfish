@@ -32,7 +32,7 @@ __BEGIN_DECLS
  */
 static inline errval_t vnode_inherit_attr(struct capref dest, struct capref src,
                                           cslot_t start, cslot_t end,
-                                          paging_x86_64_flags_t newflags,
+                                          paging_aarch64_flags_t newflags,
                                           struct capref *src_mapping_cn,
                                           struct capref *dst_mapping_cn)
 {

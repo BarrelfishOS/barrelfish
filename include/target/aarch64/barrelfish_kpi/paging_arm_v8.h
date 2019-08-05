@@ -16,7 +16,7 @@
 #include <bitmacros.h>
 
 #ifndef __ASSEMBLER__
-typedef uint64_t paging_x86_64_flags_t;
+typedef uintptr_t paging_aarch64_flags_t;
 #endif
 
 /* In contrast to previous ARMs, ARMv8 has up to four levels of page tables,

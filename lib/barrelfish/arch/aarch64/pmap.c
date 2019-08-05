@@ -61,7 +61,7 @@
 #include <pmap_priv.h>
 #include <pmap_ds.h> // for selected pmap datastructure
 
-static inline uintptr_t
+static inline paging_aarch64_flags_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 {
     STATIC_ASSERT(0x1ff == VREGION_FLAGS_MASK, "");
@@ -81,8 +81,9 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
     if ((flags & VREGION_FLAGS_GUARD) != 0) {
         flags = 0;
     }
-    assert(0 == (~KPI_PAGING_FLAGS_MASK & (uintptr_t)flags));
-    return (uintptr_t)flags;
+    
+    assert(0 == (~KPI_PAGING_FLAGS_MASK & (paging_aarch64_flags_t)flags));
+    return (paging_aarch64_flags_t)flags;
 }
 
 static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
@@ -276,7 +277,9 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
-    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+
+    flags &= ~(VREGION_FLAGS_LARGE | VREGION_FLAGS_HUGE);
+    paging_aarch64_flags_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
 
     uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
 
@@ -375,7 +378,7 @@ errval_t do_map(struct pmap *pmap_gen, genvaddr_t vaddr,
     return SYS_ERR_OK;
 #if 0
     errval_t err;
-    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+    paging_aarch64_flags_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
 
     for (size_t i = offset; i < offset + size; i += BASE_PAGE_SIZE) {
 
@@ -624,11 +627,10 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
                 // pages, new flags. Invocation should check compatibility of
                 // new set of flags with cap permissions.
                 size_t off = ptentry - page->v.entry;
-                uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+                flags &= ~(VREGION_FLAGS_LARGE | VREGION_FLAGS_HUGE);
+                paging_aarch64_flags_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
                 // VA hinting NYI on ARMv8, always passing 0
                 err = invoke_mapping_modify_flags(page->v.mapping, off, pages, pmap_flags, 0);
-                printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
-                        err_getstring(err), err);
                 return err;
             } else {
                 // overlaps some region border
