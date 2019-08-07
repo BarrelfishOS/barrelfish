@@ -148,7 +148,7 @@ el0_aarch64_sync:
     cmp x14, x12
     ccmp x15, x12, #0, ls
     ldr w14, [x13, #OFFSETOF_DISP_DISABLED]
-    ccmp x14, xzr, #0, ls
+    ccmp w14, wzr, #0, ls
     /* NE <-> (low <= PC && PC < high) || disabled != 0 */
 
     /* Figure out what sort of exception we've got.  All paths need this. */
@@ -214,7 +214,7 @@ el0_aarch64_irq:
      * need to test R (is the disabled flag 0), giving either EQ or NE.  If
      * P /\ Q holds, we skip the test, as it doesn't affect the result, and
      * instead set the condition code directly NE, i.e. disabled=1. */
-    ccmp x0, xzr, #0, ls
+    ccmp w0, wzr, #0, ls
     /* NE <-> (low <= PC && PC < high) || disabled != 0 */
 
     /* x1 = EPC, x3 = dispatcher_shared_aarch64 */
@@ -446,7 +446,7 @@ el0_abort_disabled:
 
     /* User PC and SP */
     mrs x20, sp_el0
-    stp x20, x9, [x13, #(32 * 8)]
+    stp x20, x12, [x13, #(31 * 8)]
 
     /* x12 = EPC, x13 = base of save area, x14 = EC */
 
