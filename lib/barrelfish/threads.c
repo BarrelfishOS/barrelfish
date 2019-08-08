@@ -1518,11 +1518,10 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
 
     // save thread's state at time of fault on top of exception stack
     stack_top -= sizeof(arch_registers_state_t);
+    // Make sure we store the state at an aligned position
+    stack_top -= stack_top % STACK_ALIGNMENT;
     arch_registers_state_t *cpuframe = (void *)stack_top;
     memcpy(cpuframe, regs, sizeof(arch_registers_state_t));
-
-    // align stack
-    stack_top -= stack_top % STACK_ALIGNMENT;
 
     // XXX: sanity-check to ensure we have a sensible amount of exception stack left
     assert_disabled(stack_top > (lvaddr_t)thread->exception_stack + 8192);
