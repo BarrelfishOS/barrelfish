@@ -482,11 +482,11 @@ do_resume:
     ldp q14, q15, [x0], #-(2 * 16)
     ldp q12, q13, [x0], #-(2 * 16)
     ldp q10, q11, [x0], #-(2 * 16)
-    ldp q8, q9, [x0], #-(2 * 16)
-    ldp q6, q7, [x0], #-(2 * 16)
-    ldp q4, q5, [x0], #-(2 * 16)
-    ldp q2, q3, [x0], #-(2 * 16)
-    ldp q0, q1, [x0], #-(2 * 8)
+    ldp q8,   q9, [x0], #-(2 * 16)
+    ldp q6,   q7, [x0], #-(2 * 16)
+    ldp q4,   q5, [x0], #-(2 * 16)
+    ldp q2,   q3, [x0], #-(2 * 16)
+    ldp q0,   q1, [x0], #-(2 *  8)
 
     /* Restore SPSR, PC (ELR) and SP, which need temporary registers, before
      * we restore those. */
