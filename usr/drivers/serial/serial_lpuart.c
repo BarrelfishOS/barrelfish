@@ -21,9 +21,20 @@
 #include "pci/pci.h"
 #include <dev/lpuart_dev.h>
 #include <driverkit/driverkit.h>
+#include <barrelfish/deferred.h>
+#include <barrelfish/systime.h>
 
 #define DEFAULT_PORTBASE            0x3f8   //< COM1 port
 #define DEFAULT_IRQ                 4       //< COM1 IRQ
+
+
+//#define LPUART_DEBUG_ON
+
+#if defined(LPUART_DEBUG_ON) || defined(GLOBAL_DEBUG)
+#define LPUART_DEBUG(x...) debug_printf(x)
+#else
+#define LPUART_DEBUG(x...) ((void)0)
+#endif
 
 struct serial_lpuart {
     struct serial_common m;
@@ -31,15 +42,55 @@ struct serial_lpuart {
 
 };
 __attribute__((__unused__))
+static void print_regvalues(struct serial_lpuart *spc)
+{   char buffer[10000];
+    lpuart_pr(buffer,10000,&spc->uart);
+    LPUART_DEBUG("printing lpuart  %s\n",buffer);
+ 
+}
+
+__attribute__((__unused__))
 // CALL THIS FUNCTION IN INIT
 static void serial_poll(struct serial_lpuart *spc)
-{   while(lpuart_stat_rdrf_rdf(&spc->uart)){
-        char c = lpuart_data_buf_rdf(&spc->uart);
-        debug_printf("read %c from uart\n", c);
+{  
+    while(lpuart_stat_rdrf_rdf(&spc->uart)){
+        LPUART_DEBUG("befohooore\n");
+        char c = lpuart_read_data_buf_rdf((&spc->uart));
+        if(c) LPUART_DEBUG("Read char=%c\n", c); 
+        else LPUART_DEBUG("Read NULL char\n");
         serial_input(&spc->m, &c, 1);
-     }
-     
+        uint8_t or= lpuart_stat_or_rdf(&spc->uart);
+        if(or==1) { 
+            LPUART_DEBUG("OR FLAG IS SET\n");
+            lpuart_stat_or_wrf(&spc->uart,1);
+        }
+    }   
 }
+static void serial_poll2(void* arg){
+    LPUART_DEBUG("my call back worked, arg=%p\n", arg);
+    serial_poll((struct serial_lpuart *)arg);
+    struct deferred_event* de= malloc(sizeof(struct deferred_event));
+    deferred_event_init(de);
+    struct event_closure ec;
+    ec.handler = serial_poll2;
+    ec.arg = arg;
+    errval_t err = deferred_event_register(de, get_default_waitset(),
+                                           1000, ec);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "deferred event register failed.");
+    }
+}
+__attribute__((__unused__))
+static void install_event(delayus_t delay, struct serial_lpuart *spc) {
+    struct deferred_event* de= malloc(sizeof(struct deferred_event));
+    deferred_event_init(de);
+    errval_t err = deferred_event_register(de, get_default_waitset(),
+                                           delay, MKCLOSURE(serial_poll2, spc));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "deferred event register failed.");
+    }
+}
+
 // __attribute__((__unused__))
 // static void serial_interrupt(void *m)
 // {
@@ -47,6 +98,7 @@ static void serial_poll(struct serial_lpuart *spc)
 //     // -> we have data to read -> call serial_poll
 //     // 
 // }
+
 
 static void hw_init(struct serial_lpuart *spc)
 {   // Disable transceiver
@@ -64,27 +116,23 @@ static void hw_init(struct serial_lpuart *spc)
     baud = lpuart_baud_sbr_insert(baud, 139);
     lpuart_baud_rawwr(&spc->uart, baud);
     //enable FIFOs
-    lpuart_fifo_t fcr = lpuart_fifo_default;
-    fcr = lpuart_fifo_txfe_insert(fcr, 1);
+     lpuart_fifo_t fcr = lpuart_fifo_default;
+    ctrl = lpuart_ctrl_default;
+    ctrl = lpuart_ctrl_te_insert(ctrl, 0);
+    ctrl = lpuart_ctrl_re_insert(ctrl, 0);
+    lpuart_ctrl_wr(&spc->uart, ctrl);
+    //enable fifo
     fcr = lpuart_fifo_rxfe_insert(fcr, 1);
-    
-    // Transmit FIFO/Buffer depth is 256 datawords
-    fcr = lpuart_fifo_txfifosize_insert(fcr, 0x3);
     lpuart_fifo_wr(&spc->uart, fcr);
-    fcr = lpuart_fifo_rxfifosize_insert(fcr, 0x3);
+    fcr = lpuart_fifo_txfe_insert(fcr, 1);
     lpuart_fifo_wr(&spc->uart, fcr);
-   // lpuart_fifo_t lcr = lpuart_fifo_default;
-    // lcr = pc16550d_lcr_wls_insert(lcr, pc16550d_bits8); // 8 data bits
-    // lcr = pc16550d_lcr_stb_insert(lcr, 1); // 1 stop bit
-    // lcr = pc16550d_lcr_pen_insert(lcr, 0); // no parity
-    // lpuart_fifo_wr(&spc->uart, lcr);
-
+    lpuart_water_rxwater_wrf(&spc->uart, 0);
     // Enable transceiver
     ctrl = lpuart_ctrl_default;
     ctrl = lpuart_ctrl_te_insert(ctrl, 1);
     ctrl = lpuart_ctrl_re_insert(ctrl, 1);
-    lpuart_ctrl_rawwr(&spc->uart, ctrl);
-
+    lpuart_ctrl_wr(&spc->uart, ctrl);
+    print_regvalues(spc);
     // ENABLE INTERRUPTS
     /*
     //transmit interrupt enable
@@ -111,14 +159,11 @@ static void serial_putc(struct serial_lpuart *spc,char c)
     // while(!pc16550d_lsr_thre_rdf(&spc->uart));
     // // Write character
     // pc16550d_thr_wr(&spc->uart, c);
-   
     lpuart_t *u = &spc->uart;
     assert(u->base != 0);
 
     while(lpuart_stat_tdre_rdf(u) == 0);
-    lpuart_data_buf_wrf(u, c);
-   
-
+   lpuart_write_data_wr(u,c);
 }
 
 static void serial_write(void * m, const char *c, size_t len)
@@ -212,7 +257,6 @@ serial_lpuart_init(struct serial_lpuart *spc, struct capref irq_src)
 // }
 
 
-
 static errval_t
 init(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
 {
@@ -227,9 +271,7 @@ init(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
     };
     err = map_device_cap(devframe_cap, &vbase);
     debug_printf("vbase = %p\n", vbase);
-
     lpuart_initialize (&spc->uart,(mackerel_addr_t) vbase);
-   //paste
 
     /*  struct capref irq_src;
     irq_src.cnode = bfi->argcn;
@@ -239,11 +281,8 @@ init(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
     bfi->dstate = spc;
 
     SERIAL_DEBUG("lpuart Serial driver initialized.\n");
-    debug_printf("reading from uart\n");
-    while(1)
-    {
-    serial_poll(spc);
-    }
+    debug_printf("installing handler, spc=%p\n", spc);
+    install_event(1000, spc);
     return SYS_ERR_OK;
 }
 
