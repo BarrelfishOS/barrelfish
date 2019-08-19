@@ -40,16 +40,18 @@ static inline errval_t vnode_inherit_attr(struct capref dest, struct capref src,
     capaddr_t saddr = get_cap_addr(src);
 
     capaddr_t mcn[2*MCN_COUNT];
-    for (int i = 0; i < MCN_COUNT; i++) {
+    for (size_t i = 0; i < MCN_COUNT; i++) {
         mcn[i] = get_cap_addr(src_mapping_cn[i]);
         assert(get_cap_level(src_mapping_cn[i]) == CNODE_TYPE_OTHER);
     }
-    for (int i = 0; i < MCN_COUNT; i++) {
+    for (size_t i = 0; i < MCN_COUNT; i++) {
         mcn[MCN_COUNT+i] = get_cap_addr(dst_mapping_cn[i]);
         assert(get_cap_level(dst_mapping_cn[i]) == CNODE_TYPE_OTHER);
     }
 
     return invoke_vnode_inherit(dest, saddr, slevel, start, end, newflags, mcn);
 }
+
+__END_DECLS
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_ARCH_H
