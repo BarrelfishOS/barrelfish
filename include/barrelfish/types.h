@@ -17,6 +17,10 @@
 
 #include <barrelfish_kpi/types.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// Cycle count type
 #ifdef __i386__
 typedef uint64_t cycles_t; // rdtsc() is 64-bit on i386
@@ -84,5 +88,7 @@ typedef struct {
 #undef DIVIDE_ROUND_UP
 #undef _DIVIDE_ROUND_UP_DEFINED
 #endif
+
+__END_DECLS
 
 #endif // TYPES_H

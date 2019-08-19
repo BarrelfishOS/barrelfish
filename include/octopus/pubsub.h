@@ -16,9 +16,10 @@
 #define OCTOPUS_PUBSUB_H_
 
 #include <stdint.h>
+#include <octopus/getset.h>
 
 typedef uint64_t subscription_t;
-typedef void(*subscription_handler_fn)(octopus_mode_t mode, const char* record, void* state);
+typedef void(*subscription_handler_fn)(oct_mode_t mode, const char* record, void* state);
 
 errval_t oct_subscribe(subscription_handler_fn, const void*, subscription_t*,
         const char*, ...);

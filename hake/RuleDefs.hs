@@ -24,6 +24,7 @@ import HakeTypes
 import qualified Args
 import qualified Config
 import TreeDB
+import Data.Char
 
 import Debug.Trace
 -- enable debug spew
@@ -904,7 +905,7 @@ sockeye2 net =
         ]
 
 sockeye2Lisa :: String -> HRule
-sockeye2Lisa net = 
+sockeye2Lisa net =
     let
         outFile = Out "" ("/platforms" </> net <.> ".lisa")
         inSgproj = "/socs" </> net <.> ".sgproj"
@@ -1316,7 +1317,7 @@ appGetOptionsForArch arch args =
 
 fullTarget :: Options -> String -> String -> HRule
 fullTarget opts arch appname =
-    Phony (arch ++ "_All") False
+    Phony ((map toUpper arch) ++ "_All") False
         [ Dep BuildTree arch (applicationPath opts appname) ]
 
 
@@ -1605,7 +1606,7 @@ platform name archs files docstr =
     Rules []
 
 --
--- Creates a 
+-- Creates a
 --
 armv7Image ::[Char] -> [Char] -> [Char] -> [Char] -> [[Char]]-> [[Char]]  -> HRule
 armv7Image target bootTarget cpuTarget physBase modules_generic modules =
@@ -1670,7 +1671,7 @@ armv8Image target menu bootTarget cpuTarget modules_generic modules =
             In BuildTree "armv8" "/tools/armv8_bootimage/efi_loader.o",
             Str "-o",
             Out "root" image_o,
-            Str "/usr/lib/libgnuefi.a", 
+            Str "/usr/lib/libgnuefi.a",
             Str "/usr/lib/libefi.a" ]),
         Rule ([ Str Config.aarch64_objcopy,
             Str "-O binary",
@@ -1690,7 +1691,7 @@ armv8EFIImage target menu bootTarget cpuTarget modules_generic modules =
         In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
         Str Config.install_dir,
         Out "root" target_image
-        ] 
+        ]
         ++ [(Dep BuildTree "armv8" bootDriver)]
         ++ [(Dep BuildTree "armv8" cpuDriver)]
         ++ [(Dep BuildTree "armv8" f) | f <- modules ]
@@ -1747,16 +1748,16 @@ fvp_simargs imgpath = [
 
 
 -- Build buildpath/isim_system using the sgproj file
-fastmodel_sim_target :: RuleToken -> String -> [RuleToken] 
-fastmodel_sim_target sgproj buildpath= 
+fastmodel_sim_target :: RuleToken -> String -> [RuleToken]
+fastmodel_sim_target sgproj buildpath=
     let
         binary = buildpath </> "isim_system"
         build_dir = (Dep InstallTree "tools" (buildpath </> ".marker"))
     in
     [
-        Str ("ARM_FM_ROOT=" ++ Config.fastmodels_root), 
-        In SrcTree "src" "/tools/fastmodels/simgen", 
-        Str "--num-comps-file 50", 
+        Str ("ARM_FM_ROOT=" ++ Config.fastmodels_root),
+        In SrcTree "src" "/tools/fastmodels/simgen",
+        Str "--num-comps-file 50",
         Str "--gen-sysgen",
         Str "--build-directory",
         NoDep BuildTree "tools" buildpath,
@@ -1777,7 +1778,7 @@ boot_fastmodels_lisa :: String -> [ String ] -> String -> String -> (String -> [
 boot_fastmodels_lisa name archs img sims simargs docstr =
     let
         sgproj = In BuildTree "" ("/platforms" </> sims <.> ".sgproj")
-        -- We assume here that the  sgproj depends exactly on one lisa 
+        -- We assume here that the  sgproj depends exactly on one lisa
         -- file with the same base name
         lisaDep = Dep BuildTree "" ("/platforms" </> sims <.> ".lisa")
         buildpath = "/fastmodels" </> (sims ++ "_Build")
@@ -1790,7 +1791,7 @@ boot_fastmodels_lisa name archs img sims simargs docstr =
       in
         if null $ archs Data.List.\\ Config.architectures then
             Rules [
-            Rule $ [lisaDep] ++ fastmodel_sim_target sgproj buildpath, 
+            Rule $ [lisaDep] ++ fastmodel_sim_target sgproj buildpath,
             Phony name False boot_target,
             Phony "help-boot" True
             [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
@@ -1813,7 +1814,7 @@ boot_fastmodels_int name archs img sims sgproj simargs docstr =
   in
     if null $ archs Data.List.\\ Config.architectures then
         Rules [
-        Rule $ fastmodel_sim_target sgproj buildpath, 
+        Rule $ fastmodel_sim_target sgproj buildpath,
         Phony name False boot_target,
         Phony "help-boot" True
         [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
@@ -1859,11 +1860,11 @@ testJob name desc exec =
 
 scalebenchO :: String -> [String] -> [String] -> [RuleToken]
 scalebenchO buildType tests machines =
-    [ 
-       Str "mkdir", Str "-p", Str result_dir, NL, 
+    [
+       Str "mkdir", Str "-p", Str result_dir, NL,
        scalebenchProgLoc
     ] ++
-    test_tokens ++ 
+    test_tokens ++
     machine_tokens ++
     [
        Str "--debug"
@@ -1872,7 +1873,7 @@ scalebenchO buildType tests machines =
     [
        -- positional arguments
        Str Config.source_dir,          -- sourcedir
-       Str result_dir,             -- resultdir 
+       Str result_dir,             -- resultdir
        NL
     ]
     where
@@ -1885,4 +1886,4 @@ scalebenchO buildType tests machines =
 
 scalebench :: [String] -> [String] -> [RuleToken]
 scalebench = scalebenchO ""
-    
+

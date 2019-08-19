@@ -44,7 +44,7 @@ errval_t install_user_managed_pdpt(genvaddr_t *base, void **ptable)
     if (err_is_fail(err)) {
         return err;
     }
-    err = cap_retype(pdpt_cap, pdpt_ram, ObjType_VNode_x86_64_pdpt, BASE_PAGE_BITS);
+    err = cap_retype(pdpt_cap, pdpt_ram, 0, ObjType_VNode_x86_64_pdpt, BASE_PAGE_SIZE, 1);
     if (err_is_fail(err)) {
         return err;
     }
@@ -58,7 +58,11 @@ errval_t install_user_managed_pdpt(genvaddr_t *base, void **ptable)
     };
     size_t pml4e = X86_64_PML4_BASE(base_);
     printf("our pml4e is: %zu\n", pml4e);
-    err = vnode_map(pml4, pdpt_cap, pml4e, PTABLE_ACCESS_DEFAULT, 0, 1);
+    struct capref mapping;
+    err = slot_alloc(&mapping);
+    assert(err_is_ok(err));
+
+    err = vnode_map(pml4, pdpt_cap, pml4e, PTABLE_ACCESS_DEFAULT, 0, 1, mapping);
     if (err_is_fail(err)) {
         return err;
     }

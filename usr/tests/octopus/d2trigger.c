@@ -21,13 +21,20 @@
 #include <barrelfish/deferred.h>
 
 #include <skb/skb.h>
-#include <octopus/octopus.h>
 
+#include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
+
+#include <octopus/octopus.h>
+#include <octopus/definitions.h>
+#include <octopus/pubsub.h>
+#include <octopus/trigger.h>
+
+
 
 #include "common.h"
 
-static void trigger_handler(octopus_mode_t m, char* record, void* state)
+static void trigger_handler(oct_mode_t m, const char*  record, void* state)
 {
     size_t* received = (size_t*) state;
     *received = *received + 1;
@@ -35,10 +42,9 @@ static void trigger_handler(octopus_mode_t m, char* record, void* state)
 
     assert(m & OCT_ON_DEL);
     assert(m & OCT_REMOVED);
-    free(record);
 }
 
-static void persistent_trigger(octopus_mode_t m, char* record, void* state) {
+static void persistent_trigger(oct_mode_t m, const char* record, void* state) {
     size_t* received = (size_t*) state;
     *received = *received + 1;
 
@@ -52,8 +58,6 @@ static void persistent_trigger(octopus_mode_t m, char* record, void* state) {
         debug_printf("persistent trigger CLEANUP: %s\n", record);
         assert(record == NULL);
     }
-
-    free(record);
 }
 
 int main(int argc, char *argv[])
@@ -76,14 +80,13 @@ int main(int argc, char *argv[])
             octopus_BINDING_EVENT, OCT_ON_DEL, trigger_handler, &received);
 
     errval_t error_code = SYS_ERR_OK;
-    char* output = NULL;
-    err = c->call_seq.get(c, "r'^obj.$' { attr: 3 } ", record_deleted, &output,
+    char output[256];
+    err = c->call_seq.get(c, "r'^obj.$' { attr: 3 } ", record_deleted, output,
             &tid, &error_code);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
     ASSERT_STRING(output, "obj3 { attr: 3 }");
     debug_printf("tid is: %"PRIu64"\n", tid);
-    free(output);
 
     oct_del("obj3");
     while (received != 1) {
@@ -92,11 +95,11 @@ int main(int argc, char *argv[])
 
     received = 0;
     tid = 0;
-    octopus_mode_t m = OCT_ON_SET | OCT_ON_DEL | OCT_PERSIST;
+    oct_mode_t m = OCT_ON_SET | OCT_ON_DEL | OCT_PERSIST;
     octopus_trigger_t ptrigger = oct_mktrigger(SYS_ERR_OK,
             octopus_BINDING_EVENT, m, persistent_trigger, &received);
-    output = NULL;
-    err = c->call_seq.get(c, "obj2", ptrigger, &output,
+    memset(output, 0, sizeof(output));
+    err = c->call_seq.get(c, "obj2", ptrigger, output,
             &tid, &error_code);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);

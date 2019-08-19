@@ -11,47 +11,47 @@
 --------------------------------------------------------------------------
 
 
-[ build application { 
-    target = "tests/xomp_test", 
-    cFiles = [ 
+[ build application {
+    target = "tests/xomp_test",
+    cFiles = [
       "main.c",
-      "processing.c" 
+      "processing.c"
     ],
-    addCFlags = [ 
-      "-DBOMP", 
-      "-fopenmp" 
+    addCFlags = [
+      "-DBOMP",
+      "-fopenmp"
     ],
-    addLibraries = [ 
-      "bomp", 
-      "bench", 
-      "trace" 
+    addLibraries = [
+      "bomp",
+      "bench",
+      "trace"
     ],
-    architectures = [ 
-      "x86_64", 
-      "k1om" 
-    ] 
+    architectures = [
+      "x86_64",
+      "k1om"
+    ]
   },
-  
-  build application { 
-    target = "tests/xomp_test_cpp", 
-    cxxFiles = [ 
+
+  build application {
+    target = "tests/xomp_test_cpp",
+    cxxFiles = [
       "main.cpp"
     ],
-    cFiles = [ 
-      "processing.c" 
+    cFiles = [
+      "processing.c"
     ],
-    addCFlags = [ 
-      "-DBOMP", 
-      "-fopenmp" 
+    addCxxFlags = [
+      "-DBOMP",
+      "-fopenmp"
     ],
-    addLibraries = [ 
-      "bomp", 
-      "bench", 
-      "trace" 
+    addLibraries = [
+      "bomp",
+      "bench",
+      "trace"
     ],
-    architectures = [ 
-      "x86_64", 
-      "k1om" 
-    ] 
+    architectures = [
+      "x86_64",
+      "k1om"
+    ]
   }
 ]

@@ -12,8 +12,6 @@
 
 [ build application { target = "bench", cFiles = [ "bench.c"] },
 
-  build application { target = "ipi_bench", cFiles = ["ipi_bench.c"] },
-
   build application { target = "stsc_bench",
                       cFiles = ["stsc_bench.c"],
                       addLibraries = [ "rcce" ],

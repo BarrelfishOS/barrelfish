@@ -25,7 +25,7 @@ static errval_t initialize_master(int argc,
                                   char *argv[])
 {
     errval_t err;
-    debug_printf("Initializing Master: elements:%lu\n", MAX);
+    debug_printf("Initializing Master: elements:%lu\n", WORK_MAX);
 
     struct capref frame;
     err = frame_alloc(&frame, WORK_SIZE, NULL);
@@ -46,9 +46,9 @@ static errval_t initialize_master(int argc,
     }
 
     asrc = addr;
-    adst = asrc + MAX;
+    adst = asrc + WORK_MAX;
 
-    for (uint32_t i = 0; i < MAX; ++i) {
+    for (uint32_t i = 0; i < WORK_MAX; ++i) {
         asrc[i] = i;
         adst[i] = 0;
     }
@@ -122,7 +122,7 @@ errval_t start_master(int argc,
         }
         tsc_start = bench_tsc();
         for (int j = 0; j < IT; j++) {
-            for (int i = 0; i < MAX; i += IT) {
+            for (int i = 0; i < WORK_MAX; i += IT) {
                 adst[i + j] = asrc[i + j];
             }
         }
@@ -142,7 +142,7 @@ errval_t start_master(int argc,
     debug_printf("=========================================================\n");
     ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_N_RUNS);
     do {
-        for (uint32_t i = 0; i < MAX; ++i) {
+        for (uint32_t i = 0; i < WORK_MAX; ++i) {
             adst[i] = 0;
         }
         if (!(run % 10)) {
@@ -153,7 +153,7 @@ errval_t start_master(int argc,
         tsc_end = bench_tsc();
         result = calculate_time(tsc_start, tsc_end);
         run++;
-        for (uint32_t i = 0; i < MAX; ++i) {
+        for (uint32_t i = 0; i < WORK_MAX; ++i) {
             if (adst[i] != asrc[i]) {
                 USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, adst[i],
                        asrc[i]);
@@ -185,7 +185,7 @@ void do_process_single(uint32_t *src,
                        uint32_t *dst)
 {
     for (int j = 0; j < IT; j++) {
-        for (int i = 0; i < MAX; i += IT) {
+        for (int i = 0; i < WORK_MAX; i += IT) {
             dst[i + j] = src[i + j];
         }
     }

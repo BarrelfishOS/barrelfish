@@ -15,6 +15,10 @@
 #ifndef SPAWN_DOMAIN_PARAMS_H
 #define SPAWN_DOMAIN_PARAMS_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct spawn_domain_params {
     int argc;           ///< Number of arguments
     const char *argv[MAX_CMDLINE_ARGS + 1]; ///< Command-line arguments; +1 for NULL terminator
@@ -26,5 +30,7 @@ struct spawn_domain_params {
     size_t tls_total_len;       ///< Total (initialised + BSS) TLS data length
     size_t pagesize;            ///< the page size to be used (domain spanning)
 };
+
+__END_DECLS
 
 #endif // SPAWN_DOMAIN_PARAMS_H

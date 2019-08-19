@@ -722,15 +722,11 @@ master_process_reqs(void)
 {
     /* process slave requests */
     for (;;){
-        struct event_closure closure;
         errval_t ret;
-        ret = check_for_event(get_default_waitset(), &closure);
+        ret = event_dispatch(get_default_waitset());
         if (ret == LIB_ERR_NO_EVENT)
             break;
         assert(err_is_ok(ret));
-        assert(closure.handler != NULL);
-        //printf(RED("-------- GOT A MASTER EVENT handler=%p arg=%p"), closure.handler, closure.arg);
-        closure.handler(closure.arg);
     }
 }
 
@@ -829,7 +825,7 @@ slaves_connect(struct task_graph *tg)
 
         /* initialize bulk transfer for slave */
         init_ok = false;
-        err = bulk_create(BULK_TOTAL_SIZE, BULK_BLOCK_SIZE, &sl->frame, &sl->bt, false);
+        err = bulk_create(BULK_TOTAL_SIZE, BULK_BLOCK_SIZE, &sl->frame, &sl->bt);
         assert(err_is_ok(err));
         err = sl->b->tx_vtbl.slave_init(sl->b, NOP_CONT, sl->frame, BULK_TOTAL_SIZE);
         assert(err_is_ok(err));

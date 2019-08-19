@@ -43,7 +43,7 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
                                enum objtype cntype, struct cnoderef *cnoderef,
                                size_t slots);
 
-errval_t root_cnode_resize(struct capref new, struct capref ret);
+errval_t root_cnode_resize(struct capref cn, struct capref ret);
 
 errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offset,
                     enum objtype new_type, gensize_t objsize, size_t count);
@@ -68,7 +68,7 @@ struct lmp_endpoint;
 errval_t endpoint_create(size_t buflen, struct capref *retcap,
                          struct lmp_endpoint **retep);
 errval_t ump_endpoint_create(struct capref dest, size_t bytes);
-errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes, 
+errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes,
                                          uint16_t iftype);
 
 errval_t idcap_alloc(struct capref *dest);
@@ -93,10 +93,10 @@ cap_mint(struct capref dest, struct capref src, uint64_t param1, uint64_t param2
 {
     capaddr_t dcs_addr = get_croot_addr(dest);
     capaddr_t dcn_addr = get_cnode_addr(dest);
-    uint8_t dcn_level  = get_cnode_level(dest);
+    enum cnode_type dcn_level  = get_cnode_level(dest);
     capaddr_t scp_root = get_croot_addr(src);
     capaddr_t scp_addr = get_cap_addr(src);
-    uint8_t scp_level  = get_cap_level(src);
+    enum cnode_type scp_level  = get_cap_level(src);
 
     return invoke_cnode_mint(cap_root, dcs_addr, dcn_addr, dest.slot,
                              scp_root, scp_addr, dcn_level, scp_level,
@@ -121,9 +121,9 @@ vnode_map(struct capref dest, struct capref src, capaddr_t slot,
 
     capaddr_t sroot = get_croot_addr(src);
     capaddr_t saddr = get_cap_addr(src);
-    uint8_t slevel  = get_cap_level(src);
+    enum cnode_type slevel  = get_cap_level(src);
 
-    uint8_t mcn_level = get_cnode_level(mapping);
+    enum cnode_type mcn_level = get_cnode_level(mapping);
     capaddr_t mcn_addr = get_cnode_addr(mapping);
     capaddr_t mcn_root = get_croot_addr(mapping);
 
@@ -134,7 +134,7 @@ vnode_map(struct capref dest, struct capref src, capaddr_t slot,
 static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping)
 {
     capaddr_t mapping_addr = get_cap_addr(mapping);
-    uint8_t level = get_cap_level(mapping);
+     enum cnode_type level = get_cap_level(mapping);
 
     return invoke_vnode_unmap(pgtl, mapping_addr, level);
 }
@@ -150,8 +150,8 @@ vnode_copy_remap(struct capref dest, struct capref src, capaddr_t slot,
                  uint64_t attr, uint64_t off, uint64_t pte_count,
                  struct capref mapping)
 {
-     enum cnode_type slevel = get_cap_level(src);
-     capaddr_t saddr = get_cap_addr(src);
+    enum cnode_type slevel = get_cap_level(src);
+    capaddr_t saddr = get_cap_addr(src);
 
     enum cnode_type mcn_level = get_cnode_level(mapping);
     capaddr_t mcn_addr = get_cnode_addr(mapping);
@@ -173,8 +173,8 @@ static inline errval_t cap_copy(struct capref dest, struct capref src)
     capaddr_t dcn_addr = get_cnode_addr(dest);
     capaddr_t scp_root = get_croot_addr(src);
     capaddr_t scp_addr = get_cap_addr(src);
-    uint8_t dcn_level  = get_cnode_level(dest);
-    uint8_t scp_level  = get_cap_level(src);
+    enum cnode_type dcn_level  = get_cnode_level(dest);
+    enum cnode_type scp_level  = get_cap_level(src);
 
     err = invoke_cnode_copy(cap_root, dcs_addr, dcn_addr, dest.slot, scp_root,
                             scp_addr, dcn_level, scp_level);
@@ -184,7 +184,7 @@ static inline errval_t cap_copy(struct capref dest, struct capref src)
 static inline errval_t cap_get_state(struct capref cap, distcap_state_t *state)
 {
     capaddr_t caddr = get_cap_addr(cap);
-    uint8_t level = get_cap_level(cap);
+    enum cnode_type level = get_cap_level(cap);
 
     return invoke_cnode_get_state(cap_root, caddr, level, state);
 }

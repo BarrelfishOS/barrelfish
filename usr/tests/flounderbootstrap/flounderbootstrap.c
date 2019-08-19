@@ -119,11 +119,11 @@ static void rx_init(struct flounderbootstrap_binding *b,
         USER_PANIC_ERR(err, "failed to identify the frame");
     }
 
-    assert((1UL << id.bits) >= (2 * CHANNEL_SIZE));
+    assert(id.bytes >= (2 * CHANNEL_SIZE));
 
     frame_info.sendbase = id.base;
 
-    err = vspace_map_one_frame(&addr, (1UL << id.bits), cap, NULL, NULL);
+    err = vspace_map_one_frame(&addr, id.bytes, cap, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to map the frame");
     }

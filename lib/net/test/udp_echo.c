@@ -1,5 +1,5 @@
 /**
- * @brief 
+ * @brief
  *  udp_echo.c
  */
 
@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
         return(r);
     }
 
-    err = networking_install_ip_filter(false, (ip_addr_t*) IP_ADDR_ANY, 
-                                       0, UDP_ECHOSERVER_PORT);    
+    struct in_addr ia = { INADDR_ANY };
+    err = networking_install_ip_filter(false, &ia, 0, UDP_ECHOSERVER_PORT);
     if (err_is_fail(err)) {
         USER_PANIC("Adding filter failed %s \n", err_getstring(err));
     }

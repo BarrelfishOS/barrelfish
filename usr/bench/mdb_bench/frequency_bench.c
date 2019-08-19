@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     errval_t err;
     coreid_t my_core_id = disp_get_current_core_id();
     for (int r = 0; r < run_rounds; r++) {
-        domainid_t domids[run_count];
+        struct capref domids[run_count];
         for (int c = 0; c < run_count; c++) {
             err = spawn_program(my_core_id, prog_to_run, prog_argv, NULL,
                     SPAWN_FLAGS_DEFAULT, &domids[c]);

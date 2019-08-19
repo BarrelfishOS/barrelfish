@@ -14,7 +14,7 @@
 
 let
     subdirs = [ "src/core", "src/core/ipv4",  "src/netif",  "src/api" ]
-    
+
     srcs = concat [ find cInDir sd | sd <- subdirs ]
             ++ ["src/sys_arch.c", "src/barrelfish/pbuf_barrelfish.c" ]
     --   ++ [ "src/netif/bfeth.c", "src/netif/etharp.c", "src/sys_arch.c" ]

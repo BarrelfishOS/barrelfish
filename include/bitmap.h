@@ -22,9 +22,9 @@
 #ifndef __BITMAP_H
 #define __BITMAP_H 1
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /*
  * Bitmap implementation
@@ -98,8 +98,6 @@ void bitmap_xor(struct bitmap *dst, const  struct bitmap *src);
 /* debug operations */
 void bitmap_dump(const struct bitmap *bm);
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif /* __BITMAP_H */

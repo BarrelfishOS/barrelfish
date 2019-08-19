@@ -60,7 +60,8 @@ let
         "s_conj.c", "s_conjf.c", "s_conjl.c",
         "s_cproj.c", "s_cprojf.c", "s_creal.c", "s_crealf.c", "s_creall.c",
         "s_csinh.c", "s_csinhf.c", "s_ctanh.c", "s_ctanhf.c"]
-    ldbl_c = [ "e_acoshl.c", "e_acosl.c", "e_asinl.c", "e_atan2l.c", "e_atanhl.c",
+    ldbl_c = [
+        "e_acoshl.c", "e_acosl.c", "e_asinl.c", "e_atan2l.c", "e_atanhl.c",
         "e_coshl.c", "e_fmodl.c", "e_hypotl.c", "e_lgammal.c",
         "e_remainderl.c", "e_sinhl.c", "e_sqrtl.c",
         "s_asinhl.c", "s_atanl.c", "s_cbrtl.c", "s_ceill.c", "s_cosl.c", "s_cprojl.c",
@@ -72,7 +73,7 @@ let
     arm_c = [ "arm/fenv-softfp.c", "arm/fenv-vfp.c", "arm/fenv.c" ]
     x86_64_c = [ "amd64/fenv.c" ]
     x86_64_a = concat [ find sInDir "amd64" ]
-    
+
 in [
     build library {
         target = "m",
@@ -90,8 +91,8 @@ in [
                         "armv8" ->  aarch64_c)
                     ++ (case ldbl_prec arch of
                         53 -> []
-                        64 -> concat [ find sInDir "ld80" ]
-                        113 -> concat [ find sInDir "ld128" ])
+                        64 -> concat [ find cInDir "ld80" ]
+                        113 -> concat [ find cInDir "ld128" ])
                     ++ bsdcommon_c,
         addCFlags =  case arch of
                         "x86_64" ->  [ "-DLDBL_PREC=64" ]

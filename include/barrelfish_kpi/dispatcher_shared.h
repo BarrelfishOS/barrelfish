@@ -19,6 +19,10 @@
 
 #include <barrelfish_kpi/dispatcher_handle.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define DISP_NAME_LEN   16
 
 enum task_type {
@@ -70,20 +74,21 @@ static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
     printf("Dump of dispatcher at address %p:\n", disp);
     printf("  disabled      = %d (%s)\n", disp->disabled, disp->disabled ? "RESUME" : "UPCALL" );
     printf("  haswork       = %d\n", disp->haswork );
-    printf("  udisp         = 0x%"PRIxLVADDR"\n", disp->udisp );
+    printf("  udisp         = 0x%" PRIxLVADDR "\n", disp->udisp );
     printf("  lmp_delivered = %d\n", disp->lmp_delivered );
     printf("  lmp_seen      = %d\n", disp->lmp_seen );
-    printf("  lpm_hint      = 0x%"PRIxLVADDR"\n", disp->lmp_hint );
-    printf("  dispatcher_run                = 0x%"PRIxLVADDR"\n", disp->dispatcher_run );
-    printf("  dispatcher_pagefault          = 0x%"PRIxLVADDR"\n", disp->dispatcher_pagefault );
-    printf("  dispatcher_pagefault_disabled = 0x%"PRIxLVADDR"\n", disp->dispatcher_pagefault_disabled );
-    printf("  dispatcher_trap               = 0x%"PRIxLVADDR"\n", disp->dispatcher_trap );
+    printf("  lpm_hint      = 0x%" PRIxLVADDR "\n", disp->lmp_hint );
+    printf("  dispatcher_run                = 0x%" PRIxLVADDR "\n", disp->dispatcher_run );
+    printf("  dispatcher_pagefault          = 0x%" PRIxLVADDR "\n", disp->dispatcher_pagefault );
+    printf("  dispatcher_pagefault_disabled = 0x%" PRIxLVADDR "\n", disp->dispatcher_pagefault_disabled );
+    printf("  dispatcher_trap               = 0x%" PRIxLVADDR "\n", disp->dispatcher_trap );
     printf("  systime      = 0x%" PRIuSYSTIME "\n", disp->systime );
     printf("  wakeup       = 0x%" PRIuSYSTIME "\n", disp->wakeup );
     printf("  name         = %.*s\n", DISP_NAME_LEN, disp->name );
     printf("  curr_core_id = 0x%" PRIxCOREID "\n", disp->curr_core_id );
 }
 
+__END_DECLS
 
 #endif //__ASSEMBLER__
 #endif // BARRELFISH_KPI_DISPATCHER_SHARED_H

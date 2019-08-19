@@ -12,10 +12,10 @@
  */
 
 /*
- * Spawn benchmark on given # of cores. 
+ * Spawn benchmark on given # of cores.
  * Request set amount of memory on each core.
- * This benchmark program waits on barriers to ensure that the mem server is 
- * running and to synchronise the starting and stopping of the benchmarks on 
+ * This benchmark program waits on barriers to ensure that the mem server is
+ * running and to synchronise the starting and stopping of the benchmarks on
  * different dispatchers.
  */
 
@@ -43,12 +43,12 @@ static void run_benchmark(coreid_t core, int requests)
     errval_t err;
     struct capref ramcap;
 
-    
+
     int i = -1;
     int bits = MEM_BITS;
 
     debug_printf("starting benchmark. allocating mem of size: %d\n", bits);
-    //debug_printf("starting benchmark. allocating mem of size: %d to %d\n", 
+    //debug_printf("starting benchmark. allocating mem of size: %d to %d\n",
     //             MINSIZEBITS, MINSIZEBITS+requests-1);
 
 
@@ -66,7 +66,8 @@ static void run_benchmark(coreid_t core, int requests)
             DEBUG_ERR(err, "ram_alloc failed");
         }
         milli_sleep(1);
-        err = ram_free(ramcap);
+        /// XXX: just destroying the cap... should actually handing back properly
+        err = cap_destroy(ramcap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "ram_free failed");
         }
@@ -75,7 +76,7 @@ static void run_benchmark(coreid_t core, int requests)
         }
     } while (err_is_ok(err)); // && (i < requests));
 
-    debug_printf("done benchmark. allocated %d caps (%lu bytes)\n", 
+    debug_printf("done benchmark. allocated %d caps (%lu bytes)\n",
                  i, i * (1UL << bits));
 
 }
@@ -88,24 +89,24 @@ static int run_worker(coreid_t mycore)
 
     trace_event(TRACE_SUBSYS_MEMTEST, TRACE_EVENT_MEMTEST_WAIT, 0);
 
-    err = ns_barrier_worker((int)mycore, "mem_bench_ready");
+    err = nsb_worker((int)mycore, "mem_bench_ready");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "barrier_worker failed");
     }
 
     trace_event(TRACE_SUBSYS_MEMTEST, TRACE_EVENT_MEMTEST_RUN, 0);
-    
+
     run_benchmark(mycore, MAX_REQUESTS);
 
     trace_event(TRACE_SUBSYS_MEMTEST, TRACE_EVENT_MEMTEST_WAIT, 0);
 
-    err = ns_barrier_worker((int)mycore, "mem_bench_finished");
+    err = nsb_worker((int)mycore, "mem_bench_finished");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "barrier_worker failed");
     }
 
     trace_event(TRACE_SUBSYS_MEMTEST, TRACE_EVENT_MEMTEST_DONE, 0);
-    
+
     return EXIT_SUCCESS;
 }
 
@@ -148,7 +149,7 @@ static int run_master(coreid_t mycore, int argc, char *argv[])
     trace_event(TRACE_SUBSYS_MEMTEST, TRACE_EVENT_MEMTEST_WAIT, 0);
 
     //    debug_printf("waiting for all spawns to start\n");
-    err = ns_barrier_master(first_core, num_spawn, "mem_bench_ready");
+    err = nsb_master(first_core, num_spawn, "mem_bench_ready");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed barrier_master");
         return EXIT_FAILURE;
@@ -163,7 +164,7 @@ static int run_master(coreid_t mycore, int argc, char *argv[])
     trace_event(TRACE_SUBSYS_MEMTEST, TRACE_EVENT_MEMTEST_WAIT, 0);
 
     //    debug_printf("waiting for all spawns to complete\n");
-    err = ns_barrier_master(first_core, num_spawn, "mem_bench_finished");
+    err = nsb_master(first_core, num_spawn, "mem_bench_finished");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed barrier_master");
         return EXIT_FAILURE;
@@ -180,7 +181,7 @@ static int run_master(coreid_t mycore, int argc, char *argv[])
 }
 
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     coreid_t mycore = disp_get_core_id();
 

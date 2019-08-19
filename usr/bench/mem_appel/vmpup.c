@@ -353,8 +353,7 @@ uint64_t rdtsc(void)
 static void
 bf_handler(enum exception_type type, int subtype,
            void *vaddr,
-           arch_registers_state_t *regs,
-           arch_registers_fpu_state_t *fpuregs)
+           arch_registers_state_t *regs)
 {
     //debug_printf("got exception %d(%d) on %p\n", type, subtype, vaddr);
     assert(type == EXCEPT_PAGEFAULT);
@@ -382,7 +381,7 @@ int main(int argc, char **argv)
     if (pagesize == 2097152) {
         flags |= MAP_HUGETLB | MAP_HUGE_2MB;
     }
-    
+
     void* addr = 0x7fa400000000ULL;
     mem = mmap(addr, PAGES*pagesize, PROT_READ | PROT_WRITE, flags, -1, 0);
     if (mem==MAP_FAILED) {

@@ -6,6 +6,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
+
 extern "C" {
     #include <barrelfish_kpi/types.h>
     #include <errors/errno.h>
@@ -13,7 +14,11 @@ extern "C" {
     #include "xomptest.h"
 }
 
+/// XXX: there seems to be some issues with this.., disabling this warning for now
+#pragma GCC diagnostic ignored "-Wshadow"
 #include <iostream>
+#pragma GCC diagnostic error "-Wshadow"
+
 
 #include <omp.h>
 
@@ -28,7 +33,7 @@ void do_process(uint32_t *src,
     }
 #pragma omp parallel for
     for (unsigned int j = 0; j < IT; j++) {
-        for (unsigned int i = 0; i < MAX; i += IT) {
+        for (unsigned int i = 0; i < WORK_MAX; i += IT) {
             dst[i + j] = src[i + j];
         }
     }

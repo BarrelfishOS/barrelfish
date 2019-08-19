@@ -100,7 +100,6 @@ let
     "floatuntidf_test.c",
     "floatuntisf_test.c",
     "floatuntixf_test.c",
-    "gcc_personality_test.c",
     "gedf2vfp_test.c",
     "gesf2vfp_test.c",
     "getf2_test.c",
@@ -209,4 +208,21 @@ in [ build application {
         addIncludes = [
             "/lib/compiler-rt/builtins/"
         ]
-    } | f <- builtins_unittest_files, arch <- allArchitectures ]
+    } | f <- builtins_unittest_files, arch <- allArchitectures ]  ++ [
+
+    build application {
+      target = "compiler-rt/" ++ builtins_unittest_dir ++ "gcc_personality_test",
+        cxxFiles = ["gcc_personality_test_helper.cxx"],
+        cFiles = [ "gcc_personality_test.c" ],
+        addCFlags = arch_cFlags arch,
+        addLibraries = libDeps [
+            "compiler-rt",
+            "m"
+        ],
+        architectures = [
+            arch
+        ],
+        addIncludes = [
+            "/lib/compiler-rt/builtins/"
+        ]
+    } |  arch <- allArchitectures]

@@ -24,6 +24,10 @@
 #include <barrelfish/invocations_arch.h>
 #include <barrelfish/idc.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 static inline errval_t invoke_ram_noop(struct capref ram)
 {
     return cap_invoke1(ram, RAMCmd_Noop).error;
@@ -482,7 +486,7 @@ static inline errval_t invoke_irqsrc_get_vec_end(struct capref irqcap, uint64_t 
 
 /**
  * Allocate a free entry in the vector table and return it as dest_cap.
- * Set vec_hint to a positive value, and the allocator will force 
+ * Set vec_hint to a positive value, and the allocator will force
  * that vector to be allocated.
  */
 static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap,
@@ -536,5 +540,7 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
     }
     return sysret.error;
 }
+
+__END_DECLS
 
 #endif // INVOCATIONS_H

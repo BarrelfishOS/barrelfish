@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define SHELL "fish"
 #define BUFFER_SIZE 128

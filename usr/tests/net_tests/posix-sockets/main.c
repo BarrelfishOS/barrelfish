@@ -36,6 +36,7 @@
 #ifdef BARRELFISH
 # include <barrelfish/barrelfish.h>
 # include <lwip/tcpip.h>
+# include <lwip/sockets.h>
 #endif /* BARRELFISH */
 
 #define DEFAULT_PORT        4242

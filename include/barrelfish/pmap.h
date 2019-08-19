@@ -17,6 +17,10 @@
 
 #include <barrelfish/pmap_ds.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct pmap_dump_info;
 struct pmap;
 struct pmap_mapping_info;
@@ -143,5 +147,7 @@ void pmap_vnode_free(struct pmap *p, struct vnode *v);
  * \brief Refill shadow pt implementation slab allocators if necessary
  */
 errval_t pmap_refill_slabs(struct pmap *pmap, size_t max_slabs);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_PMAP_H

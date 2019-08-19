@@ -20,6 +20,10 @@
 #include <barrelfish/heap.h>
 #include <barrelfish/threads.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct lmp_chan;
 struct ump_chan;
 struct deferred_event;
@@ -93,12 +97,14 @@ struct dispatcher_generic {
 
     /// list of polled channels
     struct waitset_chanstate *polled_channels;
-    
+
     struct notificator *notificators;
 
     struct capref recv_slots[MAX_RECV_SLOTS];///< Queued cap recv slots
     int8_t recv_slot_count;                 ///< number of currently queued recv slots
 
 };
+
+__END_DECLS
 
 #endif // BARRELFISH_DISPATCHER_H

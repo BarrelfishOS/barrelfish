@@ -5,7 +5,7 @@
 #include <string.h>
 
 static int execute_program(coreid_t coreid, int argc, char *argv[],
-                           domainid_t *retdomainid)
+                           struct capref *retdomainid)
 {
     errval_t err;
 
@@ -30,7 +30,7 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     return 0;
 }
 
-static uint8_t wait_domain_id(domainid_t domainid)
+static uint8_t wait_domain_id(struct capref domainid)
 {
     uint8_t exitcode;
     errval_t err = spawn_wait(domainid, &exitcode, false);
@@ -68,7 +68,7 @@ static void restart_core(void *arg)
         "update",
         corestr,
     };
-    domainid_t x86id;
+    struct capref x86id;
     debug_printf("restarting core %d\n", next_core);
     execute_program(disp_get_core_id(), 3, argv, &x86id);
     wait_domain_id(x86id);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     deferred_event_init(&myevent);
     // spawn loopy on fixed core
     char *loopy_argv[1] = { "loopy" };
-    domainid_t retid;
+    struct capref retid;
     execute_program(loopy_core, 1, loopy_argv, &retid);
 
     // 2: wait a bit

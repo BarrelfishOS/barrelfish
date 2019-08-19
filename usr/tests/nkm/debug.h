@@ -15,6 +15,7 @@
 #ifndef NKM_DEBUG_H
 #define NKM_DEBUG_H
 
+
 #ifdef NKMTEST_DEBUG_MAP_UNMAP
 #define DEBUG_MAP_UNMAP(...) debug_printf(__VA_ARGS__)
 #else
@@ -26,6 +27,8 @@
 #else
 #define DEBUG_INVALID_MAPPINGS(...)
 #endif
+
+#define NKMTEST_DEBUG_MODIFY_FLAGS
 
 #ifdef NKMTEST_DEBUG_MODIFY_FLAGS
 #define DEBUG_MODIFY_FLAGS(...) debug_printf(__VA_ARGS__)

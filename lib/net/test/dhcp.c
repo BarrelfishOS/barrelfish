@@ -1,6 +1,6 @@
 /**
  * \file ping.c
- * \brief 
+ * \brief
  */
 
 
@@ -48,7 +48,8 @@ static int client_main(int argc, char *argv[])
 
     debug_printf("DHCP client main.\n");
 
-    err = dhcpd_query(0);
+    uint32_t gip;
+    err = net_config_current_ip_query(NET_FLAGS_DEFAULTS, &gip);
     assert(err_is_ok(err));
 
     debug_printf("DHCP client query init\n");

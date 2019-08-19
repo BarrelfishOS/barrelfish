@@ -83,7 +83,7 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
                                     cslot_t nslots, void *buf, size_t buflen);
 
 cslot_t single_slot_alloc_freecount(struct single_slot_allocator *s);
-errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
+errval_t single_slot_alloc_resize(struct single_slot_allocator *sa,
                                   cslot_t newslotcount);
 
 errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret);

@@ -81,6 +81,13 @@ typedef enum idc_endpoint_flags {
 
 void idc_init(void);
 
+
+/* XXX: glue junk for old IDC system, to be removed!! */
+
+void messages_wait_and_handle_next(void);
+void __attribute__((noreturn)) messages_handler_loop(void);
+
+
 __END_DECLS
 
 #endif // BARRELFISH_IDC_H

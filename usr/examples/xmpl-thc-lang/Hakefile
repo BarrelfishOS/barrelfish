@@ -10,7 +10,9 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "examples/xmpl-thc-lang",
+[
+	{-
+	build application { target = "examples/xmpl-thc-lang",
                       cFiles = [ "thc-lang.c" ],
 		      flounderDefs = [ "xmplthc" ],
 		      flounderBindings = [ "xmplthc" ],
@@ -18,6 +20,7 @@
 		      addLibraries = [ "thc" ],
 		      architectures = [ "x86_64", "x86_32" ]
                     }
+    -}
 ]
 
 

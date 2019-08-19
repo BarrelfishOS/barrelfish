@@ -129,6 +129,9 @@ errval_t idc_get_service(iref_t iref, struct idc_export **e)
         return err_push(err, LIB_ERR_EVENT_DISPATCH);
     }
     
+    if (err_is_fail(err)) {
+        DEBUG_ERR(mb->rx_union.get_service_id_reply.err, "idc get service");
+    }
     assert(err_is_ok(mb->rx_union.get_service_id_reply.err));
     assert(iref == mb->rx_union.get_service_id_reply.iref);
     assert(mb->rx_union.get_service_id_reply.service_id);

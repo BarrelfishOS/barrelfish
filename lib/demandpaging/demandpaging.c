@@ -268,8 +268,7 @@ static errval_t handle_pagefault(lvaddr_t vaddr)
 }
 
 static void exn_handler(enum exception_type type, int subtype,
-                        void *addr, arch_registers_state_t *regs,
-                        arch_registers_fpu_state_t *fpuregs)
+                        void *addr, arch_registers_state_t *regs)
 {
     errval_t err;
     if (type == EXCEPT_PAGEFAULT) {
@@ -518,7 +517,7 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
 
     debug_printf("FRAME BASE: %lx\n", id.base);
 
-    err = cap_retype(frames, frame, ObjType_Frame, pagebits);
+    err = cap_retype(frames, frame, 0, ObjType_Frame, pagesize, numframes);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap retype\n");
     }

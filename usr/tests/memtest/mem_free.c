@@ -36,8 +36,8 @@ int main(int argc, char **argv)
     err = debug_cap_identify(theram, &cap);
     assert(err_is_ok(err));
     assert(cap.type == ObjType_RAM);
-    printf("got RAM at 0x%" PRIxGENPADDR ", size %u\n",
-           cap.u.ram.base, cap.u.ram.bits);
+    printf("got RAM at 0x%" PRIxGENPADDR ", size %zu\n",
+           cap.u.ram.base, cap.u.ram.bytes);
 
     struct capref leftcap, rightcap;
 
@@ -54,14 +54,14 @@ int main(int argc, char **argv)
     err = debug_cap_identify(leftcap, &cap);
     assert(err_is_ok(err));
     assert(cap.type == ObjType_RAM);
-    printf("left half at 0x%" PRIxGENPADDR ", size %u\n",
-           cap.u.ram.base, cap.u.ram.bits);
+    printf("left half at 0x%" PRIxGENPADDR ", size %zu\n",
+           cap.u.ram.base, cap.u.ram.bytes);
 
     err = debug_cap_identify(rightcap, &cap);
     assert(err_is_ok(err));
     assert(cap.type == ObjType_RAM);
-    printf("right half at 0x%" PRIxGENPADDR ", size %u\n",
-           cap.u.ram.base, cap.u.ram.bits);
+    printf("right half at 0x%" PRIxGENPADDR ", size %zu\n",
+           cap.u.ram.base, cap.u.ram.bytes);
 
     // Delete the parent (8K range)
     printf("deleting parent\n");

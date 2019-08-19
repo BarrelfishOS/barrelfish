@@ -14,6 +14,9 @@
 
 #include <stdint.h>
 #include <sys/param.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /* A one-bit mask at bit n of type t */
 #define BIT_T(t, n) ((t)1 << (n))
@@ -62,5 +65,7 @@ log2ceil(uintptr_t num) {
         return l + 1;
     }
 }
+
+__END_DECLS
 
 #endif /* __BITMACROS_H */

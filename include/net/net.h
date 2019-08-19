@@ -90,7 +90,7 @@ errval_t networking_init_with_nic(const char *nic, net_flags_t flags);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init_with_ep(const char *nic, struct capref ep, 
+errval_t networking_init_with_ep(const char *nic, struct capref ep,
                                  net_flags_t flags);
 
 /**
@@ -124,7 +124,7 @@ errval_t networking_poll(void);
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t networking_create_queue(const char *cardname, struct capref* ep,
-                                 uint64_t* queueid, struct capref* filter_ep,   
+                                 uint64_t* queueid, struct capref* filter_ep,
                                  struct devq **retqueue);
 
 /**

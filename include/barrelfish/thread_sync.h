@@ -20,6 +20,10 @@
 
 #include <barrelfish_kpi/spinlocks_arch.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// A thread of execution
 struct thread;
 
@@ -79,7 +83,9 @@ struct thread_barrier {
 #else
 #		define THREAD_BARRIER_INITIALIZER \
 	{ 0, 0, (struct thread_sem *) NULL, \
-	  (struct thread_sem *) NULL, (struct thread_sem *) NULL }	
+	  (struct thread_sem *) NULL, (struct thread_sem *) NULL }
 #endif
+
+__END_DECLS
 
 #endif

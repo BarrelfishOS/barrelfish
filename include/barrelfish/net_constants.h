@@ -16,6 +16,10 @@
 #ifndef LIBBARRELFISH_NETCONSTANTS_H
 #define LIBBARRELFISH_NETCONSTANTS_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 // *******************************************************************
 // net devices will export their service with following names
 // *******************************************************************
@@ -139,5 +143,7 @@ enum buffer_memory_types {
 #endif // MEM_CONF_LOC
 
 #endif // CONFIG_QEMU_NETWORK
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_NETCONSTANTS_H

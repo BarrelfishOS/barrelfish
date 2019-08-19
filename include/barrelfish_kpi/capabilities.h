@@ -32,6 +32,10 @@
 #include <stdbool.h>
 #include <barrelfish_kpi/types.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define CAPRIGHTS_READ          (1 << 0)
 #define CAPRIGHTS_WRITE         (1 << 1)
 #define CAPRIGHTS_EXECUTE       (1 << 2)
@@ -518,10 +522,10 @@ enum dispatcher_cmd {
     DispatcherCmd_SetupGuest,       ///< Set up the DCB of a guest domain
     DispatcherCmd_DumpPTables,      ///< Dump hw page tables of dispatcher
     DispatcherCmd_DumpCapabilities, ///< Dump capabilities of dispatcher
-    DispatcherCmd_Vmread,           ///< Execute vmread on the current and active VMCS      
+    DispatcherCmd_Vmread,           ///< Execute vmread on the current and active VMCS
     DispatcherCmd_Vmwrite,          ///< Execute vmwrite on the current and active VMCS
     DispatcherCmd_Vmptrld,          ///< Make VMCS clear and inactive
-    DispatcherCmd_Vmclear,          ///< Make VMCS current and active 
+    DispatcherCmd_Vmclear,          ///< Make VMCS current and active
 };
 
 /**
@@ -676,6 +680,8 @@ struct endpoint_identity {
     uint16_t   iftype; ///< interface type
     uint16_t   eptype; ///< type of the endpoint
 };
+
+__END_DECLS
 
 #endif // __ASSEMBLER__
 

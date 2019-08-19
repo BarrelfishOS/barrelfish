@@ -164,21 +164,21 @@ cslot_t single_slot_alloc_freecount(struct single_slot_allocator *this)
     return freecount;
 }
 
-errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
+errval_t single_slot_alloc_resize(struct single_slot_allocator *sa,
                                   cslot_t newslotcount)
 {
     errval_t err;
 
 
-    if (newslotcount <= this->a.nslots) {
+    if (newslotcount <= sa->a.nslots) {
         debug_printf("%s: newcount = %"PRIuCSLOT", currcount = %"PRIuCSLOT"\n",
-                __FUNCTION__, newslotcount, this->a.nslots);
+                __FUNCTION__, newslotcount, sa->a.nslots);
         return SYS_ERR_OK;
     }
 
-    assert(newslotcount > this->a.nslots);
+    assert(newslotcount > sa->a.nslots);
 
-    cslot_t grow = newslotcount - this->a.nslots;
+    cslot_t grow = newslotcount - sa->a.nslots;
 
     // Refill slab allocator
     size_t bufgrow = SINGLE_SLOT_ALLOC_BUFLEN(grow);
@@ -186,16 +186,16 @@ errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
     if (!buf) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    slab_grow(&this->slab, buf, bufgrow);
+    slab_grow(&sa->slab, buf, bufgrow);
 
     // Update free slot metadata
-    err = free_slots(this, this->a.nslots, grow, &this->a.mutex);
+    err = free_slots(sa, sa->a.nslots, grow, &sa->a.mutex);
     if (err_is_fail(err)) {
         return err;
     }
 
     // Update generic metadata
-    this->a.nslots = newslotcount;
+    sa->a.nslots = newslotcount;
 
     return SYS_ERR_OK;
 }
@@ -220,7 +220,7 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
         // check for callers that do not provide enough buffer space
         #if !defined(NDEBUG)
         //on arm, __builtin_return_address does not take arguments !=0
-        #if !defined(__arm__) && !defined(__aarch64__) 
+        #if !defined(__arm__) && !defined(__aarch64__)
         size_t buflen_proper = SINGLE_SLOT_ALLOC_BUFLEN(nslots);
         if (buflen != buflen_proper) {
             debug_printf("******* FIXME: %s buflen=%zu != buflen_proper=%zu"

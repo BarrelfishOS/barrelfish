@@ -20,10 +20,12 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-#include <octopus/octopus.h>
+
 #include <skb/skb.h>
 
 #include <if/octopus_thc.h>
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
 
 #define MAX_ITERATIONS 500
 struct timestamp {
@@ -149,21 +151,20 @@ static void no_name_get_worstcase(void)
         struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
         assert(cl != NULL);
         errval_t error_code;
-        char* record;
+        static char record[1024];
 
         for (size_t j = records[i - 1]; j < records[i]; j++) {
             construct_record(5);
-            cl->call_seq.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &tid, &error_code);
+            cl->call_seq.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, record, &tid, &error_code);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "set"); exit(0); }
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             timestamps[k].time0 = bench_tsc();
-            cl->call_seq.get(cl, query, NOP_TRIGGER, &record, &tid, &error_code);
+            cl->call_seq.get(cl, query, NOP_TRIGGER, record, &tid, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) { DEBUG_ERR(error_code, "get"); exit(0); }
             //timestamps[k].count = atoll(strrchr(record, '}')+1);
-            free(record);
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {

@@ -18,10 +18,13 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-#include <octopus/octopus.h>
-#include <skb/skb.h>
 
 #include <if/octopus_thc.h>
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
+#include <skb/skb.h>
+
+
 
 #define MAX_ITERATIONS 500
 struct timestamp {
@@ -55,7 +58,7 @@ static void variable_records(void)
         }
 
         errval_t error_code;
-        char* data = NULL;
+        char data[1024];;
 
         struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
         assert(cl != NULL);
@@ -68,7 +71,7 @@ static void variable_records(void)
             sprintf(buf, "object%zu", get_nr);
 
             timestamps[k].time0 = bench_tsc();
-            cl->call_seq.get(cl, buf, NOP_TRIGGER, &data, &tid, &error_code);
+            cl->call_seq.get(cl, buf, NOP_TRIGGER, data, &tid, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "get");
@@ -95,7 +98,7 @@ static void add_record(void) {
     assert(cl != NULL);
 
     errval_t error_code;
-    char* ret = NULL;
+    static char ret[1024];
     char* record = "rec_ { attribute: 1 }";
     octopus_trigger_id_t tid;
 
@@ -104,23 +107,22 @@ static void add_record(void) {
 
         for (size_t j = add_records[i - 1]; j < add_records[i]; j++) {
             //printf("add to system: %s\n", record);
-            cl->call_seq.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &tid, &error_code);
+            cl->call_seq.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, ret, &tid, &error_code);
             assert(ret == NULL);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "add"); exit(0); }
         }
 
         char to_add[100];
         sprintf(to_add, "zzz { attribute: 1 }");
-        char* data;
+        static char data[1024];
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             timestamps[k].time0 = bench_tsc();
-            cl->call_seq.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &tid, &error_code);
+            cl->call_seq.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, data, &tid, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "set");
                 exit(0);
             }
-            free(data);
 
             cl->call_seq.del(cl, to_add, NOP_TRIGGER, &tid, &error_code);
             if (err_is_fail(error_code)) {
@@ -148,7 +150,7 @@ static void one_record(void)
     assert(err_is_ok(err));
 
     errval_t error_code;
-    char* data = NULL;
+    static char data[1024];
 
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     octopus_trigger_id_t tid;
@@ -156,11 +158,10 @@ static void one_record(void)
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
         timestamps[i].time0 = bench_tsc();
-        cl->call_seq.get(cl, "object0", NOP_TRIGGER, &data, &tid, &error_code);
+        cl->call_seq.get(cl, "object0", NOP_TRIGGER, data, &tid, &error_code);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
-        free(data);
         for(size_t j=0; j<1<<20; j++) {}
     }
 
@@ -181,17 +182,15 @@ static void unnamed_record(void)
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
 
-    char* data = NULL;
+    static char data[1024];
     errval_t error_code;
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
         timestamps[i].time0 = bench_tsc();
-        cl->call_seq.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &tid, &error_code);
+        cl->call_seq.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, data, &tid, &error_code);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
-        free(data);
-
         for(size_t j=0; j<1<<20; j++) {}
     }
 

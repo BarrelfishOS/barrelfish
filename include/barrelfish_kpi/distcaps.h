@@ -15,6 +15,10 @@
 #include <stdint.h>
 #include <barrelfish_kpi/capabilities.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /*
  * capstate: locking and ownership
  */
@@ -125,5 +129,7 @@ distcap_is_moveable(enum objtype type)
 #define RRELS_COPY_BIT (1<<0)
 #define RRELS_ANCS_BIT (1<<1)
 #define RRELS_DESC_BIT (1<<2)
+
+__END_DECLS
 
 #endif

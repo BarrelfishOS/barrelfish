@@ -10,9 +10,12 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "ipirc_test",
+[
+    {-
+    build application { target = "ipirc_test",
                       cFiles = [ "mainrc.c" ],
                       addLibraries = [ "rcce_nobulk" ],
 		      flounderDefs = [ "rcce" ]
                     }
+    -}
 ]

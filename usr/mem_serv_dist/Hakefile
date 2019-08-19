@@ -15,7 +15,7 @@
   build application { target = "mem_serv_dist_ns",
                       cFiles = [ "mem_serv.c", "no_steal.c", "hybrid_support.c", "skb.c", "args.c", "memtest_trace.c" ],
                       flounderDefs = [ "monitor", "monitor_blocking", "mem", "spawn" ],
-                      flounderExtraDefs = [ ("mem", ["rpcclient"]), 
+                      flounderExtraDefs = [ ("mem", ["rpcclient"]),
                                                 ("spawn", ["rpcclient"]),
                                                 ("monitor_blocking", ["rpcclient"])],
                       addLibraries = [ "mm", "trace", "skb", "dist" ]
@@ -26,13 +26,15 @@
                       flounderDefs = [ "monitor", "monitor_blocking", "mem", "spawn" ],
                       flounderTHCStubs = [ "mem" ],
                       flounderExtraDefs = [ ("mem", ["rpcclient"]),
-                                                ("spawn", ["rpcclient"]), 
+                                                ("spawn", ["rpcclient"]),
                                                 ("monitor_blocking", ["rpcclient"])],
-                      addLibraries = [ "mm", "trace", "skb", "dist", "thc" ],
+                    addLibraries = [ "mm", "trace", "skb", "dist" ]
+                      ,
 		      architectures = [ "x86_64", "x86_32" ]
                     },
 
 -- fully thc
+{-
   build application { target = "mem_serv_dist_thc",
 		      cFiles = [ "mem_serv.c", "steal.c", "thc_support.c", "skb.c", "args.c", "memtest_trace.c" ],
                       flounderDefs = [ "monitor", "monitor_blocking", "mem", "spawn" ],
@@ -40,31 +42,32 @@
                       flounderExtraDefs = [ ("mem", ["rpcclient"]),
                                                 ("spawn", ["rpcclient"]),
                                                 ("monitor_blocking", ["rpcclient"])],
-                      addLibraries = [ "mm", "trace", "skb", "dist", "thc" ],
+                      ,
                       architectures = [ "x86_64", "x86_32" ]
                     },
+-}
   build application { target = "mem_bench",
   		      cFiles = [ "mem_bench.c", "memtest_trace.c" ],
-    		      addLibraries = [ "trace" ]
-		    },		
+    		      addLibraries = [ "trace", "bench" , "dist"]
+		    },
   build application { target = "mem_bench_2",
   		      cFiles = [ "mem_bench_2.c", "memtest_trace.c" ],
-    		      addLibraries = [ "trace" ]
-		    },		
+    		     addLibraries = [ "trace", "bench" , "dist"]
+		    },
   build application { target = "mem_bench_3",
   		      cFiles = [ "mem_bench_3.c", "sleep.c", "memtest_trace.c" ],
-    		      addLibraries = [ "trace", "bench" ]
+    		      addLibraries = [ "trace", "bench" , "dist"]
 		    },
   build application { target = "mem_bench_4",
   		      cFiles = [ "mem_bench_4.c", "sleep.c", "memtest_trace.c" ],
-    		      addLibraries = [ "trace", "bench" ]
+    		      addLibraries = [ "trace", "bench" , "dist"]
 		    },
   build application { target = "mem_bench_5",
   		      cFiles = [ "mem_bench_5.c", "sleep.c", "memtest_trace.c" ],
-    		      addLibraries = [ "trace", "bench" ]
+    		      addLibraries = [ "trace", "bench" , "dist"]
 		    },
   build application { target = "mem_bench_6",
   		      cFiles = [ "mem_bench_6.c", "sleep.c", "memtest_trace.c" ],
-    		      addLibraries = [ "trace", "bench" ]
+    		      addLibraries = [ "trace", "bench" , "dist"]
 		    }
 ]

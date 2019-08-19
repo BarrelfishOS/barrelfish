@@ -18,6 +18,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <octopus/definitions.h>
+#include <octopus/getset.h>
 
 struct oct_reply_state;
 
@@ -45,7 +46,7 @@ struct oct_reply_state {
     // Pubsub / Trigger state
     uint64_t client_handler;
     uint64_t client_state;
-    octopus_mode_t mode;
+    oct_mode_t mode;
     octopus_trigger_id_t server_id;
 
     // For capability storage

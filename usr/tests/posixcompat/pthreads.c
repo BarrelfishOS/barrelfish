@@ -18,7 +18,8 @@
 
 #include <sched.h> /* CPU_SET et. al. */
 #include <pthread.h>
-
+#include <pthread_np.h>
+#include <sys/cpuset.h>
 #ifdef BARRELFISH
 #include <barrelfish/barrelfish.h>
 #include <octopus/octopus.h>
@@ -75,7 +76,7 @@ static int pthread_setaffinity_test(void) {
     pthread_t tid;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    cpu_set_t set;
+    cpuset_t set;
 
     for (size_t rep = 0; rep < cpu_count; rep++) {
         printf("Create a new thread on core %zu\n", rep);
@@ -83,7 +84,7 @@ static int pthread_setaffinity_test(void) {
 
         CPU_ZERO(&set);
         CPU_SET(rep, &set);
-        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &set);
+        pthread_attr_setaffinity_np(&attr, sizeof(cpuset_t), &set);
         int rv = pthread_create(&tid, &attr, prj_thread, NULL);
         if (rv){
             printf("[ERROR] return code from pthread_create() is %d\n", rv);
@@ -132,13 +133,13 @@ static int pthread_mutex_performance(void) {
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_mutex_init(&lock, NULL);
-    cpu_set_t set;
+    cpuset_t set;
 
     for (size_t rep = 0; rep < cpu_count; rep++) {
         printf("Create a new thread on core %zu\n", rep);
         CPU_ZERO(&set);
         CPU_SET(rep, &set);
-        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &set);
+        pthread_attr_setaffinity_np(&attr, sizeof(cpuset_t), &set);
         int rv = pthread_create(&tid[rep], &attr, mutex_increment, NULL);
         if (rv){
             printf("[ERROR] return code from pthread_create() is %d\n", rv);

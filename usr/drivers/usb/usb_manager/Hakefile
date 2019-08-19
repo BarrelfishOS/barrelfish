@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for drivers/serial
--- 
+--
 --------------------------------------------------------------------------
 
 let commonCFiles = [ "usb_manager.c", "usb_controller.c",
@@ -16,20 +16,20 @@ let commonCFiles = [ "usb_manager.c", "usb_controller.c",
                       "usb_request.c", "usb_transfer.c",
                       "usb_pipe.c", "usb_driver.c",
                       -- OHCI Controller
-                      "controller/ohci/usb_ohci_bus.c", 
-                      "controller/ohci/usb_ohci_memory.c", 
+                      "controller/ohci/usb_ohci_bus.c",
+                      "controller/ohci/usb_ohci_memory.c",
                       "controller/ohci/usb_ohci_queue.c",
-                      "controller/ohci/usb_ohci_pipe.c", 
-                      "controller/ohci/usb_ohci_root_hub.c", 
-                      "controller/ohci/usb_ohci_xfer.c", 
+                      "controller/ohci/usb_ohci_pipe.c",
+                      "controller/ohci/usb_ohci_root_hub.c",
+                      "controller/ohci/usb_ohci_xfer.c",
                       "controller/ohci/usb_ohci.c",
                       -- EHCI Controller
-                      "controller/ehci/usb_ehci_bus.c", 
-                      "controller/ehci/usb_ehci_memory.c", 
+                      "controller/ehci/usb_ehci_bus.c",
+                      "controller/ehci/usb_ehci_memory.c",
                       "controller/ehci/usb_ehci_queue.c",
-                      "controller/ehci/usb_ehci_pipe.c", 
-                      "controller/ehci/usb_ehci_root_hub.c", 
-                      "controller/ehci/usb_ehci_xfer.c", 
+                      "controller/ehci/usb_ehci_pipe.c",
+                      "controller/ehci/usb_ehci_root_hub.c",
+                      "controller/ehci/usb_ehci_xfer.c",
                       "controller/ehci/usb_ehci.c",
                       -- USB hub
                       "hub/usb_hub.c",
@@ -37,7 +37,7 @@ let commonCFiles = [ "usb_manager.c", "usb_controller.c",
                       ]
 in
 [ build application { target = "usb_manager",
-                      cFiles = commonCFiles,
+                      cFiles = commonCFiles ++ [ "omap44xx.c" ],
 
                       flounderDefs = [ "usb_manager", "usb_driver", "monitor_blocking" ],
                       flounderBindings = [ "usb_manager", "usb_driver" ],
@@ -46,21 +46,6 @@ in
                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
 
                       mackerelDevices = [ "ohci", "omap/ohci",
-                                          "ehci", "omap/ehci"],
-                      addIncludes = [ "include"],
-                      addLibraries = ["usb", "driverkit"],
-                      architectures = [ "x86_64", "armv8", "x86_32", "k1om" ]
-                    },
-  build application { target = "usb_manager",
-                      cFiles = commonCFiles ++ [ "omap44xx.c" ],
-                      
-                      flounderDefs = [ "usb_manager", "usb_driver", "monitor_blocking" ],
-                      flounderBindings = [ "usb_manager", "usb_driver" ],
-                      flounderExtraBindings = [ ("usb_manager",["rpcclient"])],
-                      
-                      flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
-                      
-                      mackerelDevices = [ "ohci", "omap/ohci", 
                                           "ehci", "omap/ehci",
                                           "omap/omap44xx_hsusbhost",
                                           "omap/omap44xx_usbtllhs_config",

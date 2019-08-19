@@ -19,10 +19,13 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-#include <octopus/octopus.h>
+
 #include <skb/skb.h>
 
 #include <if/octopus_thc.h>
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
+
 
 /**
  * Usage: d2bench1 <#clients> <get|set>
@@ -51,20 +54,19 @@ int main(int argc, char** argv)
     err = oct_barrier_enter("d2bench1", &barrier, clients);
     assert(err_is_ok(err));
 
-    char* reply;
+    char reply[1024];
     errval_t error_code;
 
     bool stopped = false;
     if (strcmp(argv[2], "get") == 0) {
 		while ( !stopped ) {
-			cl->call_seq.get(cl, "rec", NOP_TRIGGER, &reply, &tid, &error_code);
-			free(reply);
+			cl->call_seq.get(cl, "rec", NOP_TRIGGER, reply, &tid, &error_code);
 			//DEBUG_ERR(error_code, "got record");
 		}
     }
     else if (strcmp(argv[2], "set") == 0) {
 		while ( !stopped ) {
-			cl->call_seq.set(cl, record, SET_DEFAULT, NOP_TRIGGER, false, &reply, &tid, &error_code);
+			cl->call_seq.set(cl, record, SET_DEFAULT, NOP_TRIGGER, false, reply, &tid, &error_code);
 			//assert(reply == NULL);
 			//DEBUG_ERR(error_code, "set record");
 		}

@@ -52,7 +52,7 @@ static errval_t handle_pagefault(void *addr)
             return SYS_ERR_OK;
         }
     } else {
-        printf("handle_pagefault: invalid access to %p (< 0x%x)\n", addr, VSPACE_BEGIN);
+        printf("handle_pagefault: invalid access to %p (< 0x%" PRIxLVADDR ")\n", addr, VSPACE_BEGIN);
         // TODO: good error code
         return LIB_ERR_PMAP_ADDR_NOT_FREE;
     }

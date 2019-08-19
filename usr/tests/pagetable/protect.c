@@ -108,8 +108,7 @@ bf_protect(struct bf_mem *bfm, size_t off, size_t len,
 static void
 bf_handler(enum exception_type type, int subtype,
            void *vaddr,
-           arch_registers_state_t *regs,
-           arch_registers_fpu_state_t *fpuregs)
+           arch_registers_state_t *regs)
 {
     assert(type == EXCEPT_PAGEFAULT);
     assert(subtype == PAGEFLT_WRITE);

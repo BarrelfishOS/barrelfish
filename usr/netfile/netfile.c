@@ -27,8 +27,8 @@
 #include <netif/etharp.h>
 #include <lwip/init.h>
 #include <lwip/tcp.h>
-#include <netif/bfeth.h>
 #include <lwip/ip_addr.h>
+#include <net/net.h>
 
 
 /* -------------- Coordination ----------------------*/
@@ -52,7 +52,7 @@ wait_for_condition (void) {
 /* -------------- Networking ----------------------*/
 
 static err_t tcp_is_sent(void *arg, struct tcp_pcb *pcb, u16_t len);
-static err_t tcp_is_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *pb, 
+static err_t tcp_is_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *pb,
                          err_t err);
 
 static void tcp_is_err(void *arg, err_t err)
@@ -91,7 +91,7 @@ static err_t tcp_is_connected(void *arg, struct tcp_pcb *pcb, err_t err)
 }
 
 
-static struct tcp_pcb *connect(struct ip_addr *ip, int port)
+static struct tcp_pcb *connect(ip_addr_t *ip, int port)
 {
     //    debug_printf("connect()\n");
 
@@ -106,6 +106,7 @@ static struct tcp_pcb *connect(struct ip_addr *ip, int port)
     }
 
     //    debug_printf("pcb created\n");
+
 
     //    debug_printf("connecting to server\n");
     wait_cond = true;
@@ -160,7 +161,7 @@ static struct tcp_pcb *bind(int port)
     //    debug_printf("tcp_bind completed\n");
 
     //    debug_printf("calling tcp_listen\n");
-    
+
     pcb = tcp_listen(pcb);
     if (pcb == NULL) {
         return NULL;
@@ -185,7 +186,7 @@ static void close_connection(struct tcp_pcb *pcb)
     tcp_sent(pcb, NULL);
     tcp_recv(pcb, NULL);
     debug_printf("connection closed\n");
-    //    wait_for_condition();    
+    //    wait_for_condition();
 }
 
 
@@ -193,7 +194,7 @@ static void close_connection(struct tcp_pcb *pcb)
 
 static FILE* recv_f;
 
-static err_t tcp_is_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *pb, 
+static err_t tcp_is_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *pb,
                          err_t err)
 {
     //    debug_printf("tcp is recv\n");
@@ -213,10 +214,10 @@ static err_t tcp_is_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *pb,
     } else if ((err == ERR_OK) && (pb != NULL)) {
 
         // pointer to the payload
-        payload = (char *)pb->payload; 
+        payload = (char *)pb->payload;
 
         // size of the payload
-        len = pb->tot_len; 
+        len = pb->tot_len;
 
         //        debug_printf("Got data [%d bytes]\n", len);
         //        printf("data: %s\n", payload);
@@ -231,7 +232,7 @@ static err_t tcp_is_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *pb,
         //        debug_printf("for a total of: %d bytes\n", tot);
 
         // Inform TCP that we have taken the data.
-        tcp_recved(pcb, pb->tot_len);  
+        tcp_recved(pcb, pb->tot_len);
 
         // Free the packet buffer
         pbuf_free(pb);
@@ -255,7 +256,7 @@ static errval_t do_receive_file(int port, char *path)
     //    debug_printf("opening %s for writing\n", path);
 
     // open file to receive
-    recv_f = fopen(path, "w");  
+    recv_f = fopen(path, "w");
     if (recv_f == NULL) {
         err = errno;
         fprintf(stderr, "failed to fopen %s for writing\n", path);
@@ -272,7 +273,7 @@ static errval_t do_receive_file(int port, char *path)
         assert(pcb != NULL);
         // return SOME_ERR;
     }
-    
+
     //    debug_printf("bound\n");
 
     return SYS_ERR_OK;
@@ -365,7 +366,7 @@ static errval_t send_file(struct tcp_pcb *pcb, char *path)
     //    debug_printf("opening file %s...", path);
 
     // open the file
-    f = fopen(path, "r");  
+    f = fopen(path, "r");
     if (f == NULL) {
         err = errno;
         fprintf(stderr, "failed to fopen %s\n", path);
@@ -401,17 +402,17 @@ static errval_t send_file(struct tcp_pcb *pcb, char *path)
 }
 
 
-static errval_t do_send_file(struct in_addr *addr, int port, char *path)
+static errval_t do_send_file(ip_addr_t *addr, int port, char *path)
 {
     assert(addr != NULL);
     assert(path != NULL);
 
     errval_t err;
 
-    debug_printf("send file %s to %s:%d\n", path, inet_ntoa(*addr), port);
+    debug_printf("send file %s to %s:%d\n", path, ipaddr_ntoa(addr), port);
 
-    static struct ip_addr ip;
-    ip.addr = addr->s_addr; // XXX
+    ip_addr_t ip;
+    ip_addr_copy(ip, *addr);
 
     //    debug_printf("ready to connect\n");
 
@@ -421,7 +422,7 @@ static errval_t do_send_file(struct in_addr *addr, int port, char *path)
         assert(pcb != NULL);
         // return SOME_ERR;
     }
-    
+
     //    debug_printf("connected\n");
 
     //    debug_printf("start sending.\n");
@@ -450,11 +451,11 @@ static errval_t do_send_file(struct in_addr *addr, int port, char *path)
 /* ------------------- Main -------------------------*/
 
 struct args {
-    struct in_addr addr;
+    ip_addr_t addr;
     bool addr_set;
     int port;
     bool send;
-    char *path;    
+    char *path;
 };
 
 static struct args process_args(int argc, char *argv[])
@@ -465,12 +466,12 @@ static struct args process_args(int argc, char *argv[])
         .send = false,
         .path = NULL,
     };
-    
+
     int opt;
     size_t flen;
 
     while ((opt = getopt(argc, argv, "sra:p:f:")) != -1) {
- 
+
         switch (opt) {
         case 's':
             // send
@@ -482,10 +483,10 @@ static struct args process_args(int argc, char *argv[])
             break;
         case 'a':
             // IP address
-            if (inet_aton(optarg, &res.addr) == 0) {
+            if (ipaddr_aton(optarg, &res.addr) == 0) {
                 fprintf(stderr, "Invalid IP addr: %s\n", optarg);
                 goto fail;
-            }            
+            }
             res.addr_set = true;
             break;
         case 'p':
@@ -515,7 +516,7 @@ static struct args process_args(int argc, char *argv[])
     return res;
 
  fail:
-    fprintf(stderr, "Usage: %s [-sr] [-a address] [-p port] [-f file]\n", 
+    fprintf(stderr, "Usage: %s [-sr] [-a address] [-p port] [-f file]\n",
            argv[0]);
     exit(EXIT_FAILURE);
     return res;
@@ -535,7 +536,7 @@ int main(int argc, char *argv[])
     // Boot up
     //    debug_printf("calling stack_init()\n");
 
-    lwip_init_auto();
+    networking_init_default();
 
     //    debug_printf("back from stack_init()\n");
 
@@ -546,7 +547,7 @@ int main(int argc, char *argv[])
         debug_printf("do_send_file finished\n");
     } else {
         do_receive_file(args.port, args.path);
-    } 
+    }
 
 #if 0
     // start event loop

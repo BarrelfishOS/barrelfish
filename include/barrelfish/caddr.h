@@ -110,12 +110,12 @@ extern struct capref cap_root, cap_monitorep, cap_irq, cap_io, cap_dispatcher,
 /**
  * \brief Returns the depth in the CSpace address of a cap
  */
-static inline uint8_t get_cap_level(struct capref cap)
+static inline  enum cnode_type get_cap_level(struct capref cap)
 {
     if (capref_is_null(cap)) {
-        return 0;
+        return (enum cnode_type)0;
     } else {
-        return cap.cnode.level + 1;
+        return (enum cnode_type)(cap.cnode.level + 1);
     }
 }
 
@@ -143,7 +143,7 @@ static inline capaddr_t get_cap_addr(struct capref cap)
  * \brief Returns the depth in the CSpace address of the CNode
  *        containing the given cap
  */
-static inline uint8_t get_cnode_level(struct capref cap)
+static inline enum cnode_type get_cnode_level(struct capref cap)
 {
     return cap.cnode.level;
 }

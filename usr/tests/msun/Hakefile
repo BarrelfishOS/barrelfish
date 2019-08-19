@@ -12,6 +12,7 @@
     build application {
         target = "invtrig_test",
         cFiles = [ "invtrig_test.c" ],
+        addLibraries = ["m"],
         omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
     },
     build application {

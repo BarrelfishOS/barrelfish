@@ -16,5 +16,5 @@
                      --   "/lib/lwip2/src/apps/snmp_private_mib/lwip_prvmib.c",
                         "/lib/lwip2/src/apps/tcpecho_raw/tcpecho_raw.c",
                         "/lib/lwip2/src/apps/udpecho_raw/udpecho_raw.c" ],
-                      addLibraries = libDeps [ "lwip2" ]
+                      addLibraries = libDeps [ "lwip2", "net" ]
                     } ]

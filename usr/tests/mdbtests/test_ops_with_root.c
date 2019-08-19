@@ -68,7 +68,7 @@ get_ranges(size_t count, uint8_t max_addr_bits, struct cte *out)
             memset(&out[gencount], 0, sizeof(struct cte));
             out[gencount].cap.type = ObjType_RAM;
             out[gencount].cap.rights = CAPRIGHTS_ALLRIGHTS;
-            out[gencount].cap.u.ram = (struct RAM) { .base = begin, .bits = sizebits };
+            out[gencount].cap.u.ram = (struct RAM) { .base = begin, .bytes = (1UL << sizebits) };
             gencount++;
         }
     }
@@ -88,8 +88,8 @@ __attribute__((unused))
 static void dump_ranges(struct cte *ranges, size_t count)
 {
     for (int i = 0; i < count; i++) {
-        printf("address = %"PRIxGENVADDR"\nsize=%d\n",
-                ranges[i].cap.u.ram.base, ranges[i].cap.u.ram.bits);
+        printf("address = %"PRIxGENVADDR"\nsize=%zu\n",
+                ranges[i].cap.u.ram.base, ranges[i].cap.u.ram.bytes);
     }
 }
 

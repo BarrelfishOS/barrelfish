@@ -17,6 +17,10 @@
 
 #include <barrelfish_kpi/paging_arch.h> // for PTABLE_ENTRIES
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 // amount of slabs which are provided in core_data struct for own pmap
 #define INIT_SLAB_COUNT 32
 
@@ -62,5 +66,7 @@ struct pmap_vnode_mgmt {
 #else
 #error Unknown Pmap datastructure.
 #endif
+
+__END_DECLS
 
 #endif // BARRELFISH_PMAP_DS_H

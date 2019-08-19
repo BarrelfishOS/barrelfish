@@ -23,7 +23,7 @@ void do_process(uint32_t *src,
     }
 #pragma omp parallel for
     for (int j = 0; j < IT; j++) {
-        for (int i = 0; i < MAX; i += IT) {
+        for (int i = 0; i < WORK_MAX; i += IT) {
             dst[i + j] = src[i + j];
         }
     }

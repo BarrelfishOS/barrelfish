@@ -25,6 +25,10 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/init.h> // for CNODE_SLOTS_*
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define MAX_V2P_MAPPINGS        64
 
 struct v2pmap {
@@ -108,5 +112,7 @@ struct core_state_generic {
     struct slot_alloc_state slot_alloc_state;
     struct skb_state skb_state;
 };
+
+__END_DECLS
 
 #endif

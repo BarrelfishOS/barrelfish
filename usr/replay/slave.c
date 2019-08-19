@@ -1,9 +1,14 @@
+
+#define _POSIX_C_SOURCE 200809L
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #ifndef __linux__
 #include <barrelfish/barrelfish.h>
@@ -14,7 +19,6 @@
 #else
 #include <stdbool.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>

@@ -12,8 +12,8 @@
 
 // cache-line size / sizeof(int) == 64 Bytes / 4 Bytes == 16
 #define IT 16
-#define MAX (1UL<<27)
-#define WORK_SIZE   (2UL * MAX * sizeof(uint32_t))
+#define WORK_MAX (1UL<<27)
+#define WORK_SIZE   (2UL * WORK_MAX * sizeof(uint32_t))
 
 #define BENCH_N_RUNS 100
 #define NTHREADS 30

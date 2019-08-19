@@ -17,6 +17,10 @@
 
 #include <barrelfish_kpi/init.h>
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /* Root CNode */
 #define ROOTCN_FREE_SLOTS       (ROOTCN_SLOTS_USER+0)   ///< free slots to place EPs
 
@@ -31,5 +35,7 @@
 
 /* FIXME: Well know virtual addresses for some pages
    that can be mapped into user domain */
+
+__END_DECLS
 
 #endif // BARRELFISH_CSPACE_H

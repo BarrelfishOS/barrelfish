@@ -17,13 +17,15 @@
 #include <stdio.h>
 
 #include <octopus/octopus.h>
+#include <octopus/definitions.h>
+#include <octopus/pubsub.h>
 
 #include "common.h"
 
 static const char* barrier_name = "d2pubsub_test";
 static struct thread_sem ts;
 
-static void message_handler(oct_mode_t mode, char* record, void* st)
+static void message_handler(oct_mode_t mode, const char* record, void* st)
 {
     size_t* received = (size_t*) st;
 
@@ -40,7 +42,6 @@ static void message_handler(oct_mode_t mode, char* record, void* st)
 
 
         free(name);
-        free(record);
     }
     else if (mode & OCT_REMOVED) {
         debug_printf("OCT_REMOVED set...\n");

@@ -93,6 +93,8 @@ static int cmp_dump_info(const void *arg1, const void *arg2)
 #define BUFSIZE 8192
 void dump_pmap(struct pmap *pmap)
 {
+    errval_t err;
+
     struct pmap_dump_info *buf = calloc(BUFSIZE, sizeof(struct pmap_dump_info));
     size_t items_written;
 
@@ -109,7 +111,7 @@ void dump_pmap(struct pmap *pmap)
         assert(err_is_ok(err));
         printf(PRIfmtPTIDX": 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR", 0x%zx\n",
                     GET_PTIDX(info),
-                    fi.base, info->offset, ((size_t)1)<<fi.bits);
+                    fi.base, info->offset, fi.bytes);
     }
     printf("\n");
 

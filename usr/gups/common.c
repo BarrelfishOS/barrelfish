@@ -33,12 +33,7 @@ void *HPCC_malloc(size_t bytes, size_t alignment)
             flags |= VREGION_FLAGS_LARGE;
             break;
         case HUGE_PAGE_SIZE:
-            if (vspace_has_hugepage_support()) {
-                flags |= VREGION_FLAGS_HUGE;
-            } else {
-                printf("WARNING: Machine has no hugepage support\n");
-                alignment = BASE_PAGE_SIZE;
-            }
+            flags |= VREGION_FLAGS_HUGE;
             break;
         default:
             USER_PANIC("Invalid alignment: %" PRIu64, alignment)

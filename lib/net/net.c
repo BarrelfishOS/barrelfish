@@ -82,7 +82,7 @@ static void net_loopback_poll(void *arg)
 void net_if_trigger_loopback(void)
 {
     errval_t err;
-    
+
     err = waitset_chan_trigger(&net_loopback_poll_channel);
     assert(err_is_ok(err));
 }
@@ -112,8 +112,8 @@ void net_lwip_timeout(void)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, struct capref* ep, 
-                                 uint64_t* queueid, struct capref* filter_ep, 
+errval_t networking_create_queue(const char *cardname, struct capref* ep,
+                                 uint64_t* queueid, struct capref* filter_ep,
                                  struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
@@ -385,7 +385,7 @@ errval_t networking_init_with_nic(const char *nic, net_flags_t flags)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init_with_ep(const char *nic, struct capref ep, 
+errval_t networking_init_with_ep(const char *nic, struct capref ep,
                                  net_flags_t flags)
 {
     errval_t err;
@@ -395,7 +395,7 @@ errval_t networking_init_with_ep(const char *nic, struct capref ep,
     st->cardname = nic;
 
     /* create the queue wit the given nic and card name */
-    err = networking_create_queue(nic, &ep, &st->queueid, &st->filter_ep, 
+    err = networking_create_queue(nic, &ep, &st->queueid, &st->filter_ep,
                                   &st->queue);
     if (err_is_fail(err)) {
         return err;
@@ -427,7 +427,7 @@ errval_t networking_init_default(void)
  */
 errval_t networking_poll(void)
 {
-    //return net_if_poll_all();    
+    //return net_if_poll_all();
     struct net_state *st = &state;
     return networking_poll_st(st);
 }
@@ -464,7 +464,7 @@ errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
     if (err_is_fail(err)) {
         return err;
     }
-    
+
     struct net_filter_ip ip = {
         .qid = state.queueid,
         .ip_src = (uint32_t) src->s_addr,
@@ -478,7 +478,7 @@ errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
     } else {
         ip.type = NET_FILTER_UDP;
     }
-    
+
     return net_filter_ip_install(st, &ip);
 }
 
@@ -514,7 +514,7 @@ errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
     if (err_is_fail(err)) {
         return err;
     }
-    
+
     struct net_filter_ip ip = {
         .qid = state.queueid,
         .ip_src = (uint32_t) src->s_addr,
@@ -528,6 +528,6 @@ errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
     } else {
         ip.type = NET_FILTER_UDP;
     }
-    
+
     return net_filter_ip_remove(st, &ip);
 }

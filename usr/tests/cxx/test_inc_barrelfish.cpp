@@ -7,9 +7,13 @@
  * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+/// XXX: there seems to be some issues with this.., disabling this warning for now
+#pragma GCC diagnostic ignored "-Wshadow"
 #include <iostream>
+#pragma GCC diagnostic error "-Wshadow"
 
 #include <barrelfish/barrelfish.h>
+
 
 #include "cxxtest.hpp"
 

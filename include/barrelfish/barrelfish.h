@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include <sys/cdefs.h>
+
 /* utility macros */
 #include <bitmacros.h>
 
@@ -53,6 +55,8 @@
 
 /* XXX: utility macros. not sure where to put these */
 
+__BEGIN_DECLS
+
 /* Duplicate memory */
 static inline void * memdup(const void *ptr, size_t size) {
     void *res = malloc(size);
@@ -61,11 +65,9 @@ static inline void * memdup(const void *ptr, size_t size) {
     return res;
 }
 
-/* XXX: glue junk for old IDC system, to be removed!! */
-
-void messages_wait_and_handle_next(void);
-void __attribute__((noreturn)) messages_handler_loop(void);
 
 typedef void *CONST_CAST;
+
+__END_DECLS
 
 #endif

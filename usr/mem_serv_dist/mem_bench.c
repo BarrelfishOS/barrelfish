@@ -12,9 +12,9 @@
  */
 
 /*
- * Spawn benchmark on given # of cores. 
+ * Spawn benchmark on given # of cores.
  * Request memory on each core until it runs out.
- * This benchmark program does not wait on any barriers before starting. 
+ * This benchmark program does not wait on any barriers before starting.
  */
 
 #include <stdio.h>
@@ -24,6 +24,7 @@
 #include <trace/trace.h>
 
 #include <barrelfish/spawn_client.h>
+#include <dist/barrier.h>
 
 #include "memtest_trace.h"
 
@@ -38,7 +39,7 @@ static void run_benchmark_0(coreid_t core)
     struct capref ramcap;
 
     debug_printf("starting benchmark. allocating mem of size: %d\n", MEM_BITS);
-    
+
     int i = -1;
 
     do {
@@ -46,7 +47,7 @@ static void run_benchmark_0(coreid_t core)
         err = ram_alloc(&ramcap, MEM_BITS);
     } while (err_is_ok(err) && (i < 10));
 
-    debug_printf("done benchmark. allocated %d caps (%lu bytes)\n", 
+    debug_printf("done benchmark. allocated %d caps (%lu bytes)\n",
                  i, i * (1UL << MEM_BITS));
 }
 
@@ -57,7 +58,7 @@ static void run_benchmark(coreid_t core)
     struct capref ramcap;
 
     debug_printf("starting benchmark. allocating mem of size: %d\n", MEM_BITS);
-    
+
     int i = -1;
 
     do {
@@ -65,14 +66,14 @@ static void run_benchmark(coreid_t core)
         err = ram_alloc(&ramcap, MEM_BITS);
     } while (err_is_ok(err));
 
-    debug_printf("done benchmark. allocated %d caps (%lu bytes)\n", 
+    debug_printf("done benchmark. allocated %d caps (%lu bytes)\n",
                  i, i * (1UL << MEM_BITS));
 
-    ns_barrier_register_n(core, "mem_bench");
+    nsb_register_n(core, "mem_bench");
 }
 
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     errval_t err;
 
@@ -104,7 +105,7 @@ int main(int argc, char *argv[])
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed spawn %d", i);
                 return EXIT_FAILURE;
-            } 
+            }
             debug_printf("spawned on core %d\n", i);
         }
 
@@ -112,7 +113,7 @@ int main(int argc, char *argv[])
 
         run_benchmark_0(mycore);
 
-        ns_barrier_master(1, num_cores, "mem_bench");
+        nsb_master(1, num_cores, "mem_bench");
 
         debug_printf("all benchmarks completed\n");
 

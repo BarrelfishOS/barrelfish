@@ -212,11 +212,11 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     }
 
     debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
-                 1UL << id.bits);
+                 id.bytes);
 
-    assert((1UL << id.bits) >= XPHI_BENCH_FRAME_SIZE_CARD);
+    assert(id.bytes >= XPHI_BENCH_FRAME_SIZE_CARD);
 
-    err = vspace_map_one_frame(&card_buf, 1UL << id.bits, msgframe, NULL, NULL);
+    err = vspace_map_one_frame(&card_buf, id.bytes, msgframe, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not map the frame");
     }
@@ -227,7 +227,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 
     card_base = id.base;
 
-    card_frame_sz = (1UL << id.bits);
+    card_frame_sz = (id.bytes);
 
     init_buffer_c0();
 

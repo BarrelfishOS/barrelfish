@@ -19,6 +19,10 @@
 
 #ifndef __ASSEMBLER__
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 enum cpu_type {
     CPU_K1OM,
     CPU_X86_64,
@@ -47,7 +51,7 @@ static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 static inline const enum cpu_type archstr_to_cputype(char* archstr)
 {
     STATIC_ASSERT(CPU_TYPE_NUM == 5, "knowledge of all CPU types here");
-    
+
     if(strcmp("k1om", archstr) == 0) return CPU_K1OM;
     if(strcmp("x86_64", archstr) == 0) return CPU_X86_64;
     if(strcmp("x86_32", archstr) == 0) return CPU_X86_32;
@@ -55,6 +59,8 @@ static inline const enum cpu_type archstr_to_cputype(char* archstr)
     if(strcmp("armv8", archstr) == 0) return CPU_ARM8;
     return CPU_TYPE_NUM;
 }
+
+__END_DECLS
 
 #endif
 

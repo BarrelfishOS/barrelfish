@@ -74,18 +74,16 @@ static void fsb_init_msg(struct bench_binding *b, coreid_t id)
     experiment();
 }
 
-static void fsb_buffer_reply(struct bench_binding *b, uint8_t *payload, size_t size)
+static void fsb_buffer_reply(struct bench_binding *b, const uint8_t *payload, size_t size)
 {
     experiment();
-    free(payload);
 }
 
-static void fsb_buffer_request(struct bench_binding *b, uint8_t *payload, size_t size)
+static void fsb_buffer_request(struct bench_binding *b, const uint8_t *payload, size_t size)
 {
     errval_t err;
     err = b->tx_vtbl.fsb_buffer_reply(b, NOP_CONT, &buffer, 1);
     assert(err_is_ok(err));
-    free(payload);
 }
 
 static struct bench_rx_vtbl rx_vtbl = {

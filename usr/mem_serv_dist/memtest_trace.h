@@ -16,6 +16,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <trace_definitions/trace_defs.h>
+#include <dist/barrier.h>
 
 errval_t init_tracing(void);
 void start_tracing(void);

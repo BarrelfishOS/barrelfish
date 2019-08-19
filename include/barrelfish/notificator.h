@@ -6,6 +6,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 
+
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
+
 typedef bool (*check_notification_fn_type)(void *object);
 
 struct notificator
@@ -21,5 +27,7 @@ void notificator_init(struct notificator *notificator, void *object,
     check_notification_fn_type can_read, check_notification_fn_type can_write);
 
 void check_notificators_disabled(dispatcher_handle_t handle);
+
+__END_DECLS
 
 #endif

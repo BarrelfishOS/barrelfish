@@ -16,6 +16,10 @@
 #ifndef LIBBARRELFISH_STATIC_ASSERT_H
 #define LIBBARRELFISH_STATIC_ASSERT_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /*
  * Variant based on Padraig Brady's implementation
  * http://www.pixelbeat.org/programming/gcc/static_assert.html
@@ -48,6 +52,9 @@
     STATIC_ASSERT(sa_offsetof(tname, field) == offset,          \
                   ASSERT_CONCAT("Offset mismatch:", field)      \
                  )
+
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_STATIC_ASSERT_H
 

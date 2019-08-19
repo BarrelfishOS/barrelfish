@@ -38,7 +38,7 @@ static void start_run(uint8_t core, uint8_t memory, int payload, int nocache,
                       int read_incoming, int head_idx_wb)
 {
     errval_t r;
-    domainid_t new_domain;
+    struct capref new_domain;
     uint8_t code;
     char plsz[strlen("payload_size=0000") + 1];
     char noca[strlen("elb_nocache=0") + 1];

@@ -23,7 +23,7 @@ const char *service_name = "xmplrpc_msg_service";
 
 /* --------------------- Client ------------------------------ */
 
-static void rx_myrpc_response(struct xmplrpc_binding *b, char *s)
+static void rx_myrpc_response(struct xmplrpc_binding *b, const char *s)
 {
     debug_printf("client: rx_myrpc_response called: %s\n", s);
 
@@ -73,7 +73,7 @@ static void bind_cb(void *st, errval_t err, struct xmplrpc_binding *b)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "bind failed");
     }
-    
+
     b->rx_vtbl = c_rx_vtbl;
 
     send_myrpc_call(b);
@@ -90,8 +90,8 @@ static void start_client(void)
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    err = xmplrpc_bind(iref, 
-                     bind_cb, 
+    err = xmplrpc_bind(iref,
+                     bind_cb,
                      NULL /* state for bind_cb */,
                      get_default_waitset(),
                      IDC_BIND_FLAGS_DEFAULT);
@@ -174,8 +174,8 @@ static struct xmplrpc_rx_vtbl s_rx_vtbl = {
     .myrpc_call = rx_myrpc_call,
 };
 
-static errval_t connect_cb(void *st, struct xmplrpc_binding *b) 
-{    
+static errval_t connect_cb(void *st, struct xmplrpc_binding *b)
+{
     b->rx_vtbl = s_rx_vtbl;
 
     return SYS_ERR_OK;
@@ -210,7 +210,7 @@ static void start_server(void)
 
 /* --------------------- Main ------------------------------ */
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     errval_t err;
 
