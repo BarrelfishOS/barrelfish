@@ -1,17 +1,16 @@
-/*===-- divmodsi4.S - 32-bit signed integer divide and modulus ------------===//
- *
- *                     The LLVM Compiler Infrastructure
- *
- * This file is dual licensed under the MIT and the University of Illinois Open
- * Source Licenses. See LICENSE.TXT for details.
- *
- *===----------------------------------------------------------------------===//
- *
- * This file implements the __divmodsi4 (32-bit signed integer divide and
- * modulus) function for the ARM architecture.  A naive digit-by-digit
- * computation is employed for simplicity.
- *
- *===----------------------------------------------------------------------===*/
+//===-- divmodsi4.S - 32-bit signed integer divide and modulus ------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the __divmodsi4 (32-bit signed integer divide and
+// modulus) function for the ARM architecture.  A naive digit-by-digit
+// computation is employed for simplicity.
+//
+//===----------------------------------------------------------------------===//
 
 #include "../assembly.h"
 
@@ -23,6 +22,7 @@
 
 	.syntax unified
 	.text
+  DEFINE_CODE_STATE
 
 @ int __divmodsi4(int divident, int divisor, int *remainder)
 @   Calculate the quotient and remainder of the (signed) division.  The return
@@ -65,3 +65,6 @@ LOCAL_LABEL(divzero):
     CLEAR_FRAME_AND_RETURN
 #endif
 END_COMPILERRT_FUNCTION(__divmodsi4)
+
+NO_EXEC_STACK_DIRECTIVE
+

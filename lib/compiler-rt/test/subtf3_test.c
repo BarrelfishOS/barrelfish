@@ -1,9 +1,9 @@
+// RUN: %clang_builtins %s %librt -o %t && %run %t
 //===--------------- subtf3_test.c - Test __subtf3 ------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -13,8 +13,9 @@
 
 #include <stdio.h>
 
-#if __LDBL_MANT_DIG__ == 113 && !defined(__ARM_ARCH_8A__ )
+#if __LDBL_MANT_DIG__ == 113
 
+#include "int_lib.h"
 #include "fp_test.h"
 
 // Returns: a - b
@@ -40,7 +41,7 @@ char assumption_1[sizeof(long double) * CHAR_BIT == 128] = {0};
 
 int main()
 {
-#if __LDBL_MANT_DIG__ == 113 && !defined(__ARM_ARCH_8A__ )
+#if __LDBL_MANT_DIG__ == 113
     // qNaN - any = qNaN
     if (test__subtf3(makeQNaN128(),
                      0x1.23456789abcdefp+5L,

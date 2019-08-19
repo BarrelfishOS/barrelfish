@@ -1,9 +1,8 @@
 //===--------------------------- fp_test.h - ------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -85,7 +84,7 @@ static inline int compareResultH(uint16_t result,
     if (rep == expected){
         return 0;
     }
-    // test other posible NaN representation(signal NaN)
+    // test other possible NaN representation(signal NaN)
     else if (expected == 0x7e00U){
         if ((rep & 0x7c00U) == 0x7c00U &&
             (rep & 0x3ffU) > 0){
@@ -103,7 +102,7 @@ static inline int compareResultF(float result,
     if (rep == expected){
         return 0;
     }
-    // test other posible NaN representation(signal NaN)
+    // test other possible NaN representation(signal NaN)
     else if (expected == 0x7fc00000U){
         if ((rep & 0x7f800000U) == 0x7f800000U &&
             (rep & 0x7fffffU) > 0){
@@ -121,7 +120,7 @@ static inline int compareResultD(double result,
     if (rep == expected){
         return 0;
     }
-    // test other posible NaN representation(signal NaN)
+    // test other possible NaN representation(signal NaN)
     else if (expected == 0x7ff8000000000000UL){
         if ((rep & 0x7ff0000000000000UL) == 0x7ff0000000000000UL &&
             (rep & 0xfffffffffffffUL) > 0){
@@ -146,7 +145,7 @@ static inline int compareResultLD(long double result,
     if (hi == expectedHi && lo == expectedLo){
         return 0;
     }
-    // test other posible NaN representation(signal NaN)
+    // test other possible NaN representation(signal NaN)
     else if (expectedHi == 0x7fff800000000000UL && expectedLo == 0x0UL){
         if ((hi & 0x7fff000000000000UL) == 0x7fff000000000000UL &&
             ((hi & 0xffffffffffffUL) > 0 || lo > 0)){

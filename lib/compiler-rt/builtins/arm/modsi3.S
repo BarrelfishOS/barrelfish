@@ -1,16 +1,15 @@
-/*===-- modsi3.S - 32-bit signed integer modulus --------------------------===//
- *
- *                     The LLVM Compiler Infrastructure
- *
- * This file is dual licensed under the MIT and the University of Illinois Open
- * Source Licenses. See LICENSE.TXT for details.
- *
- *===----------------------------------------------------------------------===//
- *
- * This file implements the __modsi3 (32-bit signed integer modulus) function
- * for the ARM architecture as a wrapper around the unsigned routine.
- *
- *===----------------------------------------------------------------------===*/
+//===-- modsi3.S - 32-bit signed integer modulus --------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the __modsi3 (32-bit signed integer modulus) function
+// for the ARM architecture as a wrapper around the unsigned routine.
+//
+//===----------------------------------------------------------------------===//
 
 #include "../assembly.h"
 
@@ -22,6 +21,7 @@
 
 	.syntax unified
 	.text
+	DEFINE_CODE_STATE
 
 @ int __modsi3(int divident, int divisor)
 @   Calculate and return the remainder of the (signed) division.
@@ -54,3 +54,6 @@ LOCAL_LABEL(divzero):
     CLEAR_FRAME_AND_RETURN
 #endif
 END_COMPILERRT_FUNCTION(__modsi3)
+
+NO_EXEC_STACK_DIRECTIVE
+

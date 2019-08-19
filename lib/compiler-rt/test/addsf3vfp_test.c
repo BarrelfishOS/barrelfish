@@ -1,9 +1,9 @@
+// RUN: %clang_builtins %s %librt -o %t && %run %t
 //===-- addsf3vfp_test.c - Test __addsf3vfp -------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -19,7 +19,7 @@
 
 extern COMPILER_RT_ABI float __addsf3vfp(float a, float b);
 
-#if __arm__
+#if __arm__ && __VFP_FP__
 int test__addsf3vfp(float a, float b)
 {
     float actual = __addsf3vfp(a, b);
@@ -33,7 +33,7 @@ int test__addsf3vfp(float a, float b)
 
 int main()
 {
-#if __arm__
+#if __arm__ && __VFP_FP__
     if (test__addsf3vfp(1.0, 1.0))
         return 1;
     if (test__addsf3vfp(HUGE_VALF, HUGE_VALF))
