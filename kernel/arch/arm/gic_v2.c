@@ -228,7 +228,7 @@ errval_t platform_init_ic_app(void) {
  * \param 0 is level-sensitive, 1 is edge-triggered
  * \param 0 is N-to-N, 1 is 1-N
  */
-errval_t platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
                           bool edge_triggered, bool one_to_n)
 {
     return SYS_ERR_OK;

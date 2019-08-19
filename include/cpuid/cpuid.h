@@ -30,28 +30,6 @@ struct cpuid_regs
 #define CPUID_REGS_INITIAL(_EAX, _ECX) {_EAX, 0, _ECX, 0}
 
 
-/**
- * \brief executes the cpuid instruction and stores the result in the struct
- *
- * \param reg   cpuid_regs struct to store the result value
- *
- * the reg parameter is used to supply the function & argument information and
- * returning the values
- */
-static inline void cpuid_exec(struct cpuid_regs *reg)
-{
-    if (reg == NULL) {
-        return;
-    }
-
-    __asm volatile("cpuid"
-                   : "=a" (reg->eax), "=b" (reg->ebx),
-                     "=c" (reg->ecx), "=d" (reg->edx)
-                   : "a" (reg->eax), "c" (reg->ecx)
-                  );
-}
-
-
 /*
  * ===============================================================================
  * library initialization

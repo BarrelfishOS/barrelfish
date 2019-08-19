@@ -5,8 +5,8 @@
 #include <time.h>       /* time */
 
 #ifdef BARRELFISH
-#include <bench/bench.h>
 #include <barrelfish/barrelfish.h>
+#include <bench/bench.h>
 #else
 #include <bench.h>
 #endif

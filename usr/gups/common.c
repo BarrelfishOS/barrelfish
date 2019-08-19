@@ -10,6 +10,7 @@
 
 #ifdef BARRELFISH
 #include <numa.h>
+#include <errno.h>
 #else
 #include <stdio.h>
 #include <sys/types.h>

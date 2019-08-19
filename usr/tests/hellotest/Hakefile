@@ -7,11 +7,12 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for hellotest
--- 
+--
 --------------------------------------------------------------------------
 
 [ build arrakisapplication { target = "arrakis_hellotest",
-                             cFiles = [ "hellotest.c" ]
+                             cFiles = [ "hellotest.c" ],
+                             architectures = [ "x86_64" ]
                            },
   build application { target = "hellotest",
                              cFiles = [ "hellotest.c" ]

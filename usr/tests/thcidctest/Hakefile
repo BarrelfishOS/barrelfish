@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for thcidctest
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "thcidctest",
@@ -16,6 +16,7 @@
                     flounderBindings = [ "ping_pong" ],
                     flounderTHCStubs = [ "ping_pong" ],
                     addLibraries = [ "thc" ],
-                    addCFlags = ["-Wno-shadow" ]
+                    addCFlags = ["-Wno-shadow" ],
+                    architectures = [ "x86_64" ]
                  }
 ]

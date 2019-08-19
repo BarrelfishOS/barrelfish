@@ -8,22 +8,24 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/dist
--- 
+--
 --------------------------------------------------------------------------
 
-[ build library { 
+[ build library {
     target = "demandpaging",
-    cFiles = [ 
-      "demandpaging.c", 
-      "framestore.c" 
+    cFiles = [
+      "demandpaging.c",
+      "framestore.c"
     ],
     addIncludes = [ "include" ],
-    addLibraries = libDeps [ "vfs" ]
+    addLibraries = libDeps [ "vfs" ],
+    architectures = ["x86_64"]
   },
   build application {
     target = "tests/demandpaging",
     cFiles = [ "test/demandpaging.c" ],
     addIncludes = [ "include" ],
-    addLibraries = libDeps [ "demandpaging", "bench" ]
+    addLibraries = libDeps [ "demandpaging", "bench" ],
+    architectures = ["x86_64"]
   }
 ]

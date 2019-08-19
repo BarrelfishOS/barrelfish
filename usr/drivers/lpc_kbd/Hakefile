@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for usr/drivers/lpc_kbd
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "lpc_kbd",
@@ -15,6 +15,6 @@
                       flounderBindings = [ "keyboard", "mouse" ],
                       mackerelDevices = [ "lpc_kbd" ],
                       addLibraries = [ "pci" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     }
 ]

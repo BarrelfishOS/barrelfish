@@ -70,13 +70,11 @@ dd_bench(char *source, char *target, size_t blocksize, size_t count)
 
     uint8_t *buffer = malloc(blocksize);
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t tscperms;
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
 
     uint64_t start = rdtsc();
-#endif
 
     if (buffer == NULL) {
         ret = -2;
@@ -132,7 +130,6 @@ out:
         }
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t stop = rdtsc();
     uint64_t elapsed_msecs = ((stop - start) / tscperms);
     double elapsed_secs = (double)elapsed_msecs/1000.0;
@@ -143,9 +140,6 @@ out:
         return kbps;
     else
         return ret;
-#else
-    return ret;
-#endif
 }
 
 struct bench_res {
@@ -167,11 +161,9 @@ fill_bench(char *target, uint8_t *buffer, size_t blocksize, size_t count, struct
     uint64_t start = 0, stop = 0;
     errval_t err;
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t tscperms;
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
-#endif
 
     errval_t ret = 0;
 
@@ -181,9 +173,7 @@ fill_bench(char *target, uint8_t *buffer, size_t blocksize, size_t count, struct
         return err;
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     start = rdtsc();
-#endif
 
     if (buffer == NULL) {
         ret = -2;
@@ -223,8 +213,6 @@ fill_bench(char *target, uint8_t *buffer, size_t blocksize, size_t count, struct
         goto out;
     }
 
-
-#if defined(__x86_64__) || defined(__i386__)
     stop = rdtsc();
     {
         uint64_t elapsed_msecs = ((stop - start) / tscperms);
@@ -234,7 +222,6 @@ fill_bench(char *target, uint8_t *buffer, size_t blocksize, size_t count, struct
 	printf("%lf\n", result->write);
     }
 
-#endif
     err = vfs_open(target, &target_vh);
     if (err_is_fail(err)) {
         printf("%s: %s (%ld)\n", target, err_getstring(err), err);
@@ -246,9 +233,8 @@ fill_bench(char *target, uint8_t *buffer, size_t blocksize, size_t count, struct
         ret = err;
         goto out;
     }
-#if defined(__x86_64__) || defined(__i386__)
+
     start = rdtsc();
-#endif
 
     size_t rsize;
     do {
@@ -289,16 +275,14 @@ out:
         }
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     stop = rdtsc();
     {
         uint64_t elapsed_msecs = ((stop - start) / tscperms);
         double elapsed_secs = (double)elapsed_msecs/1000.0;
 
         result->read = ((double)total_bytes_read / 1024.0) / elapsed_secs;
-	printf("%lf\n", result->read);
+	    printf("%lf\n", result->read);
     }
-#endif
 
     return ret;
 }
@@ -336,7 +320,7 @@ ahci_benchmark(int argc, char *argv[])
     return 0;
 }
 
-static int 
+static int
 ahci_fillbench(int argc, char *argv[])
 {
     if (argc != 2) {
@@ -420,7 +404,7 @@ shuffle_file(int argc, char *argv[])
     }
 
     uint8_t * buffer = malloc(blocksize);
-    
+
     if (buffer == NULL) {
         printf("failed to allocate buffer of size %zd\n", blocksize);
         return 1;
@@ -436,20 +420,18 @@ shuffle_file(int argc, char *argv[])
         return 1;
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t tscperms;
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
 
     //printf("ticks per millisec: %" PRIu64 "\n", tscperms);
     uint64_t start = rdtsc();
-#endif
 
     size_t count2 = count;
     while (count2--) {
         RAND_NEXT;
         vfs_seek(f, VFS_SEEK_SET, RAND_BLOCK);
-        
+
         err = vfs_read(f, buffer, blocksize, &rsize);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "error reading file");
@@ -472,7 +454,6 @@ shuffle_file(int argc, char *argv[])
         assert(wsize == blocksize);
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t stop = rdtsc();
     uint64_t elapsed_msecs = ((stop - start) / tscperms);
     double elapsed_secs = (double)elapsed_msecs/1000.0;
@@ -481,13 +462,12 @@ shuffle_file(int argc, char *argv[])
 
     double kbps = ((double)(count * blocksize) / 1024.0) / elapsed_secs;
 
-    printf("%zu bytes read. %zu bytes written. %f s, %f kB/s\n", count * blocksize, count * blocksize, elapsed_secs, kbps); 
-#endif
+    printf("%zu bytes read. %zu bytes written. %f s, %f kB/s\n", count * blocksize, count * blocksize, elapsed_secs, kbps);
 
 out:
     if (buffer != NULL)
         free(buffer);
-    
+
     if (f != NULL) {
         err = vfs_close(f);
         if (err_is_fail(err)) {
@@ -531,14 +511,12 @@ rand_bench(char *target, uint8_t *buffer, size_t filesize, size_t blocksize, siz
         return 1;
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t tscperms;
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
 
     //printf("ticks per millisec: %" PRIu64 "\n", tscperms);
     uint64_t start = rdtsc();
-#endif
 
     size_t count2 = count;
     while (count2--) {
@@ -555,7 +533,6 @@ rand_bench(char *target, uint8_t *buffer, size_t filesize, size_t blocksize, siz
         assert(rsize == blocksize);
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t stop = rdtsc();
     uint64_t elapsed_msecs = ((stop - start) / tscperms);
     double elapsed_secs = (double)elapsed_msecs/1000.0;
@@ -563,7 +540,6 @@ rand_bench(char *target, uint8_t *buffer, size_t filesize, size_t blocksize, siz
     result->read = ((double)(count * blocksize) / 1024.0) / elapsed_secs;
 
     start = rdtsc();
-#endif
 
     count2 = count;
     while(count2--) {
@@ -581,13 +557,11 @@ rand_bench(char *target, uint8_t *buffer, size_t filesize, size_t blocksize, siz
         vfs_flush(f);
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     stop = rdtsc();
     elapsed_msecs = ((stop - start) / tscperms);
     elapsed_secs = (double)elapsed_msecs/1000.0;
 
     result->write = ((double)(count * blocksize) / 1024.0) / elapsed_secs;
-#endif
 
 out:
     if (f != NULL) {
@@ -678,14 +652,12 @@ rand_bench_time(char *target, uint8_t *buffer, size_t filesize, size_t blocksize
         return 1;
     }
 
-#if defined(__x86_64__) || defined(__i386__)
     uint64_t tscperms;
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
 
     //printf("ticks per millisec: %" PRIu64 "\n", tscperms);
     uint64_t start = rdtsc();
-#endif
 
     size_t count2 = count;
     while (count2--) {
@@ -701,7 +673,7 @@ rand_bench_time(char *target, uint8_t *buffer, size_t filesize, size_t blocksize
 
         assert(rsize == blocksize);
     }
-#if defined(__x86_64__) || defined(__i386__)
+
     uint64_t stop = rdtsc();
     uint64_t elapsed_msecs = ((stop - start) / tscperms);
     double elapsed_secs = (double)elapsed_msecs/1000.0;
@@ -709,7 +681,6 @@ rand_bench_time(char *target, uint8_t *buffer, size_t filesize, size_t blocksize
     result->read = elapsed_secs;
 
     start = rdtsc();
-#endif
 
     count2 = count;
     while(count2--) {

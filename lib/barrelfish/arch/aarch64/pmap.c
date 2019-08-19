@@ -607,6 +607,7 @@ out:
     return SYS_ERR_OK;
 }
 
+int pmap_selective_flush = 0;
 static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
                                        size_t pages, vregion_flags_t flags)
 {

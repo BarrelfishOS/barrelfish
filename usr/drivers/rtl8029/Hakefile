@@ -15,7 +15,8 @@
                       flounderBindings = [ "net_queue_manager",
                                             "net_soft_filters" ],
                       mackerelDevices = [ "rtl8029as" ],
-                      addLibraries = libDeps [ "pci", "netQmng" ]
+                      addLibraries = libDeps [ "pci", "netQmng" ],
+                      architectures = [ "x86_64" ]
                     }
 ]
 

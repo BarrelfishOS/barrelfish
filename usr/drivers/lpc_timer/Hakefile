@@ -7,13 +7,14 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/lpc_timer
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "lpc_timer",
                       cFiles = [ "timer.c", "main.c" ],
                       flounderBindings = [ "timer" ],
                       mackerelDevices = [ "lpc_timer" ],
-                      addLibraries = [ "pci" ]
+                      addLibraries = [ "pci" ],
+                      architectures = [ "x86_64" ]
                     }
 ]

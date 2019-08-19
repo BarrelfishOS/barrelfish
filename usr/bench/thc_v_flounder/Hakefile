@@ -16,5 +16,6 @@
                       flounderDefs = [ "monitor" ],
                       flounderBindings = [ "bench" ],
                       flounderTHCStubs = [ "bench" ],
-                      addLibraries = [ "bench", "thc" ] }
+                      addLibraries = [ "bench", "thc" ],
+                      architectures = [ "x86_64" ]  }
 ]

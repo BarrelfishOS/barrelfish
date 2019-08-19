@@ -15,5 +15,6 @@
                       cFiles = [ "bench.c" , "clock.c" ],
                       flounderDefs = [ "monitor" ],
                       flounderBindings = [ "bench" ],
-                      addLibraries = ["bench"] }
+                      addLibraries = ["bench"],
+                      architectures = [ "x86_64" ] }
 ]

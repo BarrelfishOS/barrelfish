@@ -11,9 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "perfmontest",
-                      cFiles = [ "perfmon.c" ]
+                      cFiles = [ "perfmon.c" ],
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "spin",
-                      cFiles = [ "spin.c" ]
+                      cFiles = [ "spin.c" ],
+                      architectures = [ "x86_64" ]
                     }
 ]

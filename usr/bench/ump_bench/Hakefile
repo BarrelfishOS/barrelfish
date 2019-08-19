@@ -18,7 +18,8 @@
   build application { target = "ump_latency_cache", cFiles = [ "main.c" , "latency_cache.c" ],
                       flounderDefs = [ "monitor" ],
                       flounderBindings = [ "bench" ],
-                      addLibraries = ["bench"] },
+                      addLibraries = ["bench"],
+                      architectures = [ "x86_64" ]  },
 
   build application { target = "ump_throughput", cFiles = [ "main.c" , "throughput.c" ],
                       flounderDefs = [ "monitor" ],

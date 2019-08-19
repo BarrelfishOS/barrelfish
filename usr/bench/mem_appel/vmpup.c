@@ -244,9 +244,17 @@ bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
     pmap->f.lookup(pmap, (genvaddr_t)bfmem->vmem, &info);
     bfmem->mapping = info.mapping;
     genvaddr_t mem = (genvaddr_t) bfmem->vmem;
+
+    #ifdef __ARM_ARCH_8A__
+    if (VMSAv8_64_L2_BASE(mem) != VMSAv8_64_L2_BASE(mem + retfsize - 1)) {
+        debug_printf("WARN: mapping overlaps leaf pt!\n");
+    }
+    #else
     if (X86_64_PDIR_BASE(mem) != X86_64_PDIR_BASE(mem + retfsize - 1)) {
         debug_printf("WARN: mapping overlaps leaf pt!\n");
     }
+    #endif
+
 }
 
 __attribute__((unused))

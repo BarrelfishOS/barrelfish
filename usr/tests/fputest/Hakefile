@@ -7,13 +7,14 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for fputest
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "fputest",
                       cFiles = [ "fputest.c" ]
                     },
  build arrakisapplication { target = "arrakis_fputest",
-                      cFiles = [ "fputest.c" ]
+                      cFiles = [ "fputest.c" ],
+                        architectures = [ "x86_64" ]
                     }
 ]

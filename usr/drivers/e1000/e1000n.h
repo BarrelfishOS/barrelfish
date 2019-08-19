@@ -173,7 +173,7 @@ typedef enum {
 
 
 /**
- * Data-structure to map sent buffer slots back to application slots 
+ * Data-structure to map sent buffer slots back to application slots
  */
 struct pbuf_desc {
     void *opaque;
@@ -187,7 +187,7 @@ struct e1000_driver_state {
     /* Kaluga args */
     char **args;
     int args_len;
-    
+
     /* PCI info*/
     struct pci_addr addr;
     struct pci_id id;
@@ -246,7 +246,7 @@ struct e1000_driver_state {
     int test_initialized;
     int lsc_interrupt_counter;
     uint64_t last_int_trigger_ticks;
-#endif 
+#endif
 };
 
 void e1000_driver_state_init(struct e1000_driver_state * eds);
@@ -263,7 +263,7 @@ void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec)
 
 void e1000_hwinit(struct e1000_driver_state *eds);
 
-void e1000_init_queues(struct e1000_driver_state* eds, struct capref rx, 
+void e1000_init_queues(struct e1000_driver_state* eds, struct capref rx,
                        size_t rx_bufs, struct capref tx, size_t tx_bufs);
 
 /*****************************************************************
@@ -287,7 +287,6 @@ static inline uint8_t i82541xx_get_icr_gpi_sdp(struct e1000_driver_state *eds)
 
 #include <barrelfish/sys_debug.h>
 
-#if 0
 /* apparently this does not work... getting usertrap #13 */
 extern cycles_t tscperms;
 
@@ -301,15 +300,7 @@ static inline void usec_delay(unsigned int ms)
     while(rdtsc() < end) {
         thread_yield();
     }
+}
 
-}
-#else
-static inline void usec_delay(unsigned int count)
-{
-    while(count--) {
-        __asm__ __volatile__("inb $0x80, %b0" :: "a"(0));
-    }
-}
-#endif
 
 #endif

@@ -18,7 +18,7 @@
 #define SAFE_VADDR (genvaddr_t)(8ULL<<39)
 #define SAFE_PMAP_ADDR (genvaddr_t)(9ULL<<39)
 // 2M
-#define DEFAULT_SIZE X86_64_LARGE_PAGE_SIZE
+#define DEFAULT_SIZE LARGE_PAGE_SIZE
 
 static enum objtype type[] = {
     ObjType_VNode_x86_64_pml4,
@@ -30,11 +30,11 @@ static enum objtype type[] = {
 // the offsets of the indices for the different page table levels
 static uint8_t offsets[] = { 39, 30, 21, 12 };
 
-static paging_x86_64_flags_t PAGE_DEFAULT_ACCESS =
+static uint64_t PAGE_DEFAULT_ACCESS =
     PTABLE_USER_SUPERVISOR |
     PTABLE_EXECUTE_DISABLE |
     PTABLE_READ_WRITE;
-    
+
 static vregion_flags_t PMAP_DEFAULT_ACCESS =
     VREGION_FLAGS_READ_WRITE;
 
@@ -47,7 +47,7 @@ static void test_region(uint32_t *buf, size_t size)
         {
         printf("%i, ", i);
         }
-        
+
         buf[i/4] = i;
     }
     for (int i = 0; i < size; i+=4) {
@@ -105,7 +105,7 @@ int main(void)
             exit(1);
         }
     }
-    
+
 // map as 4k and 2m frames with vnode_map
 // used to test the kernel code
 #if 1
@@ -113,7 +113,7 @@ int main(void)
     assert(err_is_ok(err));
     //printf("start 4k vnode map");
     err = vnode_map(vnodes[3], smallframe, (SAFE_VADDR>>offsets[3])&0x1f,
-            PAGE_DEFAULT_ACCESS, 0, 4*1024 / X86_64_BASE_PAGE_SIZE, mappings[0]);
+            PAGE_DEFAULT_ACCESS, 0, 4*1024 / BASE_PAGE_SIZE, mappings[0]);
 #endif
 #if 0
     if (err_is_fail(err)) {
@@ -136,7 +136,7 @@ int main(void)
     // unmap level 3 page table
     err = vnode_unmap(vnodes[2], vnodes[3], SAFE_VADDR>>offsets[2]&0x1f, 1);
     assert(err_is_ok(err));
-    
+
     // map as 2M large page
     printf("start 2m vnodemap\n");
     err = vnode_map(vnodes[2], frame, SAFE_VADDR>>offsets[2]&0x1f,
@@ -147,16 +147,16 @@ int main(void)
     }
 
     test_region((uint32_t*)SAFE_VADDR, DEFAULT_SIZE);
-    
+
     err = vnode_unmap(vnodes[2], frame, SAFE_VADDR>>offsets[2]&0x1f, DEFAULT_SIZE / X86_64_LARGE_PAGE_SIZE);
     if (err_is_fail(err)) {
         printf("vnode_unmap: %s\n", err_getstring(err));
     }
     assert(err_is_ok(err));
 #endif
-    
+
     struct pmap *pmap;
-    
+
 //normal page via pmap interface
 // used to test if 4k code still works
 // (although this would break the whole barrelfish boot)
@@ -169,8 +169,8 @@ int main(void)
     assert(bits >= 4*1024);
     printf("    get pmap\n");
     pmap = get_current_pmap();
-    
-    
+
+
     printf("    map\n");
     err = pmap->f.map(pmap, SAFE_PMAP_ADDR, smallframe, 0, bits, PMAP_DEFAULT_ACCESS, NULL, &bits);
     if (err_is_fail(err))
@@ -178,12 +178,12 @@ int main(void)
         printf("error in pmap: %s\n", err_getstring(err));
     }
     test_region((uint32_t*)SAFE_PMAP_ADDR, 4*1024);
-    
+
     printf("\tunmap\n");
     err = pmap->f.unmap(pmap, SAFE_PMAP_ADDR, bits, NULL);
 #endif
 
-    
+
 //large page via pmap interface
 // used to test the 2M pages on a safe address
 // looped 10 times to see if unmap does work
@@ -193,7 +193,7 @@ int main(void)
     err = frame_alloc(&frame, bytes, &bytes);
     assert(err_is_ok(err));
     assert(bytes >= DEFAULT_SIZE);
-    
+
     pmap = get_current_pmap();
 
     for(int i = 0; i<10; ++i){
@@ -204,22 +204,22 @@ int main(void)
             printf("error in pmap: %s\n", err_getstring(err));
             exit(1);
         }
-    
+
         test_region((uint32_t*)SAFE_PMAP_ADDR, DEFAULT_SIZE);
-    
+
         err = pmap->f.unmap(pmap, SAFE_PMAP_ADDR, bytes, NULL);
         if (err_is_fail(err))
         {
             printf("error in unmap: %s\n", err_getstring(err));
             exit(1);
-        } 
+        }
     }//end for
 #endif
 
 
         struct memobj a;
         genvaddr_t address;
-        
+
 //test determine_addr_raw as address obtainer
 // mapping 4k page
 #if 0
@@ -228,7 +228,7 @@ int main(void)
     err = frame_alloc(&smallframe, bits, &bits);
     assert(err_is_ok(err));
     assert(bits >= 4*1024);
-    
+
     //determine address
     a.size = bits;
     address = 0;
@@ -240,7 +240,7 @@ int main(void)
         printf("error in determine_addr: %s\n", err_getstring(err));
         exit(1);
     }
-    
+
     err = pmap->f.map(pmap, address, smallframe, 0, bits, PMAP_DEFAULT_ACCESS, NULL, &bits);
     if (err_is_fail(err))
     {
@@ -263,7 +263,7 @@ for(int i = 0; i<200; ++i){
     err = frame_alloc(&frame, bytes, &bytes);
     assert(err_is_ok(err));
     assert(bytes >= DEFAULT_SIZE);
-    
+
     a.size = bytes;
     printf("a.size: %x, %i\n", (unsigned int) a.size, (unsigned int) a.size);
     address = 0;
@@ -275,7 +275,7 @@ for(int i = 0; i<200; ++i){
         printf("error in determine_addr: %s\n", err_getstring(err));
         exit(1);
     }
-    
+
     err = pmap->f.map(pmap, address, frame, 0, bytes, PMAP_DEFAULT_ACCESS | 0x0100, NULL, &bytes);
     if (err_is_fail(err))
     {
@@ -289,7 +289,7 @@ for(int i = 0; i<200; ++i){
 }
 #endif
 
-    
+
 // multiple large pages with one go
 // the for loop is to test unmap
 #if 1
@@ -298,7 +298,7 @@ for(int i = 0; i<200; ++i){
     err = frame_alloc(&frame, bytes, &bytes);
     assert(err_is_ok(err));
     assert(bytes >= 10*DEFAULT_SIZE);
-    
+
     a.size = bytes;
     printf("a.size: %x, %i\n", (unsigned int) a.size, (unsigned int) a.size);
     address = 0;
@@ -310,8 +310,8 @@ for(int i = 0; i<200; ++i){
         printf("error in determine_addr: %s\n", err_getstring(err));
         exit(1);
     }
-for (int i=0; i<10; ++i) {  
-printf("map %i\n", i);  
+for (int i=0; i<10; ++i) {
+printf("map %i\n", i);
     err = pmap->f.map(pmap, address, frame, 0, bytes, PMAP_DEFAULT_ACCESS | 0x0100, NULL, &bytes);
     if (err_is_fail(err))
     {
@@ -326,9 +326,9 @@ printf("map %i\n", i);
     {
         printf("error in unmap: %s\n", err_getstring(err));
         exit(1);
-    } 
+    }
 }//endfor
-#endif   
+#endif
     printf("exited successfully\n");
     return 0;
 }

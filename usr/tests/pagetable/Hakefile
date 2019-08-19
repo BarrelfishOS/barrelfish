@@ -7,16 +7,18 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for pagetable
--- 
+--
 --------------------------------------------------------------------------
 
-[ 
+[
   build application { target = "pagetable",
                       cFiles = [ "pagetable.c" ],
-                      addLibraries = libDeps ["posixcompat"]
+                      addLibraries = libDeps ["posixcompat"],
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "pagefaults",
                       cFiles = [ "protect.c" ],
-                      addLibraries = libDeps ["posixcompat"]
+                      addLibraries = libDeps ["posixcompat"],
+                      architectures = [ "x86_64" ]
                     }
 ]

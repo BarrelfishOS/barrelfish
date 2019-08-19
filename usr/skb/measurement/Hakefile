@@ -10,9 +10,10 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "datagatherer", 
+[ build application { target = "datagatherer",
                       cFiles = [ "datagatherer.c", "cpuid.c" ],
                       flounderDefs = [ "monitor" ],
-                      addLibraries = [ "skb", "cpuid" ]
+                      addLibraries = [ "skb", "cpuid" ],
+                      architectures = [ "x86_64" ]
                     }
 ]

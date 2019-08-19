@@ -7,11 +7,12 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for THCTest
--- 
+--
 --------------------------------------------------------------------------
 
-[ 
+[
   build application { target = "thctest",
                       cFiles = [ "thctest.c" ],
-                      addLibraries = [ "thc" ] }
+                      addLibraries = [ "thc" ],
+                      architectures = [ "x86_64" ] }
 ]

@@ -64,3 +64,15 @@ errval_t sys_debug_hardware_global_timer_read(uint64_t *ret)
     return sr.error;
 }
 
+errval_t sys_debug_get_mdb_size(size_t *size)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_MDB_SIZE);
+    *size = sr.value;
+    return sr.error;
+}
+
+errval_t sys_debug_print_mdb_counters(void)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_PRINT_MDB_COUNTERS);
+    return sr.error;
+}

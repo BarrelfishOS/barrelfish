@@ -15,6 +15,8 @@
 #include "../generic/common.h"
 #include "intel_vtd_debug.h"
 
+#include <target/x86_64/barrelfish_kpi/paging_target.h>
+
 struct vtd;
 
 #define INTEL_VTD_MAX_DOMAINS 128
