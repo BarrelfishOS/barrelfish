@@ -18,6 +18,7 @@ module ARMv7 where
 import HakeTypes
 import qualified Config
 import qualified ArchDefaults
+import Data.Char
 
 -------------------------------------------------------------------------
 --
@@ -174,7 +175,7 @@ linkKernel opts objs libs name driverType =
         kbinary    = "/sbin/" ++ name
         kbootable  = kbinary ++ ".bin"
     in
-        Rules [ Rule ([ Str compiler ] ++
+        Rules ([ Rule ([ Str compiler ] ++
                     map Str Config.cOptFlags ++
                     [ NStr "-T", In BuildTree arch linkscript,
                       Str "-o", Out arch kbinary,
@@ -207,5 +208,6 @@ linkKernel opts objs libs name driverType =
                      Str "-g",
                      In BuildTree arch kbinary,
                      Out arch (kbinary ++ ".stripped")
-                   ]
-            ]
+                   ]] ++ [ Phony ((map toUpper arch) ++ "_All") False
+                  [ Dep BuildTree arch kbinary]])
+

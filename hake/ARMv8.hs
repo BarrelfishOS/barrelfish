@@ -16,7 +16,7 @@ module ARMv8 where
 import HakeTypes
 import qualified Config
 import qualified ArchDefaults
-
+import Data.Char
 
 -------------------------------------------------------------------------
 --
@@ -60,6 +60,7 @@ cFlags = ArchDefaults.commonCFlags
 cxxFlags = ArchDefaults.commonCxxFlags
            ++ ArchDefaults.commonFlags
            ++ ourCommonFlags
+           ++ [Str "-std=gnu++11"]
 
 cDefines = ArchDefaults.cDefines options
 
@@ -83,8 +84,8 @@ options = (ArchDefaults.options arch archFamily) {
             optLdFlags = ldFlags,
             optLdCxxFlags = ldCxxFlags,
             optLibs = stdLibs,
-            optInterconnectDrivers = ["lmp", "ump", "local"],
-            optFlounderBackends = ["lmp", "ump", "local"]
+            optInterconnectDrivers = ["lmp", "ump", "multihop", "local"],
+            optFlounderBackends = ["lmp", "ump", "multihop", "local"]
           }
 
 --
@@ -161,7 +162,7 @@ linkKernel opts objs libs name driverType=
         kdebug     = kbinary ++ ".debug"
         kfull      = kbinary ++ ".full"
     in
-        Rules [ Rule ([ Str compiler ] ++
+        Rules ([ Rule ([ Str compiler ] ++
                     map Str Config.cOptFlags ++
                     [ NStr "-T", In BuildTree arch linkscript,
                       Str "-o",
@@ -175,6 +176,11 @@ linkKernel opts objs libs name driverType=
                     [ In BuildTree arch l | l <- libs ]
                     ++
                     (ArchDefaults.kernelLibs arch)
+                    ++
+                    [ NL, NStr "bash -c \"echo -e '\\0002'\" | dd of=",
+                      Out arch kfull,
+                      Str "bs=1 seek=16 count=1 conv=notrunc status=noxfer"
+                    ]
                    ),
              Rule $ strip opts kfull kdebug kbinary,
              Rule $ debug opts kfull kdebug,
@@ -193,4 +199,5 @@ linkKernel opts objs libs name driverType=
                            ("/kernel/arch/armv8/"++driverType++".lds.in"),
                      Out arch linkscript
                    ]
-            ]
+            ] ++ [ Phony ((map toUpper arch) ++ "_All") False
+                 [ Dep BuildTree arch kbinary]])
