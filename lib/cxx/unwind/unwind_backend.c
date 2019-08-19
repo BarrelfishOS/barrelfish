@@ -41,6 +41,9 @@
 
 #include <barrelfish/barrelfish.h>
 
+void bf_unwind_get_eh(uint64_t *eh_frame, uint64_t *eh_frame_size);
+void bf_unwind_get_eh_hdr(uint64_t *eh_frame_hdr, uint64_t *eh_frame_hdr_size);
+
 void bf_unwind_get_eh(uint64_t *eh_frame, uint64_t *eh_frame_size)
 {
     lvaddr_t eh;
