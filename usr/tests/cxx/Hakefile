@@ -45,7 +45,7 @@
         "test_inc_barrelfish.cpp"
     ],
     architectures = [
-    "x86_64"
+    "x86_64", "armv8", "armv7"
     ]
   }
 ]
