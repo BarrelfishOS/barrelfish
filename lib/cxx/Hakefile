@@ -10,9 +10,9 @@
 --
 --------------------------------------------------------------------------
 [
- (let 
+ (let
     subdirs =  [ "cxx", "cxxabi", "unwind" ]
-    args = library { 
+    args = library {
         target = "cxx",
         cxxFiles = concat [ find cxxInDir dir | dir <- subdirs ],
         cFiles = concat [ find cInDir dir | dir <- subdirs ],
@@ -21,18 +21,22 @@
             "include"
         ],
         architectures = [a],
-        omitCxxFlags = [ 
-            "-Werror", 
-            "-Wshadow", 
+        omitCxxFlags = [
+            "-Werror",
+            "-Wshadow",
             "-Wmissing-declarations",
-            "-Wmissing-field-initializers", 
-            "-Wredundant-decls" 
+            "-Wmissing-field-initializers",
+            "-Wredundant-decls"
         ],
-        addCxxFlags = [ 
-            "-Wno-unused-parameter", 
+        addCxxFlags = [
+            "-Wno-unused-parameter",
             "-Wwrite-strings",
             "-Wno-long-long",
-            "-DLIBCXXABI"
+            "-DLIBCXXABI",
+            "-DLIBCXX_BUILDING_LIBCXXABI",
+            "-D_LIBCPP_BUILDING_LIBRARY",
+            "-D_LIBCPP_HAS_THREAD_API_PTHREAD"
+
         ],
         addLibraries = libDeps [
             "posixcompat"
@@ -44,6 +48,6 @@
     	   Rules [assembleSFile defaultopts s | s <- (Args.assemblyFiles args)],
            staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) [],
            Rule [LDep (DepLib a $ Args.target args) (DepLib a "posixcompat")]
-           ] 
- ) | a <- [ "x86_64", "k1om" ] 
+           ]
+ ) | a <- [ "x86_64", "k1om", "armv8", "armv7" ]
 ]

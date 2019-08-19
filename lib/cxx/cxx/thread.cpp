@@ -1,79 +1,80 @@
 //===------------------------- thread.cpp----------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
+#include "__config"
+#ifndef _LIBCPP_HAS_NO_THREADS
 
 #include "thread"
 #include "exception"
 #include "vector"
 #include "future"
 #include "limits"
-extern "C" {
 #include <sys/types.h>
-}
-#include <cstdlib>
-#ifndef BARRELFISH
-#include <sys/sysctl.h>
-#endif
+
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+# include <sys/param.h>
+# if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__APPLE__)
+#   include <sys/sysctl.h>
+# endif
+#endif // defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__CloudABI__) || defined(__Fuchsia__) || defined(__wasi__)
+# include <unistd.h>
+#endif // defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__CloudABI__) || defined(__Fuchsia__) || defined(__wasi__)
 
 #if defined(__NetBSD__)
 #pragma weak pthread_create // Do not create libpthread dependency
 #endif
-#if defined(_WIN32)
+
+#if defined(_LIBCPP_WIN32API)
 #include <windows.h>
 #endif
 
-#ifdef BARRELFISH
-#include <barrelfish/debug.h> // for USER_PANIC
-#include <barrelfish/deferred.h> // for barrelfish_usleep()
+#if defined(__unix__) && !defined(__ANDROID__) && defined(__ELF__) && defined(_LIBCPP_HAS_COMMENT_LIB_PRAGMA)
+#pragma comment(lib, "pthread")
 #endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 thread::~thread()
 {
-    if (__t_ != 0)
+    if (!__libcpp_thread_isnull(&__t_))
         terminate();
 }
 
 void
 thread::join()
 {
-    int ec = pthread_join(__t_, 0);
-#ifndef _LIBCPP_NO_EXCEPTIONS
+    int ec = EINVAL;
+    if (!__libcpp_thread_isnull(&__t_))
+    {
+        ec = __libcpp_thread_join(&__t_);
+        if (ec == 0)
+            __t_ = _LIBCPP_NULL_THREAD;
+    }
+
     if (ec)
-        throw system_error(error_code(ec, system_category()), "thread::join failed");
-#else
-    (void)ec;
-#endif  // _LIBCPP_NO_EXCEPTIONS
-    __t_ = 0;
+        __throw_system_error(ec, "thread::join failed");
 }
 
 void
 thread::detach()
 {
-#ifndef BARRELFISH
     int ec = EINVAL;
-    if (__t_ != 0)
+    if (!__libcpp_thread_isnull(&__t_))
     {
-        ec = pthread_detach(__t_);
+        ec = __libcpp_thread_detach(&__t_);
         if (ec == 0)
-            __t_ = 0;
+            __t_ = _LIBCPP_NULL_THREAD;
     }
-#ifndef _LIBCPP_NO_EXCEPTIONS
+
     if (ec)
-        throw system_error(error_code(ec, system_category()), "thread::detach failed");
-#endif  // _LIBCPP_NO_EXCEPTIONS
-#else
-	/* todo: thread_detach() */
-//	thread_detach(__t__);
-    USER_PANIC("thread_detach() NYI");
-    // throw system_error(error_code(ENOSYS, system_category()), "thread::detach not implemented");
-#endif
+        __throw_system_error(ec, "thread::detach failed");
 }
 
 unsigned
@@ -94,14 +95,14 @@ thread::hardware_concurrency() _NOEXCEPT
     if (result < 0)
         return 0;
     return static_cast<unsigned>(result);
-#elif defined(_WIN32)
+#elif defined(_LIBCPP_WIN32API)
     SYSTEM_INFO info;
     GetSystemInfo(&info);
     return info.dwNumberOfProcessors;
 #else  // defined(CTL_HW) && defined(HW_NCPU)
     // TODO: grovel through /proc or check cpuid on x86 and similar
     // instructions on other architectures.
-#   if defined(_MSC_VER) && ! defined(__clang__)
+#   if defined(_LIBCPP_WARNING)
         _LIBCPP_WARNING("hardware_concurrency not yet implemented")
 #   else
 #       warning hardware_concurrency not yet implemented
@@ -116,32 +117,9 @@ namespace this_thread
 void
 sleep_for(const chrono::nanoseconds& ns)
 {
-    using namespace chrono;
-    if (ns > nanoseconds::zero())
+    if (ns > chrono::nanoseconds::zero())
     {
-#ifndef BARRELFISH
-        seconds s = duration_cast<seconds>(ns);
-        timespec ts;
-        typedef decltype(ts.tv_sec) ts_sec;
-        _LIBCPP_CONSTEXPR ts_sec ts_sec_max = numeric_limits<ts_sec>::max();
-        if (s.count() < ts_sec_max)
-        {
-            ts.tv_sec = static_cast<ts_sec>(s.count());
-            ts.tv_nsec = static_cast<decltype(ts.tv_nsec)>((ns-s).count());
-        }
-        else
-        {
-            ts.tv_sec = ts_sec_max;
-            ts.tv_nsec = giga::num - 1;
-        }
-
-        while (nanosleep(&ts, &ts) == -1 && errno == EINTR)
-            ;
-#else
-        // round up to next microsecond
-        microseconds us = duration_cast<microseconds>(ns);
-        barrelfish_usleep(us.count());
-#endif
+        __libcpp_thread_sleep_for(ns);
     }
 }
 
@@ -243,3 +221,5 @@ __thread_struct::__make_ready_at_thread_exit(__assoc_sub_state* __s)
 }
 
 _LIBCPP_END_NAMESPACE_STD
+
+#endif // !_LIBCPP_HAS_NO_THREADS

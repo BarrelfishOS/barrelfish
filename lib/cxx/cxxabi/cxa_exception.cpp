@@ -1,27 +1,27 @@
 //===------------------------- cxa_exception.cpp --------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //  
 //  This file implements the "Exception Handling APIs"
-//  http://mentorembedded.github.io/cxx-abi/abi-eh.html
+//  https://itanium-cxx-abi.github.io/cxx-abi/abi-eh.html
 //  
 //===----------------------------------------------------------------------===//
 
-#include "config.h"
 #include "cxxabi.h"
 
 #include <exception>        // for std::terminate
-#include <cstdlib>          // for malloc, free
 #include <cstring>          // for memset
-#if !LIBCXXABI_HAS_NO_THREADS
-#  include <pthread.h>      // for fallback_malloc.ipp's mutexes
+#include "cxa_exception.h"
+#include "cxa_handlers.h"
+#include "fallback_malloc.h"
+#include "include/atomic_support.h"
+
+#if __has_feature(address_sanitizer)
+extern "C" void __asan_handle_no_return(void);
 #endif
-#include "cxa_exception.hpp"
-#include "cxa_handlers.hpp"
 
 // +---------------------------+-----------------------------+---------------+
 // | __cxa_exception           | _Unwind_Exception CLNGC++\0 | thrown object |
@@ -35,8 +35,6 @@
 // +---------------------------+-----------------------------+
 
 namespace __cxxabiv1 {
-
-#pragma GCC visibility push(default)
 
 //  Utility routines
 static
@@ -68,30 +66,49 @@ cxa_exception_from_exception_unwind_exception(_Unwind_Exception* unwind_exceptio
     return cxa_exception_from_thrown_object(unwind_exception + 1 );
 }
 
-static
-inline
-size_t
-cxa_exception_size_from_exception_thrown_size(size_t size)
-{
-    return size + sizeof (__cxa_exception);
+// Round s up to next multiple of a.
+static inline
+size_t aligned_allocation_size(size_t s, size_t a) {
+    return (s + a - 1) & ~(a - 1);
 }
 
-static void setExceptionClass(_Unwind_Exception* unwind_exception) {
-    unwind_exception->exception_class = kOurExceptionClass;
+static inline
+size_t cxa_exception_size_from_exception_thrown_size(size_t size) {
+    return aligned_allocation_size(size + sizeof (__cxa_exception),
+                                   alignof(__cxa_exception));
+}
+
+void __setExceptionClass(_Unwind_Exception* unwind_exception, uint64_t newValue) {
+	::memcpy(&unwind_exception->exception_class, &newValue, sizeof(newValue));
+	}
+	
+
+static void setOurExceptionClass(_Unwind_Exception* unwind_exception) {
+    __setExceptionClass(unwind_exception, kOurExceptionClass);
 }
 
 static void setDependentExceptionClass(_Unwind_Exception* unwind_exception) {
-    unwind_exception->exception_class = kOurDependentExceptionClass;
+    __setExceptionClass(unwind_exception, kOurDependentExceptionClass);
 }
 
 //  Is it one of ours?
-static bool isOurExceptionClass(const _Unwind_Exception* unwind_exception) {
-    return (unwind_exception->exception_class & get_vendor_and_language) == 
-           (kOurExceptionClass                & get_vendor_and_language);
+uint64_t __getExceptionClass(const _Unwind_Exception* unwind_exception) {
+//	On x86 and some ARM unwinders, unwind_exception->exception_class is
+//		a uint64_t. On other ARM unwinders, it is a char[8]
+//	See: http://infocenter.arm.com/help/topic/com.arm.doc.ihi0038b/IHI0038B_ehabi.pdf
+//	So we just copy it into a uint64_t to be sure.
+	uint64_t exClass;
+	::memcpy(&exClass, &unwind_exception->exception_class, sizeof(exClass));
+	return exClass;
+}
+
+bool __isOurExceptionClass(const _Unwind_Exception* unwind_exception) {
+    return (__getExceptionClass(unwind_exception) & get_vendor_and_language) == 
+           (kOurExceptionClass                    & get_vendor_and_language);
 }
 
 static bool isDependentException(_Unwind_Exception* unwind_exception) {
-    return (unwind_exception->exception_class & 0xFF) == 0x01;
+    return (__getExceptionClass(unwind_exception) & 0xFF) == 0x01;
 }
 
 //  This does not need to be atomic
@@ -102,20 +119,6 @@ static inline int incrementHandlerCount(__cxa_exception *exception) {
 //  This does not need to be atomic
 static inline  int decrementHandlerCount(__cxa_exception *exception) {
     return --exception->handlerCount;
-}
-
-#include "fallback_malloc.ipp"
-
-//  Allocate some memory from _somewhere_
-static void *do_malloc(size_t size) {
-    void *ptr = std::malloc(size);
-    if (NULL == ptr) // if malloc fails, fall back to emergency stash
-        ptr = fallback_malloc(size);
-    return ptr;
-}
-
-static void do_free(void *ptr) {
-    is_fallback_ptr(ptr) ? fallback_free(ptr) : std::free(ptr);
 }
 
 /*
@@ -137,7 +140,7 @@ exception_cleanup_func(_Unwind_Reason_Code reason, _Unwind_Exception* unwind_exc
     __cxa_decrement_exception_refcount(unwind_exception + 1);
 }
 
-static LIBCXXABI_NORETURN void failed_throw(__cxa_exception* exception_header) {
+static _LIBCXXABI_NORETURN void failed_throw(__cxa_exception* exception_header) {
 //  Section 2.5.3 says:
 //      * For purposes of this ABI, several things are considered exception handlers:
 //      ** A terminate() call due to a throw.
@@ -149,6 +152,28 @@ static LIBCXXABI_NORETURN void failed_throw(__cxa_exception* exception_header) {
     std::__terminate(exception_header->terminateHandler);
 }
 
+// Return the offset of the __cxa_exception header from the start of the
+// allocated buffer. If __cxa_exception's alignment is smaller than the maximum
+// useful alignment for the target machine, padding has to be inserted before
+// the header to ensure the thrown object that follows the header is
+// sufficiently aligned. This happens if _Unwind_exception isn't double-word
+// aligned (on Darwin, for example).
+static size_t get_cxa_exception_offset() {
+  struct S {
+  } __attribute__((aligned));
+
+  // Compute the maximum alignment for the target machine.
+  constexpr size_t alignment = std::alignment_of<S>::value;
+  constexpr size_t excp_size = sizeof(__cxa_exception);
+  constexpr size_t aligned_size =
+      (excp_size + alignment - 1) / alignment * alignment;
+  constexpr size_t offset = aligned_size - excp_size;
+  static_assert((offset == 0 ||
+                 std::alignment_of<_Unwind_Exception>::value < alignment),
+                "offset is non-zero only if _Unwind_Exception isn't aligned");
+  return offset;
+}
+
 extern "C" {
 
 //  Allocate a __cxa_exception object, and zero-fill it.
@@ -156,19 +181,30 @@ extern "C" {
 //  object. Zero-fill the object. If memory can't be allocated, call
 //  std::terminate. Return a pointer to the memory to be used for the
 //  user's exception object.
-void * __cxa_allocate_exception (size_t thrown_size) throw() {
+void *__cxa_allocate_exception(size_t thrown_size) throw() {
     size_t actual_size = cxa_exception_size_from_exception_thrown_size(thrown_size);
-    __cxa_exception* exception_header = static_cast<__cxa_exception*>(do_malloc(actual_size));
-    if (NULL == exception_header)
+
+    // Allocate extra space before the __cxa_exception header to ensure the
+    // start of the thrown object is sufficiently aligned.
+    size_t header_offset = get_cxa_exception_offset();
+    char *raw_buffer =
+        (char *)__aligned_malloc_with_fallback(header_offset + actual_size);
+    if (NULL == raw_buffer)
         std::terminate();
+    __cxa_exception *exception_header =
+        static_cast<__cxa_exception *>((void *)(raw_buffer + header_offset));
     std::memset(exception_header, 0, actual_size);
     return thrown_object_from_cxa_exception(exception_header);
 }
 
 
 //  Free a __cxa_exception object allocated with __cxa_allocate_exception.
-void __cxa_free_exception (void * thrown_object) throw() {
-    do_free(cxa_exception_from_thrown_object(thrown_object));
+void __cxa_free_exception(void *thrown_object) throw() {
+    // Compute the size of the padding before the header.
+    size_t header_offset = get_cxa_exception_offset();
+    char *raw_buffer =
+        ((char *)cxa_exception_from_thrown_object(thrown_object)) - header_offset;
+    __aligned_free_with_fallback((void *)raw_buffer);
 }
 
 
@@ -177,7 +213,7 @@ void __cxa_free_exception (void * thrown_object) throw() {
 //  Otherwise, it will work like __cxa_allocate_exception.
 void * __cxa_allocate_dependent_exception () {
     size_t actual_size = sizeof(__cxa_dependent_exception);
-    void *ptr = do_malloc(actual_size);
+    void *ptr = __aligned_malloc_with_fallback(actual_size);
     if (NULL == ptr)
         std::terminate();
     std::memset(ptr, 0, actual_size);
@@ -188,7 +224,7 @@ void * __cxa_allocate_dependent_exception () {
 //  This function shall free a dependent_exception.
 //  It does not affect the reference count of the primary exception.
 void __cxa_free_dependent_exception (void * dependent_exception) {
-    do_free(dependent_exception);
+    __aligned_free_with_fallback(dependent_exception);
 }
 
 
@@ -218,10 +254,8 @@ handler, _Unwind_RaiseException may return. In that case, __cxa_throw
 will call terminate, assuming that there was no handler for the
 exception.
 */
-LIBCXXABI_NORETURN
-void 
-__cxa_throw(void* thrown_object, std::type_info* tinfo, void (*dest)(void*))
-{
+void
+__cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
     __cxa_eh_globals *globals = __cxa_get_globals();
     __cxa_exception* exception_header = cxa_exception_from_thrown_object(thrown_object);
 
@@ -229,12 +263,18 @@ __cxa_throw(void* thrown_object, std::type_info* tinfo, void (*dest)(void*))
     exception_header->terminateHandler  = std::get_terminate();
     exception_header->exceptionType = tinfo;
     exception_header->exceptionDestructor = dest;
-    setExceptionClass(&exception_header->unwindHeader);
+    setOurExceptionClass(&exception_header->unwindHeader);
     exception_header->referenceCount = 1;  // This is a newly allocated exception, no need for thread safety.
     globals->uncaughtExceptions += 1;   // Not atomically, since globals are thread-local
 
     exception_header->unwindHeader.exception_cleanup = exception_cleanup_func;
-#if __USING_SJLJ_EXCEPTIONS__
+
+#if __has_feature(address_sanitizer)
+    // Inform the ASan runtime that now might be a good time to clean stuff up.
+    __asan_handle_no_return();
+#endif
+
+#ifdef __USING_SJLJ_EXCEPTIONS__
     _Unwind_SjLj_RaiseException(&exception_header->unwindHeader);
 #else
     _Unwind_RaiseException(&exception_header->unwindHeader);
@@ -253,34 +293,28 @@ The adjusted pointer is computed by the personality routine during phase 1
 
   Requires:  exception is native
 */
-void*
-__cxa_get_exception_ptr(void* unwind_exception) throw()
-{
-#if LIBCXXABI_ARM_EHABI
+void *__cxa_get_exception_ptr(void *unwind_exception) throw() {
+#if defined(_LIBCXXABI_ARM_EHABI)
     return reinterpret_cast<void*>(
-           static_cast<_Unwind_Control_Block*>(unwind_exception)->barrier_cache.bitpattern[0]);
+        static_cast<_Unwind_Control_Block*>(unwind_exception)->barrier_cache.bitpattern[0]);
 #else
-    return cxa_exception_from_exception_unwind_exception
-           (
-               static_cast<_Unwind_Exception*>(unwind_exception)
-           )->adjustedPtr;
+    return cxa_exception_from_exception_unwind_exception(
+        static_cast<_Unwind_Exception*>(unwind_exception))->adjustedPtr;
 #endif
 }
 
-#if LIBCXXABI_ARM_EHABI
+#if defined(_LIBCXXABI_ARM_EHABI)
 /*
 The routine to be called before the cleanup.  This will save __cxa_exception in
 __cxa_eh_globals, so that __cxa_end_cleanup() can recover later.
 */
-bool
-__cxa_begin_cleanup(void* unwind_arg) throw ()
-{
+bool __cxa_begin_cleanup(void *unwind_arg) throw() {
     _Unwind_Exception* unwind_exception = static_cast<_Unwind_Exception*>(unwind_arg);
     __cxa_eh_globals* globals = __cxa_get_globals();
     __cxa_exception* exception_header =
         cxa_exception_from_exception_unwind_exception(unwind_exception);
 
-    if (isOurExceptionClass(unwind_exception))
+    if (__isOurExceptionClass(unwind_exception))
     {
         if (0 == exception_header->propagationCount)
         {
@@ -323,7 +357,7 @@ __cxa_end_cleanup_impl()
         std::terminate();
     }
 
-    if (isOurExceptionClass(&exception_header->unwindHeader))
+    if (__isOurExceptionClass(&exception_header->unwindHeader))
     {
         --exception_header->propagationCount;
         if (0 == exception_header->propagationCount)
@@ -340,7 +374,7 @@ __cxa_end_cleanup_impl()
 }
 
 asm (
-    "	.pushsection	.text.__cxa_end_cleanup\n"
+    "	.pushsection	.text.__cxa_end_cleanup,\"ax\",%progbits\n"
     "	.globl	__cxa_end_cleanup\n"
     "	.type	__cxa_end_cleanup,%function\n"
     "__cxa_end_cleanup:\n"
@@ -351,7 +385,7 @@ asm (
     "	bl	abort\n"
     "	.popsection"
 );
-#endif  // LIBCXXABI_ARM_EHABI
+#endif  // defined(_LIBCXXABI_ARM_EHABI)
     
 /*
 This routine can catch foreign or native exceptions.  If native, the exception
@@ -388,7 +422,7 @@ void*
 __cxa_begin_catch(void* unwind_arg) throw()
 {
     _Unwind_Exception* unwind_exception = static_cast<_Unwind_Exception*>(unwind_arg);
-    bool native_exception = isOurExceptionClass(unwind_exception);
+    bool native_exception = __isOurExceptionClass(unwind_exception);
     __cxa_eh_globals* globals = __cxa_get_globals();
     // exception_header is a hackish offset from a foreign exception, but it
     //   works as long as we're careful not to try to access any __cxa_exception
@@ -411,7 +445,7 @@ __cxa_begin_catch(void* unwind_arg) throw()
             globals->caughtExceptions = exception_header;
         }
         globals->uncaughtExceptions -= 1;   // Not atomically, since globals are thread-local
-#if LIBCXXABI_ARM_EHABI
+#if defined(_LIBCXXABI_ARM_EHABI)
         return reinterpret_cast<void*>(exception_header->unwindHeader.barrier_cache.bitpattern[0]);
 #else
         return exception_header->adjustedPtr;
@@ -445,19 +479,19 @@ For a foreign exception:
 * If it has been rethrown, there is nothing to do.
 * Otherwise delete the exception and pop the catch stack to empty.
 */
-void __cxa_end_catch()
-{
+void __cxa_end_catch() {
   static_assert(sizeof(__cxa_exception) == sizeof(__cxa_dependent_exception),
                 "sizeof(__cxa_exception) must be equal to "
                 "sizeof(__cxa_dependent_exception)");
-    static_assert(offsetof(__cxa_exception, referenceCount) ==
-                      offsetof(__cxa_dependent_exception, primaryException),
-                  "the layout of __cxa_exception must match the layout of "
-                  "__cxa_dependent_exception");
-    static_assert(offsetof(__cxa_exception, handlerCount) ==
-                      offsetof(__cxa_dependent_exception, handlerCount),
-                  "the layout of __cxa_exception must match the layout of "
-                  "__cxa_dependent_exception");
+  static_assert(__builtin_offsetof(__cxa_exception, referenceCount) ==
+                    __builtin_offsetof(__cxa_dependent_exception,
+                                       primaryException),
+                "the layout of __cxa_exception must match the layout of "
+                "__cxa_dependent_exception");
+  static_assert(__builtin_offsetof(__cxa_exception, handlerCount) ==
+                    __builtin_offsetof(__cxa_dependent_exception, handlerCount),
+                "the layout of __cxa_exception must match the layout of "
+                "__cxa_dependent_exception");
     __cxa_eh_globals* globals = __cxa_get_globals_fast(); // __cxa_get_globals called in __cxa_begin_catch
     __cxa_exception* exception_header = globals->caughtExceptions;
     // If we've rethrown a foreign exception, then globals->caughtExceptions
@@ -465,7 +499,7 @@ void __cxa_end_catch()
     //    nothing more to be done.  Do nothing!
     if (NULL != exception_header)
     {
-        bool native_exception = isOurExceptionClass(&exception_header->unwindHeader);
+        bool native_exception = __isOurExceptionClass(&exception_header->unwindHeader);
         if (native_exception)
         {
             // This is a native exception
@@ -522,7 +556,7 @@ void __cxa_end_catch()
 // Note:  exception_header may be masquerading as a __cxa_dependent_exception
 //        and that's ok.  exceptionType is there too.
 //        However watch out for foreign exceptions.  Return null for them.
-std::type_info * __cxa_current_exception_type() {
+std::type_info *__cxa_current_exception_type() {
 //  get the current exception
     __cxa_eh_globals *globals = __cxa_get_globals_fast();
     if (NULL == globals)
@@ -530,7 +564,7 @@ std::type_info * __cxa_current_exception_type() {
     __cxa_exception *exception_header = globals->caughtExceptions;
     if (NULL == exception_header)
         return NULL;        //  No current exception
-    if (!isOurExceptionClass(&exception_header->unwindHeader))
+    if (!__isOurExceptionClass(&exception_header->unwindHeader))
         return NULL;
     return exception_header->exceptionType;
 }
@@ -547,15 +581,12 @@ If the exception is native:
   Note:  exception_header may be masquerading as a __cxa_dependent_exception
          and that's ok.
 */
-LIBCXXABI_NORETURN
-void
-__cxa_rethrow()
-{
+void __cxa_rethrow() {
     __cxa_eh_globals* globals = __cxa_get_globals();
     __cxa_exception* exception_header = globals->caughtExceptions;
     if (NULL == exception_header)
         std::terminate();      // throw; called outside of a exception handler
-    bool native_exception = isOurExceptionClass(&exception_header->unwindHeader);
+    bool native_exception = __isOurExceptionClass(&exception_header->unwindHeader);
     if (native_exception)
     {
         //  Mark the exception as being rethrown (reverse the effects of __cxa_begin_catch)
@@ -571,7 +602,7 @@ __cxa_rethrow()
         //   nothing
         globals->caughtExceptions = 0;
     }
-#if __USING_SJLJ_EXCEPTIONS__
+#ifdef __USING_SJLJ_EXCEPTIONS__
     _Unwind_SjLj_RaiseException(&exception_header->unwindHeader);
 #else
     _Unwind_RaiseException(&exception_header->unwindHeader);
@@ -596,12 +627,11 @@ __cxa_rethrow()
     Requires:  If thrown_object is not NULL, it is a native exception.
 */
 void
-__cxa_increment_exception_refcount(void* thrown_object) throw()
-{
+__cxa_increment_exception_refcount(void *thrown_object) throw() {
     if (thrown_object != NULL )
     {
         __cxa_exception* exception_header = cxa_exception_from_thrown_object(thrown_object);
-        __sync_add_and_fetch(&exception_header->referenceCount, 1);
+        std::__libcpp_atomic_add(&exception_header->referenceCount, size_t(1));
     }
 }
 
@@ -613,13 +643,12 @@ __cxa_increment_exception_refcount(void* thrown_object) throw()
 
     Requires:  If thrown_object is not NULL, it is a native exception.
 */
-void
-__cxa_decrement_exception_refcount(void* thrown_object) throw()
-{
+_LIBCXXABI_NO_CFI
+void __cxa_decrement_exception_refcount(void *thrown_object) throw() {
     if (thrown_object != NULL )
     {
         __cxa_exception* exception_header = cxa_exception_from_thrown_object(thrown_object);
-        if (__sync_sub_and_fetch(&exception_header->referenceCount, size_t(1)) == 0)
+        if (std::__libcpp_atomic_add(&exception_header->referenceCount, size_t(-1)) == 0)
         {
             if (NULL != exception_header->exceptionDestructor)
                 exception_header->exceptionDestructor(thrown_object);
@@ -638,9 +667,7 @@ __cxa_decrement_exception_refcount(void* thrown_object) throw()
     been no exceptions thrown, ever, on this thread, we can return NULL without 
     the need to allocate the exception-handling globals.
 */
-void*
-__cxa_current_primary_exception() throw()
-{
+void *__cxa_current_primary_exception() throw() {
 //  get the current exception
     __cxa_eh_globals* globals = __cxa_get_globals_fast();
     if (NULL == globals)
@@ -648,7 +675,7 @@ __cxa_current_primary_exception() throw()
     __cxa_exception* exception_header = globals->caughtExceptions;
     if (NULL == exception_header)
         return NULL;        //  No current exception
-    if (!isOurExceptionClass(&exception_header->unwindHeader))
+    if (!__isOurExceptionClass(&exception_header->unwindHeader))
         return NULL;        // Can't capture a foreign exception (no way to refcount it)
     if (isDependentException(&exception_header->unwindHeader)) {
         __cxa_dependent_exception* dep_exception_header =
@@ -700,7 +727,7 @@ __cxa_rethrow_primary_exception(void* thrown_object)
         setDependentExceptionClass(&dep_exception_header->unwindHeader);
         __cxa_get_globals()->uncaughtExceptions += 1;
         dep_exception_header->unwindHeader.exception_cleanup = dependent_exception_cleanup;
-#if __USING_SJLJ_EXCEPTIONS__
+#ifdef __USING_SJLJ_EXCEPTIONS__
         _Unwind_SjLj_RaiseException(&dep_exception_header->unwindHeader);
 #else
         _Unwind_RaiseException(&dep_exception_header->unwindHeader);
@@ -712,17 +739,18 @@ __cxa_rethrow_primary_exception(void* thrown_object)
 }
 
 bool
-__cxa_uncaught_exception() throw()
+__cxa_uncaught_exception() throw() { return __cxa_uncaught_exceptions() != 0; }
+
+unsigned int
+__cxa_uncaught_exceptions() throw()
 {
     // This does not report foreign exceptions in flight
     __cxa_eh_globals* globals = __cxa_get_globals_fast();
     if (globals == 0)
-        return false;
-    return globals->uncaughtExceptions != 0;
+        return 0;
+    return globals->uncaughtExceptions;
 }
 
 }  // extern "C"
-
-#pragma GCC visibility pop
 
 }  // abi

@@ -150,3 +150,9 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags)
     *__error() = ENOSYS;
     return -1;
 }
+
+
+int sched_yield(void)
+ {
+     thread_yield();
+ }

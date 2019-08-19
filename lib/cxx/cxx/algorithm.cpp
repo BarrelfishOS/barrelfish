@@ -1,16 +1,19 @@
 //===----------------------- algorithm.cpp --------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
-#define _LIBCPP_EXTERN_TEMPLATE(...) extern template __VA_ARGS__;
 #include "algorithm"
 #include "random"
+#ifndef _LIBCPP_HAS_NO_THREADS
 #include "mutex"
+#if defined(__unix__) && !defined(__ANDROID__) && defined(__ELF__) && defined(_LIBCPP_HAS_COMMENT_LIB_PRAGMA)
+#pragma comment(lib, "pthread")
+#endif
+#endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -48,12 +51,16 @@ template bool __insertion_sort_incomplete<__less<long double>&, long double*>(lo
 
 template unsigned __sort5<__less<long double>&, long double*>(long double*, long double*, long double*, long double*, long double*, __less<long double>&);
 
-static pthread_mutex_t __rs_mut = PTHREAD_MUTEX_INITIALIZER;
+#ifndef _LIBCPP_HAS_NO_THREADS
+_LIBCPP_SAFE_STATIC static __libcpp_mutex_t __rs_mut = _LIBCPP_MUTEX_INITIALIZER;
+#endif
 unsigned __rs_default::__c_ = 0;
 
 __rs_default::__rs_default()
 {
-    pthread_mutex_lock(&__rs_mut);
+#ifndef _LIBCPP_HAS_NO_THREADS
+    __libcpp_mutex_lock(&__rs_mut);
+#endif
     __c_ = 1;
 }
 
@@ -64,8 +71,12 @@ __rs_default::__rs_default(const __rs_default&)
 
 __rs_default::~__rs_default()
 {
+#ifndef _LIBCPP_HAS_NO_THREADS
     if (--__c_ == 0)
-        pthread_mutex_unlock(&__rs_mut);
+       __libcpp_mutex_unlock(&__rs_mut);
+#else
+    --__c_;
+#endif
 }
 
 __rs_default::result_type

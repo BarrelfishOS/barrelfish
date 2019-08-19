@@ -1,40 +1,43 @@
 //===-------------------------- ios.cpp -----------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
-#define _LIBCPP_EXTERN_TEMPLATE(...) extern template __VA_ARGS__;
+#include "__config"
 
 #include "ios"
-#include "streambuf"
-#include "istream"
-#include "string"
+
+#include <stdlib.h>
+
 #include "__locale"
 #include "algorithm"
+#include "include/config_elast.h"
+#include "istream"
+#include "limits"
 #include "memory"
 #include "new"
-#include "limits"
-#include <stdlib.h>
+#include "streambuf"
+#include "string"
+#include "__undef_macros"
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-template class basic_ios<char>;
-template class basic_ios<wchar_t>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_ios<char>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_ios<wchar_t>;
 
-template class basic_streambuf<char>;
-template class basic_streambuf<wchar_t>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_streambuf<char>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_streambuf<wchar_t>;
 
-template class basic_istream<char>;
-template class basic_istream<wchar_t>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_istream<char>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_istream<wchar_t>;
 
-template class basic_ostream<char>;
-template class basic_ostream<wchar_t>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_ostream<char>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_ostream<wchar_t>;
 
-template class basic_iostream<char>;
+template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS basic_iostream<char>;
 
 class _LIBCPP_HIDDEN __iostream_category
     : public __do_message
@@ -54,11 +57,9 @@ string
 __iostream_category::message(int ev) const
 {
     if (ev != static_cast<int>(io_errc::stream)
-#ifdef ELAST
-        && ev <= ELAST
-#elif defined(__linux__)
-        && ev <= 4095
-#endif  // ELAST
+#ifdef _LIBCPP_ELAST
+        && ev <= _LIBCPP_ELAST
+#endif  // _LIBCPP_ELAST
         )
         return __do_message::message(ev);
     return string("unspecified iostream_category error");
@@ -151,11 +152,21 @@ ios_base::getloc() const
 }
 
 // xalloc
-#if __has_feature(cxx_atomic)
+#if defined(_LIBCPP_HAS_C_ATOMIC_IMP) && !defined(_LIBCPP_HAS_NO_THREADS)
 atomic<int> ios_base::__xindex_ = ATOMIC_VAR_INIT(0);
 #else
 int ios_base::__xindex_ = 0;
 #endif
+
+template <typename _Tp>
+static size_t __ios_new_cap(size_t __req_size, size_t __current_cap)
+{ // Precondition: __req_size > __current_cap
+	const size_t mx = std::numeric_limits<size_t>::max() / sizeof(_Tp);
+	if (__req_size < mx/2)
+		return _VSTD::max(2 * __current_cap, __req_size);
+	else
+		return mx;
+}
 
 int
 ios_base::xalloc()
@@ -169,14 +180,8 @@ ios_base::iword(int index)
     size_t req_size = static_cast<size_t>(index)+1;
     if (req_size > __iarray_cap_)
     {
-        size_t newcap;
-        const size_t mx = std::numeric_limits<size_t>::max();
-        if (req_size < mx/2)
-            newcap = _VSTD::max(2 * __iarray_cap_, req_size);
-        else
-            newcap = mx;
-        size_t newsize = newcap * sizeof(long);
-        long* iarray = static_cast<long*>(realloc(__iarray_, newsize));
+        size_t newcap = __ios_new_cap<long>(req_size, __iarray_cap_);
+        long* iarray = static_cast<long*>(realloc(__iarray_, newcap * sizeof(long)));
         if (iarray == 0)
         {
             setstate(badbit);
@@ -185,8 +190,9 @@ ios_base::iword(int index)
             return error;
         }
         __iarray_ = iarray;
-        for (long* p = __iarray_ + __iarray_size_; __iarray_cap_ < newcap; ++__iarray_cap_, ++p)
+        for (long* p = __iarray_ + __iarray_size_; p < __iarray_ + newcap; ++p)
             *p = 0;
+        __iarray_cap_ = newcap;
     }
     __iarray_size_ = max<size_t>(__iarray_size_, req_size);
     return __iarray_[index];
@@ -198,14 +204,8 @@ ios_base::pword(int index)
     size_t req_size = static_cast<size_t>(index)+1;
     if (req_size > __parray_cap_)
     {
-        size_t newcap;
-        const size_t mx = std::numeric_limits<size_t>::max();
-        if (req_size < mx/2)
-            newcap = _VSTD::max(2 * __parray_cap_, req_size);
-        else
-            newcap = mx;
-        size_t newsize = newcap * sizeof(void*);
-        void** parray = static_cast<void**>(realloc(__parray_, newsize));
+        size_t newcap = __ios_new_cap<void *>(req_size, __iarray_cap_);
+        void** parray = static_cast<void**>(realloc(__parray_, newcap * sizeof(void *)));
         if (parray == 0)
         {
             setstate(badbit);
@@ -214,8 +214,9 @@ ios_base::pword(int index)
             return error;
         }
         __parray_ = parray;
-        for (void** p = __parray_ + __parray_size_; __parray_cap_ < newcap; ++__parray_cap_, ++p)
+        for (void** p = __parray_ + __parray_size_; p < __parray_ + newcap; ++p)
             *p = 0;
+        __parray_cap_ = newcap;
     }
     __parray_size_ = max<size_t>(__parray_size_, req_size);
     return __parray_[index];
@@ -229,22 +230,16 @@ ios_base::register_callback(event_callback fn, int index)
     size_t req_size = __event_size_ + 1;
     if (req_size > __event_cap_)
     {
-        size_t newcap;
-        const size_t mx = std::numeric_limits<size_t>::max();
-        if (req_size < mx/2)
-            newcap = _VSTD::max(2 * __event_cap_, req_size);
-        else
-            newcap = mx;
-        size_t newesize = newcap * sizeof(event_callback);
-        event_callback* fns = static_cast<event_callback*>(realloc(__fn_, newesize));
+        size_t newcap = __ios_new_cap<event_callback>(req_size, __event_cap_);
+        event_callback* fns = static_cast<event_callback*>(realloc(__fn_, newcap * sizeof(event_callback)));
         if (fns == 0)
             setstate(badbit);
         __fn_ = fns;
-        size_t newisize = newcap * sizeof(int);
-        int* indxs = static_cast<int *>(realloc(__index_, newisize));
+        int* indxs = static_cast<int *>(realloc(__index_, newcap * sizeof(int)));
         if (indxs == 0)
             setstate(badbit);
         __index_ = indxs;
+        __event_cap_ = newcap;
     }
     __fn_[__event_size_] = fn;
     __index_[__event_size_] = index;
@@ -271,10 +266,9 @@ ios_base::clear(iostate state)
         __rdstate_ = state;
     else
         __rdstate_ = state | badbit;
-#ifndef _LIBCPP_NO_EXCEPTIONS
+
     if (((state | (__rdbuf_ ? goodbit : badbit)) & __exceptions_) != 0)
-        throw failure("ios_base::clear");
-#endif  // _LIBCPP_NO_EXCEPTIONS
+        __throw_failure("ios_base::clear");
 }
 
 // init
@@ -314,35 +308,27 @@ ios_base::copyfmt(const ios_base& rhs)
     {
         size_t newesize = sizeof(event_callback) * rhs.__event_size_;
         new_callbacks.reset(static_cast<event_callback*>(malloc(newesize)));
-#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_callbacks)
-            throw bad_alloc();
-#endif  // _LIBCPP_NO_EXCEPTIONS
+            __throw_bad_alloc();
 
         size_t newisize = sizeof(int) * rhs.__event_size_;
         new_ints.reset(static_cast<int *>(malloc(newisize)));
-#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_ints)
-            throw bad_alloc();
-#endif  // _LIBCPP_NO_EXCEPTIONS
+            __throw_bad_alloc();
     }
     if (__iarray_cap_ < rhs.__iarray_size_)
     {
         size_t newsize = sizeof(long) * rhs.__iarray_size_;
         new_longs.reset(static_cast<long*>(malloc(newsize)));
-#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_longs)
-            throw bad_alloc();
-#endif  // _LIBCPP_NO_EXCEPTIONS
+            __throw_bad_alloc();
     }
     if (__parray_cap_ < rhs.__parray_size_)
     {
         size_t newsize = sizeof(void*) * rhs.__parray_size_;
         new_pointers.reset(static_cast<void**>(malloc(newsize)));
-#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_pointers)
-            throw bad_alloc();
-#endif  // _LIBCPP_NO_EXCEPTIONS
+            __throw_bad_alloc();
     }
     // Got everything we need.  Copy everything but __rdstate_, __rdbuf_ and __exceptions_
     __fmtflags_ = rhs.__fmtflags_;

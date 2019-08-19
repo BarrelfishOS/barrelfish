@@ -1,9 +1,8 @@
 //===-------------------------- regex.cpp ---------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -69,20 +68,11 @@ regex_error::~regex_error() throw() {}
 
 namespace {
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpadded"
-#endif
-
 struct collationnames
 {
     const char* elem_;
     char char_;
 };
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
 
 const collationnames collatenames[] =
 {
@@ -199,20 +189,11 @@ const collationnames collatenames[] =
     {"zero", 0x30}
 };
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpadded"
-#endif
-
 struct classnames
 {
     const char* elem_;
     regex_traits<char>::char_class_type mask_;
 };
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
 
 const classnames ClassNames[] =
 {
