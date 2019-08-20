@@ -204,7 +204,6 @@ let
 
   arch_cFlags arch = case arch of "x86_64"  -> common_cFlags
                                   "k1om"    -> common_cFlags
-                                  "x86_32"  -> common_cFlags
                                   "armv7"   -> common_cFlags ++ [ "-D__ARM_EABI__" ]
                                   "armv8"   -> common_cFlags
 
