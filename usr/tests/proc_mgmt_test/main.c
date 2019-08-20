@@ -131,7 +131,7 @@ static void run_benchmark_spawn(coreid_t target_core)
 
     cycles_t tsc_start, tsc_end;
     cycles_t result;
-    uint64_t tscperus;
+    cycles_t tscperus;
 
     bench_ctl_t *ctl = calloc(1, sizeof(*ctl));
     ctl->mode = BENCH_MODE_FIXEDRUNS;
@@ -154,7 +154,7 @@ static void run_benchmark_spawn(coreid_t target_core)
 
         tsc_end = bench_tsc();
         result = calculate_time(tsc_start, tsc_end);
-    } while (!bench_ctl_add_run(ctl, &result));    
+    } while (!bench_ctl_add_run(ctl, &result));
 
     cap_destroy(domain_cap);
     bench_ctl_dump_analysis(ctl, 0, "client", tscperus);
@@ -163,7 +163,7 @@ static void run_benchmark_spawn(coreid_t target_core)
 }
 
 int main(int argc, char **argv)
-{   
+{
     errval_t err;
 	if (argc == 3) {
         if (strcmp("starter", argv[2]) == 0) {
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
         } else if (strcmp("norun", argv[2]) == 0) {
             // directly return
             return 0;
-        } else if (strcmp("run", argv[2]) == 0) {   
+        } else if (strcmp("run", argv[2]) == 0) {
             // Run infinite loop
             printf("Running infinite Loop");
             while(true) {
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
     err = test_spawn(disp_get_core_id(), spawn_argv, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
-    }  
+    }
 
     //starting a process takes some time ...
     barrelfish_usleep(5*1000*1000);
@@ -219,7 +219,7 @@ int main(int argc, char **argv)
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
- 
+
     // Killing a process takes some time ...
     barrelfish_usleep(5*1000*1000);
 
@@ -227,7 +227,7 @@ int main(int argc, char **argv)
     err = test_spawn(disp_get_core_id()+1, spawn_argv, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
-    }  
+    }
 
     barrelfish_usleep(5*1000*1000);
 
@@ -249,17 +249,17 @@ int main(int argc, char **argv)
     err = test_spawn(disp_get_core_id(), spawn_argv3, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
-    }  
+    }
 
     printf("Testing wait on different core process\n");
     char *spawn_argv2[] = { "proc_mgmt_test", "0", "sleeper", NULL};
     err = test_spawn(disp_get_core_id()+1, spawn_argv2, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
-    }  
- 
+    }
+
     barrelfish_usleep(5*1000*1000);
-    
+
  	uint8_t code;
     printf("Waiting for process on different core to finish \n");
  	err = spawn_wait(domain_cap, &code, false);
@@ -272,10 +272,10 @@ int main(int argc, char **argv)
     err = test_spawn(disp_get_core_id(), spawn_argv2, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
-    }  
- 
+    }
+
     barrelfish_usleep(5*1000*1000);
-    
+
     printf("Waiting for process on same core to finish \n");
  	err = spawn_wait(domain_cap, &code, true);
  	if (err_is_fail(err)) {

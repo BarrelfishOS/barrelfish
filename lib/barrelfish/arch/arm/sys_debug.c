@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
+errval_t sys_debug_get_tsc_per_ms(cycles_t *ret)
 {
     struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_HARDWARE_TIMER_HERTZ_READ);
     *ret = sr.value / 1000;
@@ -60,5 +60,18 @@ errval_t sys_debug_hardware_global_timer_read(uint64_t *ret)
         *ret = (((uint64_t) h) << 32) | ((uint32_t) l);
     }
 
+    return sr.error;
+}
+
+errval_t sys_debug_get_mdb_size(size_t *size)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_MDB_SIZE);
+    *size = sr.value;
+    return sr.error;
+}
+
+errval_t sys_debug_print_mdb_counters(void)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_PRINT_MDB_COUNTERS);
     return sr.error;
 }

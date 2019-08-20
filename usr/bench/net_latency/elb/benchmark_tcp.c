@@ -21,7 +21,7 @@
 
 static void start_next_iteration(void);
 
-static uint64_t tscperms;
+static cycles_t tscperms;
 
 //static size_t   buf_cur = 0;
 static size_t   buf_count;

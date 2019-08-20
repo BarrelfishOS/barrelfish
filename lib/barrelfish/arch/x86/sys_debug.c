@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
+errval_t sys_debug_get_tsc_per_ms(cycles_t *ret)
 {
     struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_TSC_PER_MS);
     *ret = sr.value;

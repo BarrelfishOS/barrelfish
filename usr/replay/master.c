@@ -620,7 +620,7 @@ static void slave_push_work(struct slave *);
 static void slaves_finalize(void);
 static void slaves_print_stats(void);
 static void master_process_reqs(void);
-uint64_t tscperms;
+cycles_t tscperms;
 
 int main(int argc, char *argv[])
 {

@@ -45,7 +45,7 @@ static uint16_t port_src;
 static uint16_t port_dst;
 static const char* cardname;
 
-static uint64_t tsc_per_ms;
+static cycles_t tsc_per_ms;
 
 static void event_cb(void* q)
 {
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)){
         USER_PANIC("Allocating cap failed \n");
     }
-    
+
     // RX frame
     err = frame_identify(memory_rx, &id);
     if (err_is_fail(err)) {

@@ -17,6 +17,7 @@
 
 #include <sys/cdefs.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish/types.h>
 
 __BEGIN_DECLS
 
@@ -32,7 +33,7 @@ __BEGIN_DECLS
 errval_t sys_debug_context_counter_reset(void);
 errval_t sys_debug_context_counter_read(uint64_t *ret);
 errval_t sys_debug_timeslice_counter_read(uint64_t *ret);
-errval_t sys_debug_get_tsc_per_ms(uint64_t *ret);
+errval_t sys_debug_get_tsc_per_ms(cycles_t *ret);
 errval_t sys_debug_get_apic_id(uint8_t *ret);
 errval_t sys_debug_get_apic_timer(uint32_t *ret);
 errval_t sys_debug_print_context_counter(void);

@@ -60,7 +60,7 @@ static uint64_t tot_enq_tx, tot_deq_tx;
 static uint64_t num_rx = 0;
 static uint64_t start;
 static uint64_t end;
-static uint64_t tsc_per_ms;
+static cycles_t tsc_per_ms;
 
 static bool use_irq = false;
 
@@ -137,7 +137,7 @@ static void event_cb(void* queue)
             if ((num_rx % 1000000) == 0) {
                 end = rdtsc();
                 double time = ((double) end-start)/(tsc_per_ms*1000);
-                printf("Mbit/s %f during %f seconds \n", 
+                printf("Mbit/s %f during %f seconds \n",
                       ((double)bytes*8)/(1000*1000*time), time);
                 printf("Num packets/s %f \n", (double) 1000000/time);
 #ifdef BENCH
@@ -154,8 +154,8 @@ static void event_cb(void* queue)
                 num_enqueue_tx = 0;
                 num_dequeue_rx = 0;
                 num_dequeue_tx = 0;
-#endif              
-                num_rx = 0;     
+#endif
+                num_rx = 0;
                 bytes = 0;
                 start = rdtsc();
             }
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)){
         USER_PANIC("Allocating cap failed \n");
     }
-    
+
     // RX frame
     err = frame_identify(memory_rx, &id);
     if (err_is_fail(err)) {

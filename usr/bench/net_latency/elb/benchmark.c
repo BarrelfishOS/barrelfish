@@ -26,7 +26,7 @@ struct ethernet_frame {
 } __attribute__((packed));
 
 
-static uint64_t tscperms;
+static cycles_t tscperms;
 
 static size_t   buf_cur = 0;
 

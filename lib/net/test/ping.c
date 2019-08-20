@@ -1,6 +1,6 @@
 /**
  * \file ping.c
- * \brief 
+ * \brief
  */
 
 

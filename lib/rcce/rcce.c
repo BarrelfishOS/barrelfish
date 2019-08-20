@@ -27,7 +27,7 @@
 int       RCCE_NP;               // number of participating cores
 double    RC_REFCLOCKGHZ;        // baseline CPU frequency (GHz)
 int       RC_MY_COREID;          // physical ID of calling core
-int       RC_COREID[RCCE_MAXNP]; // array of physical core IDs for all participating 
+int       RC_COREID[RCCE_MAXNP]; // array of physical core IDs for all participating
                                  // cores, sorted by rank
 int       RCCE_IAM=-1;           // rank of calling core (invalid by default)
 RCCE_COMM RCCE_COMM_WORLD;       // predefined global communicator
@@ -78,7 +78,7 @@ int RCCE_init(int *argc, char ***argv)
 
     if(RC_REFCLOCKGHZ == 0) {
         printf("Barrelfish RCCE extension: Computing reference clock GHz automatically...\n");
-        uint64_t tscperms;
+        cycles_t tscperms;
         errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
         assert(err_is_ok(err));
         RC_REFCLOCKGHZ = ((double)tscperms) / 1000000.0;

@@ -48,7 +48,7 @@ struct list_ele{
     lpaddr_t addr;
     size_t len;
     uint64_t flags;
-   
+
     struct list_ele* next;
 };
 
@@ -70,7 +70,7 @@ static bench_ctl_t *ctl_tmp_de;
 static bench_ctl_t *ctl_tmp_reg;
 static bench_ctl_t *ctl_tmp_dereg;
 
-static uint64_t tscperus;
+static cycles_t tscperus;
 static char* machine_name;
 
 static void dump_results_nfs(char* prefix, bool destroy)
@@ -90,7 +90,7 @@ static void dump_results_nfs(char* prefix, bool destroy)
         sprintf(buffer, ";%s;enqueue;%lu;dequeue;%lu;register;%lu;deregister;%lu \n",
 #endif
                 prefix,
-                ctl_tmp_en->data[i], ctl_tmp_de->data[i], ctl_tmp_reg->data[i], 
+                ctl_tmp_en->data[i], ctl_tmp_de->data[i], ctl_tmp_reg->data[i],
                 ctl_tmp_dereg->data[i]);
         printf("%s", buffer);
     }
@@ -131,7 +131,7 @@ static void test_register(void)
         if (err_is_fail(err)){
             USER_PANIC("Allocating cap failed \n");
         }
-    } 
+    }
 
     srand(rdtscp());
     int idx = 0;
@@ -213,8 +213,8 @@ static void test_randomized_test(void)
 
         idx = i % NUM_BUFS;
         start_enq = rdtscp();
-        
-        err = devq_enqueue(que, regid, idx*BUF_SIZE, BUF_SIZE, 
+
+        err = devq_enqueue(que, regid, idx*BUF_SIZE, BUF_SIZE,
                            0, BUF_SIZE, 0);
 
         end_enq = rdtscp();
@@ -236,7 +236,7 @@ static void test_randomized_test(void)
             bench_ctl_add_run(ctl_tmp_en, &res);
         } else {
             USER_PANIC("Dequeue failed: %s \n", err_getstring(err));
-        } 
+        }
     }
 
     //bench_ctl_dump_analysis(ctl_tmp_de, 0, "enqueue", tscperus);
@@ -245,7 +245,7 @@ static void test_randomized_test(void)
 
 int main(int argc, char *argv[])
 {
-    
+
     if (argc > 1) {
         machine_name = argv[1];
     } else {
@@ -253,10 +253,10 @@ int main(int argc, char *argv[])
     }
 
     errval_t err;
-    
+
     // mount_vfs
     vfs_init();
-   
+
     char fname[256];
     err = vfs_mount("/nfs", "nfs://10.110.4.4/mnt/local/nfs/haeckir");
     if(err_is_fail(err)) {
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)){
         USER_PANIC("Allocating cap failed \n");
     }
-    
+
     // RX frame
     err = frame_identify(memory, &id);
     if (err_is_fail(err)) {
@@ -290,13 +290,13 @@ int main(int argc, char *argv[])
     }
 
     phys = id.base;
-    
+
     debug_printf("Descriptor queue test started \n");
     err = loopback_queue_create(&queue);
     if (err_is_fail(err)){
         USER_PANIC("Allocating devq failed \n");
     }
- 
+
     // stack null queue on top
     err = null_create(&null_q[0], (struct devq*) queue);
     if (err_is_fail(err)) {
@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 
         printf("Starting randomized test debug\n");
         que = (struct devq*) null_q[i];
-        
+
         test_register();
 
         err = devq_register(que, memory, &regid);
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
         test_randomized_test();
 
         dump_results_nfs(name, true);
-    
+
         sprintf(name, "Null %d", i+2);
 
         // stack null queue on top

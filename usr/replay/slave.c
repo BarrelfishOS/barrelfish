@@ -120,7 +120,7 @@ static char data[MAX_DATA];
 
 #ifndef __linux__
 static struct bulk_transfer_slave bulk_slave;
-static uint64_t tscperms;
+static cycles_t tscperms;
 #endif
 
 #ifdef __linux__

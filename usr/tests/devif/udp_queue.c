@@ -87,7 +87,7 @@ static void event_cb(void* queue)
 
     err = SYS_ERR_OK;
 
-    uint64_t start = 0, end = 0, total = 0;
+    cycles_t start = 0, end = 0, total = 0;
 
     if (!reg_done) {
         return;
@@ -101,19 +101,19 @@ static void event_cb(void* queue)
         if (err_is_fail(err)) {
             break;
         }
-        
+
         if (flags & NETIF_TXFLAG) {
             DEBUG("Received TX buffer back \n");
             num_tx++;
             total = end - start;
 #ifdef BENCH
-            bench_ctl_add_run(udp_deq_tx, &total);        
+            bench_ctl_add_run(udp_deq_tx, &total);
 #endif
         } else if (flags & NETIF_RXFLAG) {
             num_rx++;
             total = end - start;
 #ifdef BENCH
-            bench_ctl_add_run(udp_deq_rx, &total);        
+            bench_ctl_add_run(udp_deq_rx, &total);
 #endif
             DEBUG("Received RX buffer \n");
             start = rdtsc();
@@ -123,7 +123,7 @@ static void event_cb(void* queue)
             if (err_is_ok(err)) {
                 total = end - start;
 #ifdef BENCH
-                bench_ctl_add_run(udp_enq_rx, &total);        
+                bench_ctl_add_run(udp_enq_rx, &total);
 #endif
             }
         } else {
@@ -136,9 +136,9 @@ static void test_udp(void)
 {
     errval_t err;
     struct devq* q;
-   
+
     // create queue with interrupts
-    udp_create(&udp_q, cardname, port_src, port_dst, 
+    udp_create(&udp_q, cardname, port_src, port_dst,
                ip_dst, event_cb, !use_interrupts);
 
     q = (struct devq*) udp_q;
@@ -162,7 +162,7 @@ static void test_udp(void)
         }
     }
 
-    
+
     err = devq_register(q, memory_tx, &regid_tx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
@@ -176,17 +176,17 @@ static void test_udp(void)
     printf("Data length %zu \n", strlen(data));
 
     for (int i = 0; i < NUM_ENQ; i++) {
-        udp_write_buffer(udp_q, regid_tx, i*(TX_BUF_SIZE), 
+        udp_write_buffer(udp_q, regid_tx, i*(TX_BUF_SIZE),
                          data, strlen(data));
     }
 
-    uint64_t total = 0, start = 0, end = 0;
+    cycles_t total = 0, start = 0, end = 0;
     for (int z = 0; z < NUM_ENQ*2; z++) {
 
         for (int i = 0; i < NUM_ENQ; i++) {
             start = rdtsc();
             err = devq_enqueue(q, regid_tx, i*(TX_BUF_SIZE), TX_BUF_SIZE,
-                               0, strlen(data), NETIF_TXFLAG | NETIF_TXFLAG_LAST);  
+                               0, strlen(data), NETIF_TXFLAG | NETIF_TXFLAG_LAST);
 
             end = rdtsc();
             if (err_is_fail(err)){
@@ -194,7 +194,7 @@ static void test_udp(void)
             }
             total = end -start;
 #ifdef BENCH
-            bench_ctl_add_run(udp_enq_tx, &total);            
+            bench_ctl_add_run(udp_enq_tx, &total);
 #endif
         }
 
@@ -226,13 +226,13 @@ static void test_udp(void)
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister tx failed \n");
     }
- 
+
     err = devq_deregister(q, regid_tx, &memory_tx);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister tx failed \n");
     }
- 
+
 #ifdef BENCH
     bench_ctl_t * en_rx = NULL;
     bench_ctl_t * en_tx;
@@ -250,7 +250,7 @@ static void test_udp(void)
     desc_en_tx = udp_get_benchmark_data(udp_q, 5);
     desc_deq_rx = udp_get_benchmark_data(udp_q, 6);
     desc_deq_tx = udp_get_benchmark_data(udp_q, 7);
-    uint64_t tscperus = 0;
+    cycles_t tscperus = 0;
     err = sys_debug_get_tsc_per_ms(&tscperus);
     tscperus /= 1000;
     tscperus = 1;
