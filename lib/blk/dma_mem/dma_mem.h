@@ -17,7 +17,7 @@ struct dma_mem
 {
     lvaddr_t vaddr;         ///< virtual address of the mapped region
     lpaddr_t paddr;         ///< physical address of the underlying frame
-    uint64_t bytes;         ///< size of the region in bytes
+    size_t   bytes;         ///< size of the region in bytes
     uint64_t requested;     ///< requested size of the region in bytes (<= bytes)
     struct capref frame;    ///< frame capability backing this region
 };

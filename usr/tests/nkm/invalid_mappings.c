@@ -24,6 +24,8 @@
 #define FRAME_ACCESS_DEFAULT \
         (PTABLE_USER_SUPERVISOR | PTABLE_EXECUTE_DISABLE | PTABLE_READ_WRITE)
 
+#define NUM_VNODES 4
+
 static enum objtype types[7] =
 {
     ObjType_VNode_x86_64_pml4,
@@ -35,7 +37,7 @@ static enum objtype types[7] =
     ObjType_Frame
 };
 
-static const char *types_string[7] = 
+static const char *types_string[7] =
 {
     "ObjType_VNode_x86_64_pml4",
     "ObjType_VNode_x86_64_pdpt",
@@ -45,9 +47,32 @@ static const char *types_string[7] =
     "ObjType_Frame",
     "ObjType_Frame"
 };
+#elif defined(__ARM_ARCH_7A__ )
+
+#define NUM_VNODES 2
+
+#define FRAME_ACCESS_DEFAULT (KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE)
+
+static enum objtype types[5] =
+{
+    ObjType_VNode_ARM_l1,
+    ObjType_VNode_ARM_l2,
+    ObjType_Frame,
+    ObjType_Frame,
+};
+
+static const char *types_string[7] =
+{
+    "ObjType_VNode_ARM_l1",
+    "ObjType_VNode_ARM_l2",
+    "ObjType_Frame",
+    "ObjType_Frame",
+};
 #else
 
 #define FRAME_ACCESS_DEFAULT (KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE)
+
+#define NUM_VNODES 4
 
 static enum objtype types[7] =
 {
@@ -60,7 +85,7 @@ static enum objtype types[7] =
     ObjType_Frame
 };
 
-static const char *types_string[7] = 
+static const char *types_string[7] =
 {
     "ObjType_VNode_AARCH64_l0",
     "ObjType_VNode_AARCH64_l1",
@@ -77,6 +102,13 @@ static const char *types_string[7] =
 #define S SYS_ERR_VM_FRAME_TOO_SMALL
 #define R SYS_ERR_VM_MAP_RIGHTS
 
+#ifdef __ARM_ARCH_7A__
+static errval_t mapping_ok[2][5] =
+{         /*L1*/ /* L2*/  /*frm*/ /*1mfrm*/
+/*l1*/  {   W,      O,       S,       O },
+/*L2  */{   W,      R,       O,       O },
+};
+#else
 static errval_t mapping_ok[4][7] =
 {         /*pml4*/ /*pdpt*/ /*pdir*/ /*pt*/ /*frm*/ /*2mfrm*/ /*1gfrm*/
 /*pml4*/{   W,       O,       W,       W,     W,      W,        W  },
@@ -84,17 +116,18 @@ static errval_t mapping_ok[4][7] =
 /*pdir*/{   W,       W,       W,       O,     S,      O,        O  },
 /*pt  */{   R,       R,       R,       R,     O,      O,        O  },
 };
+#endif
 
 static int pass = 0, fail = 0;
 static void check_result(errval_t err, int dest, int src)
 {
     if (err_no(err) == mapping_ok[dest][src]) {
-        printf("%s<-%s PASSED (%s)\n", types_string[dest], types_string[src], 
+        printf("%s<-%s PASSED (%s)\n", types_string[dest], types_string[src],
                 err_getstring(err));
         pass++;
     } else {
         printf("%s<-%s FAILED (expected: %s, was %s)\n",
-                types_string[dest], types_string[src], 
+                types_string[dest], types_string[src],
                 err_getstring(mapping_ok[dest][src]),
                 err_getstring(err));
         fail++;
@@ -127,7 +160,7 @@ int invalid_mappings(void)
     }
 
     // allocate caps
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_VNODES + 1; i++) {
         // get 4k block
         struct capref mem;
         err = ram_alloc(&mem, BASE_PAGE_BITS);
@@ -163,19 +196,21 @@ int invalid_mappings(void)
 
     // cap 6: 2M frame
     size_t rb = 0;
-    err = frame_alloc(&caps[5], LARGE_PAGE_SIZE, &rb);
+    err = frame_alloc(&caps[NUM_VNODES + 1], LARGE_PAGE_SIZE, &rb);
     if (err_is_fail(err) || rb != LARGE_PAGE_SIZE) {
         debug_printf("frame_alloc: %s (%ld)\n", err_getstring(err), err);
         return 1;
     }
+#ifndef __ARM_ARCH_7A__
     // cap 7: 1G frame
-    err = frame_alloc(&caps[6], HUGE_PAGE_SIZE, &rb);
+    err = frame_alloc(&caps[NUM_VNODES + 2], HUGE_PAGE_SIZE, &rb);
     if (err_is_fail(err) || rb != HUGE_PAGE_SIZE) {
         debug_printf("Cannot allocate 1GB frame (%s)\n", err_getcode(err));
         last_source = 6;
     }
+#endif
 
-    paging_x86_64_flags_t attr = 0;
+    uint64_t attr = 0;
     // select dest (ignore frame, asserts)
     for (int i = 0; i < 4; i++) {
         // select source

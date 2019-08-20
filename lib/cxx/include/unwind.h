@@ -240,6 +240,8 @@ extern void _Unwind_SetIP(struct _Unwind_Context *, uintptr_t new_value);
 // link error when we are linking the program with libgcc.
 
 _LIBUNWIND_EXPORT_UNWIND_LEVEL1
+uintptr_t _Unwind_GetGR(struct _Unwind_Context *context, int index);
+_LIBUNWIND_EXPORT_UNWIND_LEVEL1
 uintptr_t _Unwind_GetGR(struct _Unwind_Context *context, int index) {
   uintptr_t value = 0;
   _Unwind_VRS_Get(context, _UVRSC_CORE, (uint32_t)index, _UVRSD_UINT32, &value);
@@ -248,16 +250,23 @@ uintptr_t _Unwind_GetGR(struct _Unwind_Context *context, int index) {
 
 _LIBUNWIND_EXPORT_UNWIND_LEVEL1
 void _Unwind_SetGR(struct _Unwind_Context *context, int index,
+                   uintptr_t value);
+_LIBUNWIND_EXPORT_UNWIND_LEVEL1
+void _Unwind_SetGR(struct _Unwind_Context *context, int index,
                    uintptr_t value) {
   _Unwind_VRS_Set(context, _UVRSC_CORE, (uint32_t)index, _UVRSD_UINT32, &value);
 }
 
+_LIBUNWIND_EXPORT_UNWIND_LEVEL1
+uintptr_t _Unwind_GetIP(struct _Unwind_Context *context) ;
 _LIBUNWIND_EXPORT_UNWIND_LEVEL1
 uintptr_t _Unwind_GetIP(struct _Unwind_Context *context) {
   // remove the thumb-bit before returning
   return _Unwind_GetGR(context, 15) & (~(uintptr_t)0x1);
 }
 
+_LIBUNWIND_EXPORT_UNWIND_LEVEL1
+void _Unwind_SetIP(struct _Unwind_Context *context, uintptr_t value);
 _LIBUNWIND_EXPORT_UNWIND_LEVEL1
 void _Unwind_SetIP(struct _Unwind_Context *context, uintptr_t value) {
   uintptr_t thumb_bit = _Unwind_GetGR(context, 15) & ((uintptr_t)0x1);

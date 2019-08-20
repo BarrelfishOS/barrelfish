@@ -24,6 +24,8 @@
 #define FRAME_BITS_MIN 12
 #ifdef __k1om__
 #define FRAME_BITS_MAX 30
+#elif defined(__ARM_ARCH_7A__)
+#define FRAME_BITS_MAX 29
 #else
 // maximum size of the buffer in bits
 #define FRAME_BITS_MAX 35
@@ -68,10 +70,12 @@ static void run_map_protect_unmap(struct capref frame, vregion_flags_t flags)
         bits_start = LARGE_PAGE_BITS;
         p = 'L';
         alignment = LARGE_PAGE_SIZE;
+#ifndef __ARM_ARCH_7A__
     } else if (flags & VREGION_FLAGS_HUGE) {
         bits_start = HUGE_PAGE_BITS;
         p = 'H';
         alignment = HUGE_PAGE_SIZE;
+#endif
     }
 
     flags |= VREGION_FLAGS_READ_WRITE;
@@ -166,10 +170,12 @@ static void run_map_no_unmap(struct capref frame, vregion_flags_t flags)
         bits_start = LARGE_PAGE_BITS;
         p = 'L';
         alignment = LARGE_PAGE_SIZE;
+#ifndef __ARM_ARCH_7A__
     } else if (flags & VREGION_FLAGS_HUGE) {
         bits_start = HUGE_PAGE_BITS;
         p = 'H';
         alignment = HUGE_PAGE_SIZE;
+#endif
     }
 
     flags |= VREGION_FLAGS_READ_WRITE;

@@ -15,7 +15,7 @@
 #include "networking_internal.h"
 #include "net_queue_internal.h"
 
-static errval_t create_loopback_queue(const char* cardname, inthandler_t interrupt, 
+static errval_t create_loopback_queue(const char* cardname, inthandler_t interrupt,
                                       struct capref* ep, uint64_t *queueid,
                                       bool default_q, bool poll, struct capref* filter_ep,
                                       struct devq **retqueue)
@@ -33,7 +33,7 @@ static errval_t create_loopback_queue(const char* cardname, inthandler_t interru
     return SYS_ERR_OK;
 }
 
-static errval_t create_driver_queue(const char* cardname, inthandler_t interrupt, 
+static errval_t create_driver_queue(const char* cardname, inthandler_t interrupt,
                                     struct capref* ep, uint64_t *queueid,
                                     bool default_q, bool poll, struct capref* filter_ep,
                                     struct devq **retqueue)
@@ -43,7 +43,8 @@ static errval_t create_driver_queue(const char* cardname, inthandler_t interrupt
     return SYS_ERR_OK;
 }
 
-static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt, 
+#ifndef __ARM_ARCH_7A__
+static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
                                    struct capref* ep, uint64_t *queueid,
                                    bool default_q, bool poll, struct capref* filter_ep,
                                    struct devq **retqueue)
@@ -59,7 +60,7 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
     struct pci_id id;
     struct pci_class cls;
 
-    err = pci_deserialize_octet((char*) cardname+7, &addr, &id, &cls);     
+    err = pci_deserialize_octet((char*) cardname+7, &addr, &id, &cls);
     if (err_is_fail(err)) {
         printf("%s \n", cardname+7);
         return DEVQ_ERR_INIT_QUEUE;
@@ -75,9 +76,9 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
 }
 
 // cardname - "mlx4:vendor:deviceid:bus:device:function"
-static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, 
+static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt,
                                   struct capref* ep, uint64_t *queueid,
-                                  bool default_q, bool poll, struct capref* filter_ep, 
+                                  bool default_q, bool poll, struct capref* filter_ep,
                                   struct devq **retqueue)
 {
     errval_t err;
@@ -91,7 +92,7 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt,
             return DEVQ_ERR_INIT_QUEUE;
         }
 
-        err = pci_deserialize_octet((char*) cardname+5, &addr, &id, &cls);     
+        err = pci_deserialize_octet((char*) cardname+5, &addr, &id, &cls);
         if (err_is_fail(err)) {
             return DEVQ_ERR_INIT_QUEUE;
         }
@@ -108,7 +109,7 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt,
                               addr.bus, addr.device, addr.function, 1, interrupt);
 }
 
-static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
+static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
                                   struct capref* ep, uint64_t *queueid,
                                   bool default_q, bool poll, struct capref* filter_ep,
                                   struct devq **retqueue)
@@ -133,14 +134,14 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
 
     if (driverkit_iommu_present(NULL)) {
         err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
-                                ep, bus, function, deviceid, device, 
+                                ep, bus, function, deviceid, device,
                                 true/*virtual functions*/,
                                 !poll, /* user interrupts*/
                                 default_q);
     } else {
         printf("Create queue no iommu EP \n");
         err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
-                                ep, bus, function, deviceid, device, 
+                                ep, bus, function, deviceid, device,
                                 false/*virtual functions*/,
                                 !poll, /* user interrupts*/
                                 default_q);
@@ -155,8 +156,8 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
     return err;
 }
 
-static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interrupt, 
-                                      struct capref* ep, uint64_t *queueid, 
+static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interrupt,
+                                      struct capref* ep, uint64_t *queueid,
                                       bool default_q, bool poll, struct capref* filter_ep,
                                       struct devq **retqueue)
 {
@@ -177,8 +178,9 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
     return err;
 }
 
+#endif // __ARM_ARCH_7A__
 
-typedef errval_t (*queue_create_fn)(const char*, inthandler_t, struct capref*, 
+typedef errval_t (*queue_create_fn)(const char*, inthandler_t, struct capref*,
                                     uint64_t*, bool, bool, struct capref* filter_ep, struct devq **);
 
 typedef struct bench_ctl* (*get_bench_data_fn)(struct devq*, uint8_t);
@@ -192,10 +194,12 @@ struct networking_card
 } networking_cards [] = {
     { "loopback", create_loopback_queue, NULL, IF_TYPE_DUMMY},
     { "driver", create_driver_queue, NULL, IF_TYPE_DUMMY},
+    #ifndef __ARM_ARCH_7A__
     { "e1000n", create_e1000_queue, NULL, IF_TYPE_E1000_DEVIF},
     { "mlx4", create_mlx4_queue, NULL, IF_TYPE_DUMMY},
     { "e10k", create_e10k_queue, e10k_get_benchmark_data, IF_TYPE_E10K_VF},
     { "sfn5122f", create_sfn5122f_queue, sfn5122f_get_benchmark_data, IF_TYPE_SFN5122F_DEVIF},
+    #endif
     { NULL, NULL, NULL, IF_TYPE_DUMMY}
 };
 
@@ -214,7 +218,7 @@ struct networking_card
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
-                                   struct capref* ep, uint64_t* queueid, bool default_q, 
+                                   struct capref* ep, uint64_t* queueid, bool default_q,
                                    bool poll, struct capref* filter_ep, struct devq **retqueue)
 {
     errval_t err;
@@ -232,10 +236,10 @@ errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
                 }
                 nc++;
             }
-            
+
         }
-    
-    }   
+
+    }
 
     if (cardname != NULL) {
         nc = networking_cards;

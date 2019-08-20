@@ -33,9 +33,11 @@ void *HPCC_malloc(size_t bytes, size_t alignment)
         case LARGE_PAGE_SIZE:
             flags |= VREGION_FLAGS_LARGE;
             break;
+#ifndef __ARM_ARCH_7A__
         case HUGE_PAGE_SIZE:
             flags |= VREGION_FLAGS_HUGE;
             break;
+#endif
         default:
             USER_PANIC("Invalid alignment: %" PRIu64, alignment)
             ;

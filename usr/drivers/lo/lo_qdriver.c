@@ -140,7 +140,7 @@ static uint64_t find_rx_free_slot_count_fn(void)
 }
 
 /** Callback for net_queue_mgr library. */
-static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr,
+static errval_t register_rx_buffer_fn(lpaddr_t paddr, void *vaddr,
         void *rx_opaque)
 {
     if (packetbuf != NULL) {

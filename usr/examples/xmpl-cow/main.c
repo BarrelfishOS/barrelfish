@@ -49,7 +49,7 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
     errval_t err;
     struct capref retframe;
     struct capref f = (struct capref) { .cnode = cow_frames, .slot = frame_id };
-    size_t retoff;
+    genvaddr_t retoff;
     struct vregion *vr;
     void *buf;
     // copy data from faulting page to new page

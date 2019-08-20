@@ -30,10 +30,14 @@ static enum objtype type[] = {
 // the offsets of the indices for the different page table levels
 static uint8_t offsets[] = { 39, 30, 21, 12 };
 
+#ifdef __ARM_ARCH_7A__
+static uint32_t PAGE_DEFAULT_ACCESS = PTABLE_ACCESS_DEFAULT;
+#else
 static uint64_t PAGE_DEFAULT_ACCESS =
     PTABLE_USER_SUPERVISOR |
     PTABLE_EXECUTE_DISABLE |
     PTABLE_READ_WRITE;
+#endif
 
 static vregion_flags_t PMAP_DEFAULT_ACCESS =
     VREGION_FLAGS_READ_WRITE;
@@ -319,7 +323,7 @@ printf("map %i\n", i);
         exit(1);
     }
 
-    test_region((uint32_t*)address, 10*DEFAULT_SIZE);
+    test_region((uint32_t*)(uintptr_t)address, 10*DEFAULT_SIZE);
 
     err = pmap->f.unmap(pmap, address, bytes, NULL);
     if (err_is_fail(err))

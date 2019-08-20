@@ -38,8 +38,8 @@ static size_t cpu_count = 4;
 static void* prj_thread(void* param)
 {
 #if BARRELFISH
-    printf("Hello from thread %"PRIu64" on core %"PRIuCOREID"\n",
-           (uint64_t)param, disp_get_core_id());
+    printf("Hello from thread %"PRIuPTR" on core %"PRIuCOREID"\n",
+           (uintptr_t)param, disp_get_core_id());
 #endif
     sanity = 1;
     //messages_handler_loop();

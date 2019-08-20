@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if 0
+
 #include "config.h"
 #include "AddressSpace.hpp"
 #include "DwarfParser.hpp"
@@ -181,3 +183,4 @@ bool checkKeyMgrRegisteredFDEs(uintptr_t pc, void *&fde) {
 
 }
 
+#endif
