@@ -26,7 +26,7 @@ ARMEB_TOOLSPEC=Nothing
 X86_TOOLSPEC=Nothing
 K1OM_TOOLSPEC=Nothing
 
-usage() { 
+usage() {
     echo "Usage: $0 <options>"
     echo "   -s|--source-dir: path to source tree (required)"
     echo "   -i|--install-dir: path to install directory (defaults to \`pwd\`)"
@@ -49,7 +49,7 @@ usage() {
     echo "  argument specifying the top of the source tree."
     echo ""
     echo "  Known architectures may include: "
-    echo "     x86_64 x86_32 armv7 armv8 k10m"
+    echo "     x86_64 armv7 armv8 k1om"
     exit 1;
 }
 
@@ -68,28 +68,28 @@ fi
 #
 while test $# -ne 0; do
     case $1 in
-	"-a"|"--architecture") 
+	"-a"|"--architecture")
 	    if test -z "$NEWARCHS"; then
 		    NEWARCHS="\"$2\""
 	    else
 		    NEWARCHS="$NEWARCHS, \"$2\""
 	    fi
-        shift 
+        shift
 	    ;;
 	"-i"|"--install-dir")
 	    INSTALLDIR="$2"
-        shift 
+        shift
 	    ;;
 	"-s"|"--source-dir")
 	    SRCDIR="$2"
-        shift 
+        shift
 	    ;;
 	"-n"|"--no-hake")
 	    RUN_HAKE="No"
 	    ;;
     "-d"|"--no-deps")
         NO_DEPS="No"
-        ;;        
+        ;;
     "-t"|"--toolchain")
         TC_ARCH="$2"
         shift
@@ -114,7 +114,7 @@ while test $# -ne 0; do
         "k1om")
             K1OM_TOOLSPEC="Just Tools.$TOOLSPEC"
             ;;
-	    *) 
+	    *)
             echo "Unknown toolchain architecture: $TC_ARCH"
             exit 1
             ;;
@@ -126,7 +126,7 @@ while test $# -ne 0; do
         ;;
 	"-j"|"--jobs")
 	    JOBS="$2"
-        shift 
+        shift
         ;;
     "--cachedir")
         CACHEDIR="$2"
@@ -139,7 +139,7 @@ while test $# -ne 0; do
     "--help")
         usage
         ;;
-	*) 
+	*)
 	    usage
 	    ;;
     esac
@@ -167,7 +167,7 @@ echo "Source directory is $SRCDIR"
 
 if test ! -z "$NEWARCHS"; then
     ARCHS="$NEWARCHS"
-else 
+else
     ARCHS="$DFLTARCHS"
 fi
 echo "Architectures to build: $ARCHS"
@@ -209,7 +209,7 @@ fi
 
 
 # FIXME: do we really need this; doesn't ghc get the dependencies right? -AB
-#rm -f hake/*.hi hake/*.o 
+#rm -f hake/*.hi hake/*.o
 
 # RTS parameters for hake.  Tuned to perform well for the mid-2015 Barrelfish
 # tree, building over NFS.  Maximum heap size sits around 64MB, or a little

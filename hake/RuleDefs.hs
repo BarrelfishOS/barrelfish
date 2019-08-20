@@ -17,7 +17,6 @@ import Data.Maybe (fromMaybe, fromJust)
 import System.FilePath
 import qualified X86_64
 import qualified K1om
-import qualified X86_32
 import qualified ARMv7
 import qualified ARMv8
 import HakeTypes
@@ -83,21 +82,18 @@ sInDir tdb tf dir = inDir tdb tf dir ".S"
 options :: String -> Options
 options "x86_64" = X86_64.options
 options "k1om" = K1om.options
-options "x86_32" = X86_32.options
 options "armv7" = ARMv7.options
 options "armv8" = ARMv8.options
 options s = error $ "Unknown architecture " ++ s
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "k1om" = K1om.kernelCFlags
-kernelCFlags "x86_32" = X86_32.kernelCFlags
 kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv8" = ARMv8.kernelCFlags
 kernelCFlags s = error $ "Unknown architecture " ++ s
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "k1om" = K1om.kernelLdFlags
-kernelLdFlags "x86_32" = X86_32.kernelLdFlags
 kernelLdFlags "armv7" = ARMv7.kernelLdFlags
 kernelLdFlags "armv8" = ARMv8.kernelLdFlags
 kernelLdFlags s = error $ "Unknown architecture " ++ s
@@ -181,7 +177,6 @@ compiler :: Options -> String
 compiler opts
     | optArch opts == "x86_64"  = X86_64.compiler
     | optArch opts == "k1om"    = K1om.compiler
-    | optArch opts == "x86_32"  = X86_32.compiler
     | optArch opts == "armv7" = ARMv7.compiler
     | optArch opts == "armv8" = ARMv8.compiler
 
@@ -189,7 +184,6 @@ cCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cCompiler opts phase src obj
     | optArch opts == "k1om"    = K1om.cCompiler opts phase src obj
-    | optArch opts == "x86_32"  = X86_32.cCompiler opts phase src obj
     | optArch opts == "armv7" = ARMv7.cCompiler opts phase src obj
     | optArch opts == "armv8" = ARMv8.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
@@ -241,7 +235,6 @@ cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
 cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_64"  = X86_64.cToAssembler opts phase src afile objdepfile
     | optArch opts == "k1om"  = K1om.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "x86_32"  = X86_32.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7" = ARMv7.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv8" = ARMv8.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
@@ -253,7 +246,6 @@ assembler :: Options -> String -> String -> [ RuleToken ]
 assembler opts src obj
     | optArch opts == "x86_64"  = X86_64.assembler opts src obj
     | optArch opts == "k1om"  = K1om.assembler opts src obj
-    | optArch opts == "x86_32"  = X86_32.assembler opts src obj
     | optArch opts == "armv7" = ARMv7.assembler opts src obj
     | optArch opts == "armv8" = ARMv8.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
@@ -262,7 +254,6 @@ archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
 archive opts objs libs name libname
     | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
     | optArch opts == "k1om"  = K1om.archive opts objs libs name libname
-    | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
     | optArch opts == "armv7" = ARMv7.archive opts objs libs name libname
     | optArch opts == "armv8" = ARMv8.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
@@ -271,7 +262,6 @@ linker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
 linker opts objs libs mods bin
     | optArch opts == "x86_64" = X86_64.linker opts objs libs mods bin
     | optArch opts == "k1om" = K1om.linker opts objs libs mods bin
-    | optArch opts == "x86_32" = X86_32.linker opts objs libs mods bin
     | optArch opts == "armv7" = ARMv7.linker opts objs libs mods bin
     | optArch opts == "armv8" = ARMv8.linker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
@@ -288,7 +278,6 @@ strip :: Options -> String -> String -> String -> [RuleToken]
 strip opts src debuglink target
     | optArch opts == "x86_64" = X86_64.strip opts src debuglink target
     | optArch opts == "k1om" = K1om.strip opts src debuglink target
-    | optArch opts == "x86_32" = X86_32.strip opts src debuglink target
     | optArch opts == "armv7" = ARMv7.strip opts src debuglink target
     | optArch opts == "armv8" = ARMv8.strip opts src debuglink target
     | otherwise = [ ErrorMsg ("Can't strip executables for " ++ (optArch opts)) ]
@@ -297,7 +286,6 @@ debug :: Options -> String -> String -> [RuleToken]
 debug opts src target
     | optArch opts == "x86_64" = X86_64.debug opts src target
     | optArch opts == "k1om" = K1om.debug opts src target
-    | optArch opts == "x86_32" = X86_32.debug opts src target
     | optArch opts == "armv7" = ARMv7.debug opts src target
     | optArch opts == "armv8" = ARMv8.debug opts src target
     | otherwise = [ ErrorMsg ("Can't extract debug symbols for " ++ (optArch opts)) ]
@@ -1037,9 +1025,8 @@ ldtLinkCxx opts objs app bin =
 --
 linkKernel :: Options -> String -> [String] -> [String] -> String -> HRule
 linkKernel opts name objs libs driverType
-    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath opts l | l <- libs ] name
+    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath opts l | l <- libs ] name
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath opts l | l <- libs ] name driverType
     | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath opts l | l <- libs ] name driverType
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]

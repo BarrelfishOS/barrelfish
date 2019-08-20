@@ -8,7 +8,7 @@
 -- Attn: Systems Group.
 --
 -- Toolchain definitions for Hake
--- 
+--
 --------------------------------------------------------------------------
 
 module Tools where
@@ -184,7 +184,7 @@ aarch64_system _
 
 --
 --
--- X86 (32/64) toolchains (x86_32,x86_64)
+-- X86_64 toolchains (x86_64)
 --
 
 -- System (Ubuntu) ARM toolchain
@@ -202,7 +202,7 @@ x86_system _
 k1om_netos_mpss_3_4 root
     = ToolDetails {
         toolPath = mkRoot root </>
-                   "mpss-3.4/x86_64-mpsssdk-linux" </> 
+                   "mpss-3.4/x86_64-mpsssdk-linux" </>
                    "usr/bin/k1om-mpss-linux",
         toolPrefix = "k1om-mpss-linux-"
       }
@@ -210,7 +210,7 @@ k1om_netos_mpss_3_4 root
 k1om_netos_mpss_3_7_1 root
     = ToolDetails {
         toolPath = mkRoot root </>
-                   "mpss-3.7.1/x86_64-mpsssdk-linux" </> 
+                   "mpss-3.7.1/x86_64-mpsssdk-linux" </>
                    "usr/bin/k1om-mpss-linux",
         toolPrefix = "k1om-mpss-linux-"
       }

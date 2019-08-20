@@ -88,7 +88,7 @@ armeb_ar       = armeb_gnu_tool "ar"
 armeb_ranlib   = armeb_gnu_tool "ranlib"
 armeb_cxx      = armeb_gnu_tool "g++"
 
--- X86 (32/64) toolchain
+-- X86_64 toolchain
 x86_gnu_tool = findTool (toolPath x86_tools) (toolPrefix x86_tools)
 x86_cc       = x86_gnu_tool "gcc"
 x86_objcopy  = x86_gnu_tool "objcopy"
@@ -113,7 +113,7 @@ circo        = "circo"     -- from graphviz
 dot          = "dot"       --   "    "
 inkscape     = "inkscape"
 
--- ARM Fast Models Simulator TODO: make this in 
+-- ARM Fast Models Simulator TODO: make this in
 fastmodels_root    = "/home/netos/tools/FastModels_11.6/FastModelsTools_11.6"
 fastmodels_env     = fastmodels_root </> "/source_all.sh"
 fastmodels_simgen  = fastmodels_root </> "bin/simgen"
@@ -149,7 +149,6 @@ libc_mmap_nyi_flags = False
 
 -- Configure pagesize for libbarrelfish's morecore implementation
 -- x86_64 accepts "small", "large", and "huge" for 4kB, 2MB and 1GB pages
--- respectively. x86_32 accepts "small" and "large" for 4kB and 2MB/4MB pages
 -- respectively. All other architectures default to their default page size.
 morecore_pagesize :: String
 morecore_pagesize = "small"
@@ -347,17 +346,7 @@ data Scheduler = RBED | RR deriving (Show,Eq)
 scheduler :: Scheduler
 scheduler = RBED
 
--- Physical Address Extensions (PAE)-enabled paging on x86-32
-pae_paging :: Bool
-pae_paging = False
-
--- Page Size Extensions (PSE)-enabled paging on x86-32
--- Always enabled when pae_paging == True, regardless of value
-pse_paging :: Bool
-pse_paging = False
-
--- No Execute Extensions (NXE)-enabled paging on x86-32
--- May not be True when pae_paging == False
+-- No Execute Extensions (NXE)-enabled paging on x86
 nxe_paging :: Bool
 nxe_paging = False
 
@@ -475,8 +464,6 @@ defines = [ Str ("-D" ++ d) | d <- [
              if debug_deadlocks then "CONFIG_DEBUG_DEADLOCKS" else "",
              if memserv_percore then "CONFIG_MEMSERV_PERCORE" else "",
              if lazy_thc then "CONFIG_LAZY_THC" else "",
-             if pae_paging then "CONFIG_PAE" else "",
-             if pse_paging then "CONFIG_PSE" else "",
              if nxe_paging then "CONFIG_NXE" else "",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
              if config_svm then "CONFIG_SVM" else "",

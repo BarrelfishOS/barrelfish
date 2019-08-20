@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK CAB F.78, Universitaetstr 6, CH-8092 Zurich. 
+-- ETH Zurich D-INFK CAB F.78, Universitaetstr 6, CH-8092 Zurich.
 -- Attn: Systems Group.
 --
 -- Hakefile for /hake
@@ -34,7 +34,7 @@ in
           In SrcTree "src" "Main.hs",
           Dep InstallTree "" "Config.hs",
           Str "$(LDFLAGS)"
-        ] 
+        ]
         ++ [Dep SrcTree "src" f | f <- hakesrc]),
 
   -- Copy files required for interpreting Hakefiles
@@ -48,7 +48,6 @@ in
     "ARMv7.hs",
     "ARMv8.hs",
     "K1om.hs",
-    "X86_32.hs",
     "X86_64.hs"
   ],
   Phony "help" False $ concat [ [Str "@echo", Str ("\"" ++ x ++ "\""), NL] | x <- [
@@ -95,7 +94,7 @@ in
   Phony "install" False ([
     Dep BuildTree "root" "/$(MODULES)",
     Str "@echo \"\";",
-    Str "echo \"Installing modules...\" ;",   
+    Str "echo \"Installing modules...\" ;",
     Str "if [ $${#MODULES[@]} -eq 0 ]; then",
     Str "    echo \"   > Modules is empty, did you mean install_X86_64_Basic? \" ;",
     Str "    exit 0;",

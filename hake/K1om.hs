@@ -17,7 +17,7 @@ module K1om where
 import HakeTypes
 import qualified Config
 import qualified ArchDefaults
-
+import Data.Char
 -------------------------------------------------------------------------
 --
 -- Architecture specific definitions for X86_64-k1om
@@ -182,35 +182,48 @@ ldtCxxlinker = ArchDefaults.ldtCxxlinker arch cxxcompiler
 -- Link the kernel (CPU Driver)
 --
 linkKernel :: Options -> [String] -> [String]  -> String -> HRule
-linkKernel opts objs libs kbin =
+linkKernel opts objs libs name =
     let linkscript = "/kernel/linker.lds"
+        kernelmap  = "/kernel/" ++ name ++ ".map"
+        kasmdump   = "/kernel/" ++ name ++ ".asm"
+        kbinary    = "/sbin/" ++ name
+        kdebug     = kbinary ++ ".debug"
+        kfull      = kbinary ++ ".full"
     in
-      Rules [ Rule ([ Str compiler ] ++
+        Rules ([ Rule ([ Str compiler ] ++
                     map Str Config.cOptFlags ++
-                    [ NStr "-T", In BuildTree arch "/kernel/linker.lds",
-                      Str "-o", Out arch kbin
+                    [ NStr "-T", In BuildTree arch linkscript,
+                      Str "-o",
+                      Out arch kfull,
+                      NStr "-Wl,-Map,", Out arch kernelmap
                     ]
-                    ++ (optLdFlags opts)
+                    ++
+                    (optLdFlags opts)
                     ++
                     [ In BuildTree arch o | o <- objs ]
                     ++
                     [ In BuildTree arch l | l <- libs ]
                     ++
+                    (ArchDefaults.kernelLibs arch)
+                    ++
                     [ NL, NStr "bash -c \"echo -e '\\0002'\" | dd of=",
-                      Out arch kbin,
+                      Out arch kfull,
                       Str "bs=1 seek=16 count=1 conv=notrunc status=noxfer"
                     ]
                    ),
+              Rule $ strip opts kfull kdebug kbinary,
+              Rule $ debug opts kfull kdebug,
+              Rule [ Str objdump,
+                     Str "-d",
+                     Str "-M reg-names-raw",
+                     In BuildTree arch kbinary,
+                     Str ">",
+                     Out arch kasmdump ],
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/",
                      Str "-D__ASSEMBLER__",
-                     Str "-P", In SrcTree "src" "/kernel/arch/k1om/linker.lds.in",
+                     Str "-P", In SrcTree "src" "/kernel/arch/x86_64/linker.lds.in",
                      Out arch linkscript
-                   ],
-              -- Produce a stripped binary
-              Rule [ Str objcopy,
-                     Str "-g",
-                     In BuildTree arch kbin,
-                     Out arch (kbin ++ ".stripped")
                    ]
-            ]
+            ] ++ [ Phony ((map toUpper arch) ++ "_All") False
+                 [ Dep BuildTree arch kbinary]])

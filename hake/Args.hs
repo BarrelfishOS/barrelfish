@@ -96,10 +96,10 @@ defaultArgs = Args {
 makeTarget :: Maybe Args -> String
 makeTarget args = Args.target (Maybe.fromJust args)
 
-allArchitectures = [ "x86_64", "x86_32", "armv7", "armv8", "k1om" ]
-allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "k1om" ]
+allArchitectures = [ "x86_64", "armv7", "armv8", "k1om" ]
+allArchitectureFamilies = [ "x86_64", "arm", "k1om" ]
 -- architectures that currently support THC
-thcArchitectures = ["x86_64", "x86_32"]
+thcArchitectures = ["x86_64" ]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends
