@@ -7,17 +7,19 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for idctest
--- 
+--
 --------------------------------------------------------------------------
 
 [
 build application { target = "multihoptest",
                   cFiles = [ "multihoptest.c" ],
-                  flounderBindings = [ "test" ]
+                  flounderBindings = [ "test" ],
+                  architectures = ["armv8", "x86_64"]
                  },
-                 
+
 build application { target = "multihop_latency_bench",
   		      cFiles = [ "latencytest.c" ],
                       flounderBindings = [ "bench" ],
-                      addLibraries = ["bench", "trace"] }  
+                      addLibraries = ["bench", "trace"],
+                      architectures = ["armv8", "x86_64"] }
 ]

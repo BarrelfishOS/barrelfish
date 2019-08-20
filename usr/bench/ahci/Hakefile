@@ -7,12 +7,13 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for bmp_bench
--- 
+--
 --------------------------------------------------------------------------
 
 [
 build application { target = "ahci_bench",
                   cFiles = [ "main.c" ],
-                  addLibraries = libDeps [ "pci", "trace", "skb", "vfs", "lwip" ]
+                  addLibraries = libDeps [ "pci", "trace", "skb", "vfs", "lwip" ],
+                  architectures = ["armv8", "x86_64"]
                  }
 ]

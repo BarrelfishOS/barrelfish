@@ -10,14 +10,14 @@
 --
 --------------------------------------------------------------------------
 
-[ 
+[
 
   build application { target = "fish",
                       cFiles = [ "fish_common.c", "fish_x86.c", "font.c" ],
                       addLibraries = libDeps ["trace", "skb", "pci", "vfs", "acpi_client", "lwip", "octopus", "linenoise", "posixcompat" ],
                       flounderExtraBindings = [("acpi", ["rpcclient"]), ("octopus", ["rpcclient"])],
                       flounderBindings = [ "pixels", "acpi" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "fish",
                       cFiles = [ "fish_common.c", "fish_x86.c", "font.c" ],

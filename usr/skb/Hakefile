@@ -18,7 +18,7 @@ let ramfs_files = find inDir "programs" ".pl" ++
                         target = "skb",
   		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
                                    "octopus/code_generator.c",
-                                   "octopus/predicates.c", "octopus/skb_query.c", 
+                                   "octopus/predicates.c", "octopus/skb_query.c",
                                    "octopus/skiplist.c", "octopus/fnv.c", "octopus/bitfield.c" ],
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
@@ -28,13 +28,13 @@ let ramfs_files = find inDir "programs" ".pl" ++
                         addIncludes = [ "/usr/eclipseclp/Kernel/src"],
                         addLibraries = libDeps [ "eclipse", "shm", "dummies",
                                                  "icsolver", "vfs_ramfs",
-                                                 "posixcompat", "hashtable", "pcre", 
+                                                 "posixcompat", "hashtable", "pcre",
                                                  "octopus_server", "octopus_parser", "skb",
                                                  "bench", "lwip" ],
                        architectures = [ arch ]
                 }
 in
-  [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32", "armv8", "armv7" ]],
+  [ Rules [build (args arch) | arch <- [ "x86_64", "armv8", "armv7" ]],
     Rule ( [ Str "bash",
              In SrcTree "src" "skripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]

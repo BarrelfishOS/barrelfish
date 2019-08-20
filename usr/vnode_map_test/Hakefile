@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetsstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/vnode_map_test
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "vnode_map_test",

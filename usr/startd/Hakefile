@@ -16,7 +16,7 @@
                                        "dist", "vfs" ],
                       flounderDefs = [ "proc_mgmt" ],
                       flounderExtraDefs = [ ("proc_mgmt",["rpcclient"]) ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                    },
  build application { target = "startd",
                       cFiles = [ "main.c", "spawn.c" ],

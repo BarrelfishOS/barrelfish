@@ -7,12 +7,12 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/vbe
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "vbe",
                       cFiles = [ "main.c", "vbe.c", "int10.c" ],
-                      architectures = [ "x86_64", "x86_32" ],
+                      architectures = [ "x86_64" ],
                       flounderBindings = ["fb"],
                       flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
                       addLibraries = [ "x86emu", "pci", "acpi_client" ]

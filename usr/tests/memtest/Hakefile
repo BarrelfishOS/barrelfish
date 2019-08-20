@@ -15,7 +15,8 @@
 [ build application { target = "memtest", cFiles = [ "memtest.c" ] },
   build application { target = "memtest_pmap_array",
                       cFiles = [ "memtest.c" ],
-                      libraryOs = Config.libbarrelfish_pmap_array
+                      libraryOs = Config.libbarrelfish_pmap_array,
+                      architectures = [ "armv8", "x86_64" ]
                     },
   build application { target = "memtest_pmap_list",
                       cFiles = [ "memtest.c" ],
@@ -23,11 +24,13 @@
                     },
   build application { target = "memtest_pmap_array_mcn",
                       cFiles = [ "memtest.c" ],
-                      libraryOs = Config.libbarrelfish_pmap_array_mcn
+                      libraryOs = Config.libbarrelfish_pmap_array_mcn,
+                      architectures = [ "armv8", "x86_64" ]
                     },
   build application { target = "memtest_pmap_list_mcn",
                       cFiles = [ "memtest.c" ],
-                      libraryOs = Config.libbarrelfish_pmap_list_mcn
+                      libraryOs = Config.libbarrelfish_pmap_list_mcn,
+                      architectures = [ "armv8", "x86_64" ]
                     },
   build application { target = "mem_alloc", cFiles = [ "mem_alloc.c" ],
 		      addLibraries = [ "rcce_nobulk" ] },

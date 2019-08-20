@@ -16,7 +16,7 @@
     flounderDefs = [ "bulk_ctrl" ],
     flounderBindings = [ "bulk_ctrl" ],
     addLibraries = libDeps [ "bulk_transfer"],
-    architectures = [ "x86_64", "x86_32" ],
+    architectures = [ "x86_64" ],
     mackerelDevices = [ "e10k", "e10k_q" ] -- used by bulk_transfer
   }
 ]

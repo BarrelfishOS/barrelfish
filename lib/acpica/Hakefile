@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for usr/pci/acpica
--- 
+--
 --------------------------------------------------------------------------
 let subdirs = [ "source/components/dispatcher",
                 "source/components/events",
@@ -220,6 +220,6 @@ in
                         "-fno-strict-aliasing" ] ++ (flagsArch arch),
          addIncludes = [ "source/include", "source/tools/acpidump" ],
          architectures = [ arch ]
-                  } | arch <- [ "x86_64", "x86_32", "armv8" ]
+                  } | arch <- [ "x86_64", "armv8" ]
   ]
 

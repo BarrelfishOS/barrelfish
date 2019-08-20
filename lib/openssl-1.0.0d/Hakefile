@@ -11,9 +11,9 @@
 --------------------------------------------------------------------------
 -- file list generated with this command:
 -- asq@schlaptop2:~/tmp/openssl/compile_linux/openssl-1.0.0d/crypto$ \
--- for i in [ `objdump -f libcrypto.a |sed -e '/o:/!d' -e 's/o:.*/c/' `; \ 
+-- for i in [ `objdump -f libcrypto.a |sed -e '/o:/!d' -e 's/o:.*/c/' `; \
 -- do find . -name $i; done |sed -e 's/^/"/'|sed -e 's/$/",/' >> \
--- /home/asq/hg/barrelfish.dyn_adpt/usr/skb/testapps/openssl-1.0.0d/crypto/Hakefile 
+-- /home/asq/hg/barrelfish.dyn_adpt/usr/skb/testapps/openssl-1.0.0d/crypto/Hakefile
 
 
 
@@ -610,7 +610,7 @@
                                  "-Wmissing-declarations",
                                  "-Wmissing-field-initializers",
                                  "-Wredundant-decls", "-std=c99" ],
-                 architectures = [ "x86_64", "x86_32" ]
+                 architectures = [ "x86_64" ]
                 }
 ]
 

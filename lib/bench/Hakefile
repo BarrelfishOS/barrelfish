@@ -7,13 +7,12 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/bench
--- 
+--
 --------------------------------------------------------------------------
 
 [(let
      common_srcs = [ "bench.c", "bench_ctl.c" ]
 
-     arch_srcs "x86_32"  	= [ "arch/x86/bench_arch.c" ]
      arch_srcs "x86_64"  	= [ "arch/x86/bench_arch.c" ]
      arch_srcs "k1om"    	= [ "arch/x86/bench_arch.c" ]
      arch_srcs "arm"     	= [ "arch/arm/bench_arch.c" ]

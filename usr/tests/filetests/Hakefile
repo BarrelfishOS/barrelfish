@@ -12,12 +12,12 @@
   build application { target = "fread_test",
                       cFiles = [ "fread_test.c" ],
                       addLibraries = libDeps ["vfs", "lwip" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "fscanf_test",
                       cFiles = [ "fscanf_test.c" ],
                       addLibraries = libDeps ["vfs", "lwip" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "fread_test",
                       cFiles = [ "fread_test.c" ],
@@ -32,6 +32,6 @@
   build application { target = "fat_test",
                       cFiles = [ "fat_test.c" ],
                       addLibraries = libDeps ["vfs", "lwip" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     }
   ]

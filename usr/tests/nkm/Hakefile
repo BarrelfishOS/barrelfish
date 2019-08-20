@@ -50,6 +50,6 @@
                                  "modify_flags.c", "nkmtest.c",
                                  "vspace_dump.c" ],
                       addLibraries = [ "cap_predicates" ],
-                      architectures = [ "x86_32", "armv7" ]
+                      architectures = [ "armv7" ]
                     }
 ]

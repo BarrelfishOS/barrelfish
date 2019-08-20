@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/tests/large_page
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "test_large_mappings",
@@ -20,7 +20,7 @@
                     },
   build application { target = "test_large_mappings",
                       cFiles = [ "map_test_32.c" ],
-                      architectures = [ "x86_32", "armv7" ]
+                      architectures = [ "armv7" ]
                     }
 
 ]

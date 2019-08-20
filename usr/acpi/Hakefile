@@ -23,7 +23,6 @@ let commonCFiles = [
         ]
 
     archCFiles arch = case arch of
-        "x86_32" -> archCFiles "x86_64"
         "x86_64" -> [
             "acpi_ec.c",
             "arch/x86/ioapic.c",
@@ -44,7 +43,6 @@ let commonCFiles = [
     commonDevices = [ "lpc_ioapic" ]
 
     archDevices arch = case arch of
-        "x86_32" -> archDevices "x86_64"
         "x86_64" -> ["acpi_ec"]
         "armv8" -> [ ]
 
@@ -53,7 +51,6 @@ let commonCFiles = [
         "-Wno-unused-function" ]
 
     archCFlags arch = case arch of
-        "x86_32" -> archCFlags "x86_64"
         "x86_64" -> [ "-DACPI_PROBE_ECDT", "-DACPI_HAVE_VTD" ]
         "armv8" -> [ "-DACPI_REDUCED_HARDWARE=1", "-DACPI_MISALIGNMENT_NOT_SUPPORTED" ]
 
@@ -81,5 +78,5 @@ let commonCFiles = [
             "thc",
             "acpi_client" ],
         architectures = [ arch ] }
-        | arch <- [ "x86_64", "x86_32", "armv8" ]
+        | arch <- [ "x86_64", "armv8" ]
     ]

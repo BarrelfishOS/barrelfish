@@ -17,7 +17,7 @@
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderBindings = [ "spawn" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "spawnd",
                       cFiles = [ "main.c", "service.c", "ps.c" ],

@@ -23,7 +23,6 @@
             "strtopx.c", "strtopxL.c", "strtorQ.c", "strtord.c", "strtordd.c", "strtorf.c",
             "strtorx.c", "strtorxL.c", "sum.c", "ulp.c" ],
         addIncludes = [ "/lib/libc/include", "/lib/libc/locale" ] ++ (case arch of
-                        "x86_32" ->  [ "/lib/libc/x86" ]
                         "x86_64" ->  [ "/lib/libc/amd64" ]
                         "k1om" ->  [ "/lib/libc/amd64" ]
                         "armv7" ->  [ "/lib/libc/arm" ]

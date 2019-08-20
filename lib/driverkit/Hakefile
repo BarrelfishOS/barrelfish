@@ -18,7 +18,7 @@
         flounderDefs = [
             "ddomain",
             "dcontrol",
-            "iommu", 
+            "iommu",
             "mem"
         ],
         flounderBindings = [
@@ -33,8 +33,8 @@
             ("iommu", ["rpcclient"])
         ],
         addLibraries = [ "collections", "skb" ],
-        cFiles = [ "dcontrol_client.c", 
-                   "dcontrol_service.c", 
+        cFiles = [ "dcontrol_client.c",
+                   "dcontrol_service.c",
                    "ddomain_client.c",
                    "ddomain_service.c",
                    "map_devices.c",
@@ -54,8 +54,8 @@
             ("iommu", ["rpcclient"])
         ],
         addLibraries = [ "collections", "skb" ],
-        cFiles = [ "hwmodel.c", 
+        cFiles = [ "hwmodel.c",
                    "iommu_client.c" ],
-        architectures = [ "x86_64", "k1om", "armv8"]
+        architectures = [ "x86_64", "k1om", "armv8", "armv7" ]
     }
 ]

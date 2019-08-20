@@ -7,12 +7,13 @@
 -- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for bmp_bench
--- 
+--
 --------------------------------------------------------------------------
 
 [
 build application { target = "largepage_64_bench",
                   cFiles = [ "largepage_64_bench.c" ],
-                  addLibraries = [ "bench"]
+                  addLibraries = [ "bench"],
+                  architectures = ["armv8", "x86_64"]
                   }
 ]

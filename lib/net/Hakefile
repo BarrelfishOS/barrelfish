@@ -18,11 +18,27 @@
     flounderDefs = [ "net_filter", "octopus", "net_ARP" ],
     flounderExtraDefs = [ ("net_filter",["rpcclient"]) ],
     addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
+                             "devif_backend_loopback",
+                             "debug_log", "net_sockets",
+                             "octopus", "octopus_parser" , "driverkit_iommu",
+                             "queue_service_client"],
+    architectures = ["armv7"]
+  },
+
+build library {
+    target       = "net",
+    cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c",
+                     "net_filter.c", "arp.c", "net_queue.c"],
+    flounderBindings = [ "net_filter", "net_ARP"],
+    flounderDefs = [ "net_filter", "octopus", "net_ARP" ],
+    flounderExtraDefs = [ ("net_filter",["rpcclient"]) ],
+    addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
                              "devif_backend_solarflare", "devif_backend_e10k",
                              "devif_backend_loopback",  "devif_backend_e1000",
-                             "devif_backend_mlx4", "debug_log", "net_sockets", 
+                             "devif_backend_mlx4", "debug_log", "net_sockets",
                              "octopus", "octopus_parser" , "driverkit_iommu",
-                             "queue_service_client"]
+                             "queue_service_client"],
+    architectures = [ "armv8", "x86_64" ]
   },
 
   build application {
@@ -30,13 +46,13 @@
     cFiles       = [ "test/udp_echo.c" ],
     addLibraries = libDeps [ "net", "lwip2" ]
   },
-  
+
   build application {
     target       = "ping",
     cFiles       = [ "test/ping.c" ],
     addLibraries = libDeps [ "net", "lwip2" ]
   },
-  
+
   build application {
     target       = "udp_ping",
     cFiles       = [ "test/udp_ping.c" ],

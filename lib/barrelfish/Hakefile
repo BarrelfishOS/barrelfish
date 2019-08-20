@@ -33,13 +33,6 @@ let
                   ]
 
     -- sources specific to the architecture family
-    archfam_srcs "x86_32"  = [ "arch/x86_32/debug.c" ,
-                           "arch/x86_32/dispatch.c" , "arch/x86_32/syscalls.c" ,
-                           "arch/x86_32/sys_debug.c", "arch/x86_32/pmap.c",
-                           "arch/x86/pmap.c", "vspace/arch/x86_32/layout.c",
-                           "vspace/memobj_pinned.c", "vspace/pinned.c",
-                           "arch/x86/perfmon.c", "arch/x86/tls.c",
-                           "arch/x86/sys_debug.c"]
     archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
                               "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
                               "arch/x86_64/ldt.c", "arch/x86_64/pmap.c",
@@ -68,12 +61,10 @@ let
     archfam_srcs _         = []
 
     -- sources specific to the architecture
-    arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
     arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
     arch_srcs "k1om" = [ "arch/x86/ipi_notify.c" ]
     arch_srcs _     = []
 
-    arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
     arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
     arch_assembly "k1om"    = [ "arch/x86_64/entry.S" ]
     arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
@@ -97,9 +88,6 @@ let
     morecore_pagesize "x86_64" = case Config.morecore_pagesize of
         "large" -> "LARGE_PAGE_SIZE"
         "huge"  -> "HUGE_PAGE_SIZE"
-        _       -> "BASE_PAGE_SIZE"
-    morecore_pagesize "x86_32" = case Config.morecore_pagesize of
-        "large" -> "LARGE_PAGE_SIZE"
         _       -> "BASE_PAGE_SIZE"
     morecore_pagesize _ = "BASE_PAGE_SIZE"
 

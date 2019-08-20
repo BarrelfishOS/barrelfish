@@ -13,7 +13,6 @@
 [(let
      arch_dir = "arch" </> archFamily arch
 
-     arch_dirs "x86_32" = [ arch_dir, "arch/x86" ]
      arch_dirs "x86_64" = [ arch_dir, "arch/x86" ]
      arch_dirs "k1om"   = [ arch_dir, "arch/x86" ]
      arch_dirs _        = [ arch_dir ]
@@ -28,7 +27,6 @@
                      "capops/revoke.c", "capops/retype.c", "capops/init.c",
                      "capops/deletestep.c" ]
 
-     arch_srcs "x86_32"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "x86_64"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "k1om"    = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "armv7"   = [ "arch/armv7/boot.c", "arch/armv7/inter.c", "arch/armv7/monitor_server.c", "arch/armv7/notify_ipi.c" ]
@@ -40,12 +38,12 @@
             getsrcs "ump" = [ "ump_support.c" ]
             getsrcs "multihop" = [ "multihop_support.c" ]
             getsrcs _     = []
-            
+
      idc_libraries = concat $ map getsrcs $ optInterconnectDrivers $ options arch
           where
             getsrcs "multihop" = [ "collections" ]
             getsrcs _     = []
-                     
+
   in
     build application { target = "monitor",
                         architectures = [arch],

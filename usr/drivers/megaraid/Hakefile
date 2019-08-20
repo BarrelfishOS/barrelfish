@@ -14,13 +14,13 @@
                       cFiles = [ "megaraid.c", "main.c", "megaraid_vsic.c" ],
                       mackerelDevices = [ "megaraid" ],
                       addLibraries = libDeps [ "driverkit", "skb", "pci", "lwip" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64" ]
                     },
   build library { target = "megaraid",
                       cFiles = [ "megaraid.c", "megaraid_vsic.c" ],
                       mackerelDevices = [ "megaraid" ],
                       addCFlags = [ "-DLIBRARY" ],
                       addLibraries = libDeps [ "driverkit", "skb", "pci", "lwip" ],
-                      architectures = [ "x86_64", "x86_32", "armv8" ]
+                      architectures = [ "x86_64", "armv8" ]
                     }
 ]

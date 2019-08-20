@@ -8,10 +8,10 @@
 -- Attn: Systems Group.
 --
 -- Hakefile for drivers/serial
--- 
+--
 --------------------------------------------------------------------------
 
-[ 
+[
  --  build application { target = "serial_omap44xx",
  --                      cFiles = [ "serial_omap44xx.c", "main.c", "main_common.c"
  --                                 "basic_service.c", "terminal_service.c" ],
@@ -61,7 +61,7 @@
                       cFiles = [ "serial_pc16550d.c" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      architectures = [ "x86_32", "x86_64"],
+                      architectures = [ "x86_64"],
                       mackerelDevices = ["pc16550d"],
                       addLibraries = [ "serial_common", "int_route_client", "thc", "term_server"]
                     },
