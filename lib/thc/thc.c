@@ -381,7 +381,7 @@ static void thc_dispatch_loop(void) {
   DEBUG_DISPATCH(DEBUGPRINTF(DEBUG_DISPATCH_PREFIX "> dispatch_loop\n"));
 
   thc_pendingfree(pts);
-  
+
   // Pick up work passed to us from other threads
   if (pts->aweRemoteHead.next != &pts->aweRemoteTail) {
     awe_t *tmp = pts->aweHead.next;
@@ -396,7 +396,7 @@ static void thc_dispatch_loop(void) {
     pts->aweRemoteTail.prev = &pts->aweRemoteHead;
     thc_pts_unlock(pts);
   }
-  
+
   if (pts->aweHead.next == &pts->aweTail) {
     DEBUG_DISPATCH(DEBUGPRINTF(DEBUG_DISPATCH_PREFIX "  queue empty\n"));
     assert(pts->idle_fn != NULL && "Dispatch loop idle, and no idle_fn work");
@@ -576,13 +576,13 @@ static void init_lazy_awe (void ** lazy_awe_fp) {
 
   // Get the saved awe
   awe_t *awe = THC_LAZY_FRAME_AWE(lazy_awe_fp);
-  
+
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX " found lazy awe %p @ frameptr %p",
 			awe, lazy_awe_fp));
 
   // Scrub nested return, lazy awe will now return through dispatch loop
   THC_LAZY_FRAME_RET(lazy_awe_fp) = NULL;
-  
+
   assert(awe->status == LAZY_AWE);
   // Allocate a new stack for this awe
   alloc_lazy_stack(awe);
@@ -606,7 +606,7 @@ static void check_for_lazy_awe (void * ebp) {
     frame_ptr = (void **) THC_LAZY_FRAME_PREV(frame_ptr);
     ret_addr   = THC_LAZY_FRAME_RET(frame_ptr);
   }
- 
+
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX "< CheckForLazyAWE\n"));
 }
 
@@ -662,7 +662,7 @@ void _thc_startfinishblock(finish_t *fb, int fb_kind) {
 
   DEBUG_FINISH(DEBUGPRINTF(DEBUG_FINISH_PREFIX "  Connecting own [%p]<->[%p]\n",
                            &(fb->start_node), &(fb->end_node)));
-  
+
   fb->start_node.next = &(fb->end_node);
   fb->end_node.prev = &(fb->start_node);
   if (current_fb != NULL) {
@@ -691,7 +691,7 @@ static void _thc_endfinishblock0(void *a, void *f) {
   awe_t *awe = (awe_t*)a;
 
   awe->lazy_stack = awe->pts->curr_lazy_stack;
-  
+
   DEBUG_FINISH(DEBUGPRINTF(DEBUG_FINISH_PREFIX "  Waiting f=%p awe=%p\n",
                            fb, a));
   assert(fb->finish_awe == NULL);
@@ -730,7 +730,7 @@ void _thc_do_cancel_request(finish_t *fb) {
 #ifndef NDEBUG
   pts->cancelsRequested++;
 #endif
-  
+
   // Handle nested cancel blocks
   finish_list_t *fl = fb->start_node.next;
   while (fl->fb != fb) {
@@ -754,7 +754,7 @@ void _thc_do_cancel_request(finish_t *fb) {
       fl = fl->next;
     }
   }
-  
+
   // Run our own cancellation actions
   thc_run_cancel_actions(pts, fb);
 }
@@ -1320,6 +1320,27 @@ __asm__ ("      .text \n\t"
          " jmp *0(%rdi)                    \n\t");
 
 /*
+           int _thc_schedulecont(awe_t *awe)   // rdi
+*/
+
+__asm__ ("      .text \n\t"
+         "      .align  16           \n\t"
+         "      .globl  _thc_schedulecont \n\t"
+         "      .type   _thc_schedulecont, @function \n\t"
+         "_thc_schedulecont:         \n\t"
+         " mov  0(%rsp), %rsi        \n\t"
+         " mov  %rsi,  0(%rdi)       \n\t" // EIP   (our return address)
+         " mov  %rbp,  8(%rdi)       \n\t" // EBP
+         " mov  %rsp, 16(%rdi)       \n\t" // ESP+8 (after return)
+         " addq $8,   16(%rdi)       \n\t"
+         // AWE now initialized.  Call C function for scheduling.
+         // It will return normally to us.  The AWE will resume
+         // directly in our caller.
+         " call _thc_schedulecont_c  \n\t"  // AWE still in rdi
+         " movq $0, %rax             \n\t"
+         " ret                       \n\t");
+
+/*
            void _thc_callcont(awe_t *awe,   // rdi
                    THCContFn_t fn,          // rsi
                    void *args) {            // rdx
@@ -1658,7 +1679,7 @@ __asm__ (" .text                          \n\t"
          " str  x30, [x0, #0]  \n\t" // awe->eip = lr (return address)
          " str  x29, [x0, #8]  \n\t" // awe->ebp = fp (frame pointer)
          " str  x28, [x0, #16] \n\t" // awe->esp = sp (stack pointer)
-         
+
 		 // AWE now initialized.  Call into C for the rest.
          // r0 : AWE , r1 : fn , r2 : args
          " bl _thc_callcont_c\n\t"
