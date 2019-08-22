@@ -11,12 +11,84 @@
 --------------------------------------------------------------------------
 [
  (let
-    subdirs =  [ "cxx", "cxxabi", "unwind" ]
+    cxxSourceFiles = [ "cxx" </> f | f <- [ "exception.cpp",
+                                            "ios.cpp",
+                                            "filesystem/operations.cpp",
+                                            "filesystem/int128_builtins.cpp",
+                                            "filesystem/directory_iterator.cpp",
+                                            "locale.cpp",
+                                            "thread.cpp",
+                                            "functional.cpp",
+                                            "memory.cpp",
+                                            "chrono.cpp",
+                                            "mutex_destructor.cpp",
+                                            "variant.cpp",
+                                            "typeinfo.cpp",
+                                            "condition_variable.cpp",
+                                            "random.cpp",
+                                            "mutex.cpp",
+                                            "charconv.cpp",
+                                            "strstream.cpp",
+                                            "vector.cpp",
+                                            "valarray.cpp",
+                                            "utility.cpp",
+                                            "stdexcept.cpp",
+                                            "hash.cpp",
+                                            "algorithm.cpp",
+                                            "regex.cpp",
+                                            "iostream.cpp",
+                                            "condition_variable_destructor.cpp",
+                                            "bind.cpp",
+                                            "shared_mutex.cpp",
+                                            "future.cpp",
+                                            "debug.cpp",
+                                            "new.cpp",
+                                            "any.cpp",
+                                            "string.cpp",
+                                            "optional.cpp",
+                                            "system_error.cpp"
+                                            ] ]
+                  ++ [ "cxxabi" </> f | f <- [ "cxa_thread_atexit.cpp",
+                                               "exception.cpp",
+                                               "cxa_guard.cpp",
+                                               "cxa_new_delete.cpp",
+                                               "stdlib_stdexcept.cpp",
+                                               "typeinfo.cpp",
+                                               "stdlib_new_delete.cpp",
+                                               "cxa_unexpected.cpp",
+                                               "cxa_personality.cpp",
+                                               "cxa_aux_runtime.cpp",
+                                               "abort_message.cpp",
+                                               "cxa_vector.cpp",
+                                               "cxa_exception.cpp",
+                                               "cxa_demangle.cpp",
+                                               "stdlib_typeinfo.cpp",
+                                               "fallback_malloc.cpp",
+                                               "cxa_default_handlers.cpp",
+                                               "cxa_handlers.cpp",
+                                               "cxa_exception_storage.cpp",
+                                               "stdlib_exception.cpp",
+                                               "private_typeinfo.cpp",
+                                               "cxa_virtual.cpp"] ]
+                  ++ [ "unwind" </> f | f <- [ "Unwind-EHABI.cpp",
+                                               "Unwind-seh.cpp",
+                                               "libunwind.cpp",
+                                               "AddressSpace.cpp" ] ]
+
+    cSourceFiles = [ "unwind" </> f | f <- [ "UnwindLevel1-gcc-ext.c",
+                                             "UnwindLevel1.c",
+                                             "unwind_backend.c",
+                                             "Unwind-sjlj.c" ] ]
+
+    assemblyFiles = [ "unwind" </> f | f <- [ "UnwindRegistersSave.S",
+                                              "UnwindRegistersRestore.S" ] ]
+
+
     args = library {
         target = "cxx",
-        cxxFiles = concat [ find cxxInDir dir | dir <- subdirs ],
-        cFiles = concat [ find cInDir dir | dir <- subdirs ],
-        assemblyFiles = concat [ find sInDir dir | dir <- subdirs ],
+        cxxFiles = cxxSourceFiles,
+        cFiles = cSourceFiles,
+        assemblyFiles = assemblyFiles,
         addIncludes = [
             "include"
         ],
@@ -34,9 +106,7 @@
             "-Wno-long-long",
             "-DLIBCXXABI",
             "-DLIBCXX_BUILDING_LIBCXXABI",
-            "-D_LIBCPP_BUILDING_LIBRARY",
-            "-D_LIBCPP_HAS_THREAD_API_PTHREAD"
-
+            "-D_LIBCPP_BUILDING_LIBRARY"
         ],
         addLibraries = libDeps [
             "posixcompat"
