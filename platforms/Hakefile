@@ -732,6 +732,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using UEFI with debugging enabled",
 
     boot "qemu_a57_uboot" [ "armv8" ] ([
+      Str "MEMORY=3G",
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--image", In BuildTree "root" "/armv8_a57_qemu_image.efi",
       Str "--arch", Str "armv8",
