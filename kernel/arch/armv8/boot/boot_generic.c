@@ -37,9 +37,6 @@ void boot_bsp_init(uint32_t magic, lpaddr_t pointer)
 void boot_app_init(lpaddr_t pointer)
     __attribute__((noreturn));
 
-#define DEBUG 1
-#define QEMU
-
 /* low level debugging facilities */
 #if DEBUG
 #ifdef THUNDERX
@@ -109,9 +106,42 @@ static void debug_print_string(char *str)
         str++;
     }
 }
+
+/**
+ * \brief Very basic hex print support
+ */
+static inline void debug_print_hex(uint64_t num) {
+    static char chars[] = {
+        '0',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+        'a',
+        'b',
+        'c',
+        'd',
+        'e',
+        'f',
+    };
+
+    char buf[17];
+    for (int i = 0; i < 16; i++) {
+        int d = (num >> 4*i) & 0xf;
+        buf[15-i] = chars[d];
+    }
+    buf[16] = '\0';
+    debug_print_string(buf);
+}
 #else
 #define debug_print_string(x)
 #define debug_uart_initialize()
+#define debug_print_hex(x)
 #endif
 
 
@@ -588,35 +618,6 @@ void boot_app_init(lpaddr_t pointer)
     }
 }
 
-char chars[] = {
-    '0',
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-    '9',
-    'a',
-    'b',
-    'c',
-    'd',
-    'e',
-    'f',
-};
-
-static inline void printhex(uint64_t num) {
-    char buf[17];
-    for (int i = 0; i < 16; i++) {
-        int d = (num >> 4*i) & 0xf;
-        buf[15-i] = chars[d];
-    }
-    buf[16] = '\0';
-    debug_print_string(buf);
-}
-
 /* On entry:
 
    Execution is starting in LOW addresses
@@ -640,9 +641,9 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer) {
     debug_uart_initialize();
     debug_print_string("BSP BOOTING\n");
     debug_print_string("Magic: ");
-    printhex(magic);
+    debug_print_hex(magic);
     debug_print_string(", Pointer: ");
-    printhex(pointer);
+    debug_print_hex(pointer);
     debug_print_string("\n");
 
     /* Boot magic must be set */
@@ -654,7 +655,7 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer) {
     struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
 
     debug_print_string("CPU driver entry: ");
-    printhex(core_data->cpu_driver_entry);
+    debug_print_hex(core_data->cpu_driver_entry);
     debug_print_string("\n");
 
     /* disable interrupts */
