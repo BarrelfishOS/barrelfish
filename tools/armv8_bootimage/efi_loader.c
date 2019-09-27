@@ -19,8 +19,8 @@
 #include <efi/efi.h>
 #include <efi/efilib.h>
 #include <multiboot2.h>
-#include "../../include/barrelfish_kpi/types.h"
-#include "../../include/target/aarch64/barrelfish_kpi/arm_core_data.h"
+#include <barrelfish_kpi/types.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include "blob.h"
 #include "vm.h"
 
