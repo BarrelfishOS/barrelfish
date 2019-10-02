@@ -984,8 +984,8 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     }
 
     if (info) {
-        info->vaddr = vaddr & ~(genvaddr_t)(find_info.page_size - 1);
-        info->size = find_info.page_size;
+        info->vaddr = find_info.page->u.frame.vaddr;
+        info->size = find_info.page_size * find_info.page->v.u.frame.pte_count;
         info->cap = find_info.page->v.cap;
         info->offset = find_info.page->v.u.frame.offset;
         info->flags = find_info.page->v.u.frame.flags;
