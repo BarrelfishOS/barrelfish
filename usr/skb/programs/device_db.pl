@@ -67,7 +67,7 @@ pci_driver{
 
 pci_driver{
     binary: "mlx4",
-    module: "-",
+    module: "net_sockets_server_module",
     supported_cards:
     [ pci_card{ vendor: 16'15b3, device: 16'1003, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,

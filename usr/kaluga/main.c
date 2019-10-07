@@ -62,6 +62,7 @@ static void add_start_function_overrides(void)
     set_start_function("sfn5122f", start_networking_new);
     set_start_function("e10k", start_networking_new);
     set_start_function("e1000n", start_networking_new);
+    set_start_function("mlx4", start_networking_new);
     set_start_function("e1000n_irqtest", default_start_function_new);
     set_start_function("ioat_dma", default_start_function_new);
     set_start_function("xeon_phi", default_start_function_new);

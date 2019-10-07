@@ -254,10 +254,15 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
 
     drv->args = argv;
     drv->argcn_cap = arg->arg_caps;
+    drv->arg_idx = argc;
 
     drv->caps[0] = arg->arg_caps; // Interrupt cap
 
-    ddomain_instantiate_driver(inst, drv);
+    if (strncmp(mi->binary, "mlx4", 4) != 0) {
+        ddomain_instantiate_driver(inst, drv);
+    } else {
+        KALUGA_DEBUG("Not starting module for mlx4 \n");
+    }
 
     free(int_arg_str);
     return SYS_ERR_OK;
@@ -357,18 +362,24 @@ errval_t start_networking_new(coreid_t where,
 
     if (!is_started(driver)) {
         // netsocket server in seperate process TODO might put into same process
-        struct module_info* mi = find_module("net_sockets_server");
-        if (mi == NULL) {
-            KALUGA_DEBUG("Net_socket_server not found\n");
-            return err;
-        }
-
         static struct domain_instance* inst;
-        KALUGA_DEBUG("Creating new driver domain for net_sockets_server\n");
-        // TODO for now alway start on core 0
-        inst = instantiate_driver_domain("net_sockets_server", where);
-        if (inst == NULL) {
-            return DRIVERKIT_ERR_DRIVER_INIT;
+        struct module_info* mi;
+        if (strncmp(driver->binary, "mlx4", 4) != 0) {
+            mi = find_module("net_sockets_server");
+            if (mi == NULL) {
+                KALUGA_DEBUG("Net_socket_server not found\n");
+                return err;
+            }
+
+            KALUGA_DEBUG("Creating new driver domain for net_sockets_server\n");
+            // TODO for now alway start on core 0
+            inst = instantiate_driver_domain("net_sockets_server", where);
+            if (inst == NULL) {
+                return DRIVERKIT_ERR_DRIVER_INIT;
+            }
+        } else {
+            inst = driver->driverinstance;
+            mi = driver;
         }
 
         while (inst->b == NULL) {
@@ -409,17 +420,29 @@ errval_t start_networking_new(coreid_t where,
         err = ddomain_driver_add_arg(drv2, pci_arg_str);
         assert(err_is_ok(err));
 
-        struct capref cap;
-        
-        err = get_driver_ep(where, driver, oct_id, &cap);
-        if (err_is_fail(err)) {     
-            debug_printf("Failed getting EP to driver %s \n", oct_id);
-            free(pci_arg_str);
-            return err; 
-        }
+        if (strncmp(driver->binary, "mlx4", 4) != 0) {
+            struct capref cap;
+            
+            err = get_driver_ep(where, driver, oct_id, &cap);
+            if (err_is_fail(err)) {     
+                debug_printf("Failed getting EP to driver %s \n", oct_id);
+                free(pci_arg_str);
+                return err; 
+            }
 
-        err = ddomain_driver_add_cap(drv2, cap);        
-        assert(err_is_ok(err));
+            err = ddomain_driver_add_cap(drv2, cap);        
+            assert(err_is_ok(err));
+        } else {
+            struct capref cap = {
+                .cnode = int_arg->argnode_ref,
+                .slot = PCIARG_SLOT_INT
+            };
+
+            err = ddomain_driver_add_cap(drv2, cap);
+            //drv2->argcn_cap = int_arg->arg_caps;
+
+            KALUGA_DEBUG("Not adding mlx4 enpdoint %zu \n", drv2->cap_idx);
+        }
 
         ddomain_instantiate_driver(inst, drv2);
 
@@ -476,7 +499,8 @@ errval_t start_networking(coreid_t core,
     }
 
 
-    if (!(strcmp(driver->binary, "net_sockets_server") == 0)) {
+    debug_printf("Start networking %s\n ", driver->binary);
+    if (!(strcmp(driver->binary, "netss") == 0)) {
         
         driver->allow_multi = 1;
         uint64_t vendor_id, device_id, bus, dev, fun;
@@ -510,17 +534,49 @@ errval_t start_networking(coreid_t core,
                             get_did_ptr(net_sockets));
         free (pci_arg_str);
     } else {
+        debug_printf("Starting MLX4 net socket server \n ");
         //driver->allow_multi = 1;
         // TODO currently only for mxl4, might be other cards that 
-        // start the driver by creating a queue
+        // start the driver by creating a queuea
+        /*
         if (!(driver->argc > 2)) {
             driver->argv[driver->argc] = "mlx4";        
             driver->argc++;
             driver->argv[driver->argc] = NULL;
         }
+        */
 
-        // All cards that start the driver by creating a device queue
-        err = default_start_function(core, driver, record, arg);
+        uint64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                       &bus, &dev, &fun, &vendor_id, &device_id);
+
+        // Build PCI address argument
+        struct pci_id id;
+        struct pci_addr addr;
+        struct pci_class cls = {0, 0, 0};
+
+        addr.bus = bus;
+        addr.device = dev;
+        addr.function = fun;
+        id.device = device_id;
+        id.vendor = vendor_id;
+
+        // TODO free this
+        char * pci_arg_str = malloc(PCI_OCTET_LEN);
+        assert(pci_arg_str);
+        pci_serialize_octet(addr, id, cls, pci_arg_str);
+
+        // Spawn net_sockets_server
+        driver->argv[0] = "netss";
+        driver->argv[1] = "auto";
+        driver->argv[2] = "mlx4";
+        driver->argv[3] = pci_arg_str;
+        driver->argc = 4;
+        debug_printf("ARGC %d \n", driver->argc);
+
+        err = spawn_program(core, driver->path, driver->argv, environ, 0,
+                            get_did_ptr(driver));
+        free (pci_arg_str);
     }
 
     return err;
