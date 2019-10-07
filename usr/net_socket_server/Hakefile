@@ -37,6 +37,18 @@
                                "trace", "skb", "driverkit_iommu", "lwip2", "net"],
         addModules = ["net_sockets_server_module"],
         architectures = ["x86_64"]
+    },
+
+    -- Currently the connectX-3 driver is started in a special way
+    build application {
+        target = "mlx4",
+        cFiles = [ "main.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+
+        addLibraries = libDeps["driverkit", "octopus", "debug_log", 
+                               "trace", "skb", "driverkit_iommu", "lwip2", "net"],
+        addModules = ["net_sockets_server_module"],
+        architectures = ["x86_64"]
     }
 
 ]

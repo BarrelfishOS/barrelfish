@@ -913,10 +913,10 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         return -1;
     }
 
-    debug_printf("Net socket server started for %s.\n", bfi->argv[2]);
+    debug_printf("Net socket server started for %s.\n", bfi->argv[bfi->argc - 2]);
 
     char card_name[64];
-    snprintf(card_name, sizeof(card_name), "%s:%s", bfi->argv[2], bfi->argv[bfi->argc - 1]);
+    snprintf(card_name, sizeof(card_name), "%s:%s", bfi->argv[bfi->argc - 2], bfi->argv[bfi->argc - 1]);
 
     char *ip = NULL;
     char *netmask = NULL;
@@ -966,6 +966,26 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         assert(err_is_ok(err));
     }
 
+
+    if (strncmp(card_name, "mlx4", 4) == 0) {
+        // MLX4 driver needs to creat argcn + copy the interrupt cap
+        // since we still use the old PCI code
+        struct capref dst_cap;
+
+        // TODO check if cnode already exists etc. 
+        struct capref argcn;
+        struct cnoderef argcn_ref;
+        err = cnode_create_l2(&argcn, &argcn_ref);
+        assert(err_is_ok(err));
+        err = cap_copy(cap_argcn, argcn);
+        assert(err_is_ok(err));
+
+        dst_cap.slot = 1; // TODO should not be hard coded
+        dst_cap.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
+
+        err = cap_copy(dst_cap, bfi->caps[0]);
+        assert(err_is_ok(err));
+    }
     /* connect to the network */
 #ifdef POLLING
     debug_printf("Net socket server polling \n");
@@ -994,8 +1014,8 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     char queue_name[128];
     struct netss_state* st = (struct netss_state*) malloc(sizeof(struct netss_state));
 
-    sprintf(queue_name, "net_sockets_queue_%s", bfi->argv[2]);
-    sprintf(st->service_name, "net_sockets_service_%s", bfi->argv[2]);
+    sprintf(queue_name, "net_sockets_queue_%s", bfi->argv[bfi->argc - 2]);
+    sprintf(st->service_name, "net_sockets_service_%s", bfi->argv[bfi->argc - 2]);
 
     err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, queue_name,
                        true, NULL, &f);
