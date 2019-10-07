@@ -87,7 +87,7 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt,
     struct pci_id id;
     struct pci_class cls;
 
-    if (strncmp(cardname, "", strlen("")) != 0) {
+    if (cardname[0] != '\0') {
         if (cardname[4] != ':') {
             return DEVQ_ERR_INIT_QUEUE;
         }
