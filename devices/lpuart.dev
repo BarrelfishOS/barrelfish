@@ -161,15 +161,33 @@ device lpuart msbfirst (addr base) "LPUART" {
 		pt      1 "Parity Type";
 	};
 
-	register data addr(base, 0x1c) "LPUART Receive Data Register" {
+	/*
+	 * Data register is actually two registers for RX/TX
+	 * To prevent Mackerel from generating code for reading
+	 * things via the TX register and therefore clearing the RX
+	 * register we declare the readonly fields as mbz in the TX
+	 * register.
+	 */
+	register rxdata ro addr(base, 0x1c) "LPUART Receive Data Register" {
 		_      16;
-		noisy   1 ro "Whether received with noise.";
-		paritye 1 ro "Whether received with parity error.";
-		fretsc  1    "Whether received with frame error/Transmit Special Character";
-		rxempt  1 ro "Receive Buffer Empty";
-		idline  1 ro "Idle Line";
+		noisy   1 "Whether received with noise.";
+		paritye 1 "Whether received with parity error.";
+		fre     1 "Whether received with frame error";
+		rxempt  1 "Receive Buffer Empty";
+		idline  1 "Idle Line";
 		_       1;
-		buf    10    "Data buffer";
+		buf    10 "Data buffer";
+	};
+
+	register txdata wo also addr(base, 0x1c) "LPUART Transmit Data Register" {
+		_      16 mbz;
+		_       1 mbz;
+		_       1 mbz;
+		tsc     1 "Transmit Special Character";
+		_       1 mbz;
+		_       1 mbz;
+		_       1 mbz;
+		buf    10 "Data buffer";
 	};
 
 	register match addr(base, 0x20) "LPUART Match Address Register" {

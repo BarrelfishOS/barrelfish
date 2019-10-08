@@ -123,7 +123,12 @@ void serial_putchar(unsigned port, char c)
     assert(u->base != 0);
 
     while(lpuart_stat_tdre_rdf(u) == 0);
-    lpuart_data_buf_wrf(u, c);
+
+    lpuart_txdata_t txdata = lpuart_txdata_default;
+    // We don't handle break/idle char currently
+    txdata = lpuart_txdata_tsc_insert(txdata, 0);
+    txdata = lpuart_txdata_buf_insert(txdata, c);
+    lpuart_txdata_wr(u, txdata);
 }
 
 /*
@@ -138,5 +143,5 @@ char serial_getchar(unsigned port)
     /* Wait for data. */
     while(lpuart_stat_rdrf_rdf(u) == 0);
 
-    return (char)lpuart_data_buf_rdf(u);
+    return (char)lpuart_rxdata_buf_rdf(u);
 }
