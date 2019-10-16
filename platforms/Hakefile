@@ -798,6 +798,13 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       In BuildTree "tools" "/bin/usbboot",
       In BuildTree "root" "/armv7_omap44xx_image"
     ]
+    "Boot Barrelfish on a Pandaboard, over a local USB cable",
+
+    boot "usbboot_imx8x" [ "armv8" ] [
+      In SrcTree "tools" "/tools/imx8x/bf-boot.sh",
+      Str "--bf",
+      In BuildTree "root" "/armv8_imx8x_image.efi"
+    ]
     "Boot Barrelfish on a Pandaboard, over a local USB cable"
 
  ]
