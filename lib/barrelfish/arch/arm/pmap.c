@@ -29,7 +29,7 @@
 #include <stdio.h>
 
 // Location of VSpace managed by this system.
-#define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024)   //0x40000000
+#define VSPACE_BEGIN ((lvaddr_t)(256UL << 20) * (disp_get_core_id() + 1))
 
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
@@ -855,8 +855,7 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
         }
     } else if (pt) {
 #ifdef LIBBARRELFISH_DEBUG_PMAP
-        debug_printf("section unmap: entry = %zu, pte_count = %zu\n",
-                pt->entry, pt->u.frame.kernel_pte_count);
+        debug_printf("section unmap: entry = %zu\n", pt->entry);
 #endif
         err = vnode_unmap(pmap->root.u.vnode.cap, pt->mapping);
         if (err_is_fail(err)) {
