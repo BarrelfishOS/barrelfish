@@ -367,8 +367,11 @@ class ARMMachineBase(Machine):
         if self.kernel_args is None:
             for line in self._get_template_menu_lst():
                 if line.startswith("kernel") or line.startswith("cpudriver"):
-                    _, _, args = line.strip().split(" ", 2)
-                    self.kernel_args = args.split(" ")
+                    pts = line.strip().split(" ", 2)
+                    if len(pts) == 3:
+                        self.kernel_args = pts[-1].split(" ")
+                    else:
+                        self.kernel_args = []
         return self.kernel_args
 
     def _get_mmap(self):
@@ -547,5 +550,6 @@ import qemu
 import gem5
 import fvp
 import pandaboard
+import imx8x
 
 # Other site-specific modules will be loaded by the siteconfig module

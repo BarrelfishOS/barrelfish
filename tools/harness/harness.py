@@ -31,7 +31,7 @@ class Harness:
         # Ignore for tests that do not implement get_modules
         if hasattr(test, "get_modules"):
             menu_lst_file_name = os.path.join(path, self.MENU_LST_FILE_NAME)
-            debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
+            debug.verbose("harness: writing menu.lst to %s" % menu_lst_file_name)
             with open(menu_lst_file_name, "w") as menu:
                 menu.write( test.get_modules(build, machine).get_menu_data("/") )
 
@@ -78,8 +78,9 @@ class Harness:
                 lines = rf.readlines()
                 for idx, line in enumerate(lines):
                     if line.strip() == "root (nd)" or \
-                       line.strip().startswith("Kernel starting at address"):
-                        break
+                       line.strip().startswith("Kernel starting at address") or \
+                       "ARMv8-A: Barrelfish CPU driver starting on ARMv8" in line:
+                            break
                 if idx == len(lines)-1:
                     debug.verbose('magic string "root (nd)" or "Kernel starting at address" not found, assuming no garbage in output')
                     idx=0

@@ -17,10 +17,13 @@ class Module(object):
 class BootModules(object):
     """Modules to boot (ie. the menu.lst file)"""
 
-    def __init__(self, machine, prefix, kernel):
+    def __init__(self, machine, prefix, kernel=None):
         self.hypervisor = None
         self.prefix = prefix
-        self.kernel = os.path.join(prefix, kernel)
+
+        self.kernel = None
+        if not kernel is None:
+            self.kernel = os.path.join(prefix, kernel)
         self.kernelArgs = []
         self.cpu_driver = None
         self.boot_driver = None
