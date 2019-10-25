@@ -8,23 +8,24 @@
 ##########################################################################
 
 import debug, eth_machinedata
-import subprocess, os, socket, sys, shutil, tempfile, pty
+import subprocess, os, socket, sys, shutil, tempfile, pty, getpass
 from machines import ARMMachineBase, MachineFactory, MachineOperations
-from machines.eth import ETHBaseMachineOperations
+from machines.eth import ETHMachineOperations
 import glob, barrelfish
 
-# XXX: the rack-mount imx8x machines are ETH-specific
+# XXX: the rack-mount colibri machines are ETH-specific
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
+BFBOOT='/home/netos/tools/imx8x-boot/bf-boot.sh'
 
-class IMX8XMachine(ARMMachineBase):
-    '''Machine to run tests on locally attached IMX8X board.'''
-    name = 'imx8x_local'
+class ColibriMachine(ARMMachineBase):
+    '''Machine to run tests on locally attached Imx8x/Colibri board.'''
+    name = 'colibri_local'
     imagename = "armv8_imx8x_image.efi"
 
-    def __init__(self, options, **kwargs):
-        super(IMX8XMachine, self).__init__(options, IMX8XOperations(self), **kwargs)
+    def __init__(self, options, ops, **kwargs):
+        super(ColibriMachine, self).__init__(options, ops, **kwargs)
         self.menulst_template = "menu.lst.armv8_imx8x"
 
     def default_bootmodules(self):
@@ -50,10 +51,16 @@ class IMX8XMachine(ARMMachineBase):
     def setup(self, builddir=None):
         pass
 
-class IMX8XOperations(MachineOperations):
+class ColibriLocalMachine(ColibriMachine):
+    '''Machine to run tests on locally attached Imx8x/Colibri board.'''
+    name = 'colibri_local'
+    def __init__(self, options, **kwargs):
+        super(ColibriLocalMachine, self).__init__(options, ColibriMachineOperations(self), **kwargs)
+
+class ColibriMachineOperations(MachineOperations):
 
     def __init__(self, machine):
-        super(IMX8XOperations, self).__init__(machine)
+        super(ColibriMachineOperations, self).__init__(machine)
         self.picocom = None
         self.tftp_dir = None
         self.masterfd = None
@@ -64,6 +71,7 @@ class IMX8XOperations(MachineOperations):
         return self.tftp_dir
 
     def set_bootmodules(self, modules):
+        self._colibri_devtty()
         menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
                 "platforms", "arm", self._machine.menulst_template)
         self._machine._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
@@ -72,6 +80,7 @@ class IMX8XOperations(MachineOperations):
                 cwd=self._machine.options.builds[0].build_dir)
 
     def __usbboot(self):
+        self._colibri_devtty()
         debug.verbose("Usbbooting imx8x")
         debug.verbose("build dir: %s" % self._machine.options.builds[0].build_dir)
         debug.checkcmd(["make", "usbboot_imx8x"],
@@ -82,6 +91,18 @@ class IMX8XOperations(MachineOperations):
 
     def unlock(self):
         pass
+
+    def _colibri_devtty(self):
+        """Check that there is only one colibri attached, if so, returns
+        the ttyDevice path. Exception otherwise"""
+        ttydevs = glob.glob("/dev/ttyColibri*")
+        if len(ttydevs) != 1:
+            print("Can't get output. Found %d /dev/ttyColibri*" % len(ttydevs))
+            print("Make sure you have exactly one colibri connected and")
+            print("udev rules installed")
+            raise Exception("/dev/ttyColibri* is not unique.")
+        return ttydevs[0]
+
 
     def reboot(self):
         self.__usbboot()
@@ -102,27 +123,21 @@ class IMX8XOperations(MachineOperations):
         '''Use picocom to get output. This replicates part of
         ETHMachine.lock()'''
         (self.masterfd, slavefd) = pty.openpty()
-        ttydevs = glob.glob("/dev/ttyColibri*")
-        if len(ttydevs) != 1:
-            print("Can't get output. Found %d /dev/ttyColibri*" % len(ttydevs))
-            print("Make sure you have exactly one colibri connected and")
-            print("udev rules installed")
-            raise Exception("/dev/ttyColibri* is not unique")
-                  
+        ttydev = self._colibri_devtty()
         self.picocom = subprocess.Popen(
-                ["picocom", "-b", "115200", ttydevs[0]],
+                ["picocom", "-b", "115200", ttydev],
                 close_fds=True, stdout=slavefd, stdin=slavefd)
         os.close(slavefd)
         self.console_out = os.fdopen(self.masterfd, 'rb', 0)
         return self.console_out
 
 
-class ETHRackIMX8XMachine(ARMMachineBase):
-    _machines = eth_machinedata.galaboards
+class ETHRackColibriMachine(ColibriMachine):
+    _machines = eth_machinedata.colibriboards
     imagename = "armv8_imx8x_image.efi"
 
     def __init__(self, options, **kwargs):
-        super(ETHRackIMX8XMachine, self).__init__(options, ETHRackIMX8XMachineOperations(self), **kwargs)
+        super(ETHRackColibriMachine, self).__init__(options, ETHRackColibriMachineOperations(self), **kwargs)
         self.menulst_template = "menu.lst.armv8_imx8x"
 
     def setup(self, builddir=None):
@@ -131,14 +146,24 @@ class ETHRackIMX8XMachine(ARMMachineBase):
     def get_platform(self):
         return 'imx8x'
 
-class ETHRackIMX8XMachineOperations(ETHBaseMachineOperations):
+#class ETHRackColibriMachineOperations(ETHBaseMachineOperations):
+class ETHRackColibriMachineOperations(ETHMachineOperations):
     def __init__(self, machine):
-        super(ETHRackIMX8XMachineOperations, self).__init__(machine)
+        super(ETHRackColibriMachineOperations, self).__init__(machine)
         self._tftp_dir = None
         self.targe_name = None
+        self.name = machine.name
 
-    def __get_gala_num(self):
-        return int(self.name[4:])
+    def __get_colibri_num(self):
+        return str(int(self.name[7:]))
+
+    def __chmod_ar(self, file):
+        '''make file/directory readable by all'''
+        import stat
+        extra = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        if os.path.isdir(file):
+            extra |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        os.chmod(file, os.stat(file).st_mode | extra)
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
@@ -149,16 +174,15 @@ class ETHRackIMX8XMachineOperations(ETHBaseMachineOperations):
         debug.verbose("building proper imx8x image")
         debug.checkcmd(["make", self._machine.imagename],
                 cwd=self._machine.options.builds[0].build_dir)
-        #debug.verbose("copying %s to %s" % (source_name, self.target_name))
-        #shutil.copyfile(source_name, self.target_name)
-        #self.__chmod_ar(self.target_name)
+        debug.verbose("copying %s to %s" % (self._machine.imagename, self.target_name))
+        shutil.copyfile(source_name, self.target_name)
+        self.__chmod_ar(self.target_name)
 
     def __usbboot(self):
-        print("!!!! IN REBOOT")
         debug.checkcmd([
-            "tools/imx8x/bf-boot.sh",
-            "--bf", self.imagename,
-            "--board", self.__get_gala_num()])
+            BFBOOT,
+            "--bf", self.target_name,
+            "--board", self.__get_colibri_num()])
 
     def __rackpower(self, arg):
         try:
@@ -173,12 +197,12 @@ class ETHRackIMX8XMachineOperations(ETHBaseMachineOperations):
     def shutdown(self):
         self.__rackpower('-d')
 
-#for pb in ETHRackIMX8XMachine._machines:
-#    class TmpMachine(ETHRackIMX8XMachine):
-#        name = pb
-#    MachineFactory.addMachine(pb, TmpMachine, **ETHRackIMX8XMachine._machines[pb])
+for pb in ETHRackColibriMachine._machines:
+    class TmpMachine(ETHRackColibriMachine):
+        name = pb
+    MachineFactory.addMachine(pb, TmpMachine, **ETHRackColibriMachine._machines[pb])
 
-MachineFactory.addMachine("imx8x_local", IMX8XMachine,
+MachineFactory.addMachine("colibri_local", ColibriLocalMachine,
                           bootarch='armv8',
                           platform='imx8x',
                           ncores=4)

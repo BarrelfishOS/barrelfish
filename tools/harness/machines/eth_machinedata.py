@@ -497,23 +497,21 @@ machines = dict({
         ).items()
 )
 
-galaargs = {'ncores'          : 2,
-            'nphi'            : 0,
-            'host_ncores'     : 20,
-            'machine_name'    : 'panda1',
-            'bootarch'        : 'armv8',
-            'platform'        : 'imx8x',
-            'buildarchs'      : ['armv7'],
-            'cores_per_socket': 2,
-            'perfcount_type'  : 'arm',
-            'tickrate'        : 1000, # XXX ?
-            'host_tickrate'   : 2500,
-            'boot_timeout'    : 360}
-galaboards = dict({
-    'gala1': dict(galaargs, **{'machine_name' : 'gala1'}),
-    'gala2': dict(galaargs, **{'machine_name' : 'gala2'}),
-    'gala3': dict(galaargs, **{'machine_name' : 'gala3'}),
-    'gala4': dict(galaargs, **{'machine_name' : 'gala4'})
+colibriargs = { 'ncores'          : 2,
+                'nphi'            : 0,
+                'host_ncores'     : 20,
+                'bootarch'        : 'armv8',
+                'platform'        : 'imx8x',
+                'buildarchs'      : ['armv8'],
+                'cores_per_socket': 2,
+                'perfcount_type'  : 'arm',
+                'tickrate'        : 1000, # XXX ?
+                'host_tickrate'   : 2500,
+                'boot_timeout'    : 360}
+colibriboards = dict({
+    'colibri3': dict(colibriargs, **{'machine_name' : 'colibri3'}),
+    'colibri4': dict(colibriargs, **{'machine_name' : 'colibri4'}),
+    'colibri5': dict(colibriargs, **{'machine_name' : 'colibri5'})
     })
 
 pandaboards = dict({
