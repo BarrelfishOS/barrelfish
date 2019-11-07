@@ -49,10 +49,12 @@ serial_kernel_init(struct serial_kernel *sk, struct capref irq_src)
     sk->m.output_arg = sk;
 
     // Register interrupt handler
-    err = int_route_client_route_and_connect(irq_src, 0,
-            get_default_waitset(), serial_interrupt, sk);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "interrupt setup failed.");
+    if (!capref_is_null(irq_src)) {
+        err = int_route_client_route_and_connect(irq_src, 0, get_default_waitset(),
+                                                 serial_interrupt, sk);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "interrupt setup failed.");
+        }
     }
 
     // offer service now we're up
@@ -72,7 +74,12 @@ init_kernel(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
     struct capref irq_src;
     irq_src.cnode = bfi->argcn;
     irq_src.slot = PCIARG_SLOT_INT;
-
+    if (flags == 1) {
+        irq_src = NULL_CAP;
+    } else {
+        irq_src.cnode = bfi->argcn;
+        irq_src.slot = PCIARG_SLOT_INT;
+    }
 
     // Initialize serial driver
     err = serial_kernel_init(sk, irq_src);

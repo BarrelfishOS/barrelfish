@@ -72,6 +72,21 @@
         architectures = ["x86_64"]
   },
 
+  build drivermodule { target = "serial_lpuart_module",
+        cFiles = [ "serial_lpuart.c" ],
+        flounderDefs = [ "terminal" , "terminal_config",
+                         "terminal_session" ],
+        architectures = [ "armv8" ],
+        mackerelDevices = ["lpuart"],
+        addLibraries = [ "serial_common", "int_route_client", "thc", "term_server"]
+  },
+
+  build driverdomain {
+      target = "serial_lpuart",
+      addModules = ["serial_lpuart_module", "serial_kernel_module"],
+      architectures = ["armv8"]
+   },
+
   -- build application {
   --       target = "serial_pc16550d",
   --       cFiles = [ "main_ddomain.c"],

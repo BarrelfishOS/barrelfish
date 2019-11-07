@@ -190,8 +190,6 @@ device lpuart msbfirst (addr base) "LPUART" {
 		buf    10 "Data buffer";
 	};
 
-	register write_data wo also addr (base, 0x1c) "LPUART Transmit Data Register" type(uint32);
-
 	register match addr(base, 0x20) "LPUART Match Address Register" {
 		_    6;
 		ma2 10 "Match Address 2";
