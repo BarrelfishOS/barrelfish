@@ -150,3 +150,8 @@ size_t platform_get_core_count(void)
 {
     return 0;
 }
+
+uint32_t platform_get_timer_interrupt(void){
+    // TODO (LH): Untested
+    return 30;
+}

@@ -66,6 +66,10 @@ void platform_timer_init(int timeslice)
     //pmcr = armv8_PMCR_EL0_N_insert(pmcr, 6);  /* N is RO ? */
     armv8_PMCR_EL0_wr(NULL, pmcr);
 
+    errval_t err;
+    err = platform_enable_interrupt(platform_get_timer_interrupt(), 0, 0, 0);
+    assert(err_is_ok(err));
+
 // AT: disable for now because it's not supported by QEMU version<2.6.0
 // AT: doesn't seem to break anything
 //    armv8_PMUSERENR_EL0_t pmu = 0;

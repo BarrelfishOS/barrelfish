@@ -104,5 +104,11 @@ void platform_timer_init(int timeslice);
 */
 bool platform_is_timer_interrupt(uint32_t irq);
 
+/**
+* @brief Return the IRQ to be used for the cpu driver timer
+* @return The IRQ number of the timer interrupt.
+*/
+uint32_t platform_get_timer_interrupt(void);
+
 
 #endif // __ARM_PLATFORM_H__

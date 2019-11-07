@@ -259,8 +259,13 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
             dcb_current->disabled = false;
         }
     }
+    static int first_timer_interrupt_fired = 0;
     // Offer it to the timer
     if (platform_is_timer_interrupt(irq)) {
+        if(!first_timer_interrupt_fired){
+            printk(LOG_NOTE, "ARMv8-A: Timer interrupt received\n");
+            first_timer_interrupt_fired = 1;
+        }
         platform_acknowledge_irq(irq);
         wakeup_check(systime_now());
 #ifndef CONFIG_ONESHOT_TIMER

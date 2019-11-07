@@ -68,8 +68,8 @@ void gic_init(void)
     for (int i = 0; i * 32 < itlines; i++) {
         // Clear
         gic_v3_dist_GICD_ICACTIVER_wr(&gic_v3_dist_dev, i, MASK_32);
-        // Enable
-        gic_v3_dist_GICD_ISENABLER_wr(&gic_v3_dist_dev, i, MASK_32);
+        // Disable all interrupts
+        gic_v3_dist_GICD_ICENABLER_wr(&gic_v3_dist_dev, i, MASK_32);
         // And put in group 1
         gic_v3_dist_GICD_IGROUPR_rawwr(&gic_v3_dist_dev, i, MASK_32);
     }
@@ -150,7 +150,8 @@ void gic_cpu_interface_enable(void)
     printf("%s: GICR_TYPER: affinity:%x  cpu_no:%x\n", __func__, gic_v3_redist_GICR_TYPER_Affinity_Value_extract(gicr_typer), gic_v3_redist_GICR_TYPER_Processor_Number_extract(gicr_typer));
 
     gic_v3_redist_GICR_ICACTIVER0_rawwr(&gic_v3_redist_dev, MASK_32);
-    gic_v3_redist_GICR_ISENABLER0_rawwr(&gic_v3_redist_dev, MASK_32);
+    //Disable PPIs
+    gic_v3_redist_GICR_ICENABLER0_wr(&gic_v3_redist_dev, MASK_32);
 
     gic_v3_redist_GICR_IGROUPR0_rawwr(&gic_v3_redist_dev, MASK_32);
     gic_v3_redist_GICR_IGRPMODR0_rawwr(&gic_v3_redist_dev, 0);
@@ -175,6 +176,13 @@ void gic_cpu_interface_enable(void)
 errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
                           bool edge_triggered, bool one_to_n)
 {
+    if(int_id<32) {
+        gic_v3_redist_GICR_ISENABLER0_wr(&gic_v3_redist_dev, 1<<int_id );
+    }
+    else {  
+        gic_v3_dist_GICD_ISENABLER_wr(&gic_v3_dist_dev, int_id/32,
+            1<<(int_id % 32));
+    }
     return SYS_ERR_OK;
 }
 

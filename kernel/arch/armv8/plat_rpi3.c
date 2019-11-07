@@ -149,3 +149,8 @@ errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
 {
     return SYS_ERR_OK;
 }
+
+uint32_t platform_get_timer_interrupt(void){
+    // TODO (LH): Untested
+    return 30;
+}

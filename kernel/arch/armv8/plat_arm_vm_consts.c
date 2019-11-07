@@ -14,6 +14,7 @@
  */
 
 #include <kernel.h>
+#include <arch/arm/platform.h>
 
 /* RAM starts at 0, provided by the MMAP */
 lpaddr_t phys_memory_start= 0;
@@ -46,13 +47,15 @@ unsigned int serial_debug_port = 0;
 unsigned serial_num_physical_ports = 1;
 
 /* uart bases */
-const lpaddr_t
-platform_uart_base[MAX_NUM_UARTS]= {
+lpaddr_t platform_uart_base[MAX_NUM_UARTS]= {
         0x9000000
 };
 
 /* uart sizes */
-const size_t
-platform_uart_size[MAX_NUM_UARTS]= {
+size_t platform_uart_size[MAX_NUM_UARTS]= {
     4096
 };
+
+uint32_t platform_get_timer_interrupt(void){
+    return 30;
+}

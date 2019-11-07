@@ -106,6 +106,10 @@ bool platform_is_timer_interrupt(uint32_t irq)
     return 0;
 }
 
+uint32_t platform_get_timer_interrupt(void){
+    return timerirq;
+}
+
 systime_t systime_now(void)
 {
     return a15_gt_counter();

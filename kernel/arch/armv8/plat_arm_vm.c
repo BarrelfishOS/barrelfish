@@ -86,3 +86,8 @@ void armv8_get_info(struct arch_info_armv8 *ai)
 {
 
 }
+
+uint32_t platform_get_timer_interrupt(void){
+    // TODO (LH): Untested
+    return 30;
+}

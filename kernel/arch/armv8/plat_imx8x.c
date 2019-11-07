@@ -36,14 +36,23 @@ lpaddr_t phys_memory_start= 0;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_distributor_base = 0x8000000;
-lpaddr_t platform_gic_redistributor_base = 0x80a0000;
+lpaddr_t platform_gic_distributor_base = 0x51a00000;
+lpaddr_t platform_gic_redistributor_base = 0x51b00000;
 
 /*
  * ----------------------------------------------------------------------------
  * UART
  * ----------------------------------------------------------------------------
  */
+
+
+/*
+ * ----------------------------------------------------------------------------
+ * Timer
+ * ----------------------------------------------------------------------------
+ */
+#define GLOBAL_TIMER_INTERRUPT 30
+
 
 /* the maximum number of UARTS supported */
 #define MAX_NUM_UARTS 1
@@ -136,6 +145,10 @@ void platform_get_info(struct platform_info *pi)
 {
     pi->arch = PI_ARCH_ARMV8A;
     pi->platform = PI_PLATFORM_IMX8X;
+}
+
+uint32_t platform_get_timer_interrupt(void){
+    return GLOBAL_TIMER_INTERRUPT;
 }
 
 void armv8_get_info(struct arch_info_armv8 *ai)
