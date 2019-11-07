@@ -135,6 +135,7 @@ errval_t
 default_start_function_pure(coreid_t where, struct module_info* mi, char* record,
                            struct driver_argument* arg) {
 
+    assert(mi != NULL);
     struct domain_instance* inst;
     errval_t err;
 
@@ -159,6 +160,7 @@ default_start_function_pure(coreid_t where, struct module_info* mi, char* record
     struct driver_instance* drv =
         ddomain_create_driver_instance(arg->module_name, oct_id);
 
+    drv->flags = arg->flags;
     drv->args = (char*[]){NULL,NULL,NULL,NULL};
     drv->argcn_cap = arg->arg_caps;
     return ddomain_instantiate_driver(inst, drv);

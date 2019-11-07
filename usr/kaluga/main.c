@@ -77,7 +77,8 @@ static void add_start_function_overrides(void)
 
 }
 
-static void parse_arguments(int argc, char** argv, char ** add_device_db_file, size_t *cpu_count)
+static void parse_arguments(int argc, char** argv, char ** add_device_db_file,
+        size_t *cpu_count)
 {
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "apicid=", 7) == 0) {

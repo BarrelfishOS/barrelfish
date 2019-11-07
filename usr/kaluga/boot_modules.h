@@ -12,6 +12,7 @@ struct driver_argument {
     struct int_startup_argument int_arg;
     struct cnoderef argnode_ref;
     char* module_name;
+    uint64_t flags;
 };
 typedef errval_t(*module_start_fn)(coreid_t where, struct module_info* mi,
         char* record, struct driver_argument * int_arg);

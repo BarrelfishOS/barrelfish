@@ -18,6 +18,7 @@
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_defs.h>
 #include "kaluga.h"
+#include "armv8_imx8x.h"
 
 
 static errval_t armv8_startup_common(void)
@@ -168,6 +169,8 @@ errval_t arch_startup(char * add_device_db_file)
     case PI_PLATFORM_CN88XX:
         debug_printf("Kaluga running on CN88xx\n");
         return cn88xx_startup();
+    case PI_PLATFORM_IMX8X:
+        return imx8x_startup();
     }
 
     return KALUGA_ERR_UNKNOWN_PLATFORM;

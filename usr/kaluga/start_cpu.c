@@ -274,16 +274,19 @@ errval_t wait_for_all_spawnds(void)
     // No we should be able to get core count
     // of all cores to estimate the amount of
     // spawnd's we have to expect (one per core)
-    char** names;
-    size_t count;
-    err = oct_get_names(&names, &count, processor_regex);
-    if (err_is_fail(err)) {
-        return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
-    }
-    oct_free_names(names, count);
 
+    size_t count;
     if (cpu_count) {
+        KALUGA_DEBUG("CPU count override to %d\n", cpu_count);
         count = cpu_count;
+    } else {
+        char** names;
+    
+        err = oct_get_names(&names, &count, processor_regex);
+        if (err_is_fail(err)) {
+            return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
+        }
+        oct_free_names(names, count);
     }
 
     static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
