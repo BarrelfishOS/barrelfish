@@ -14,7 +14,7 @@
 #include <arch/arm/gic.h>
 #include <arch/arm/platform.h>
 #include <paging_kernel_arch.h>
-#include <arch/armv7/irq.h>
+#include <irq.h>
 #include <getopt/getopt.h>
 
 static pl390_gic_cpuif_t gic;
