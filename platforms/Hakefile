@@ -814,6 +814,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--bf",
       In BuildTree "root" "/armv8_imx8x_image.efi"
     ]
-    "Boot Barrelfish on a Pandaboard, over a local USB cable"
+    "Boot Barrelfish on a Colibri board, over a local USB cable"
 
  ]
