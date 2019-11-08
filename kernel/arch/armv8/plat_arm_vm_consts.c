@@ -55,7 +55,3 @@ lpaddr_t platform_uart_base[MAX_NUM_UARTS]= {
 size_t platform_uart_size[MAX_NUM_UARTS]= {
     4096
 };
-
-uint32_t platform_get_timer_interrupt(void){
-    return 30;
-}
