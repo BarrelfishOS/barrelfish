@@ -396,7 +396,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "serial_kernel",
                        "fish",
                        "angler",
-                       "kaluga",
+                       "kaluga",    
+                       "enet",
                        "acpi"
                        ] ]
 
