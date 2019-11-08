@@ -29,6 +29,7 @@ module /armv8/sbin/serial_lpuart auto
 module /armv8/sbin/pl390_dist auto 
 module /armv8/sbin/int_route auto
 module /armv8/sbin/imx8x_sdhc auto
+module /armv8/sbin/enet auto
 
 
 # General user domains

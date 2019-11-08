@@ -358,6 +358,42 @@ static errval_t start_cores(void){
     return err;
 }
 
+__attribute__((used))
+static errval_t start_network(lpaddr_t address)
+
+{   errval_t err;
+    struct module_info *mi;
+    mi = find_module("enet");
+    if(mi == NULL){
+        KALUGA_DEBUG("enet not found, not starting");
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = "enet_module";
+    struct capref device_frame;
+    err = imx8x_get_device_cap(address, 0x00010000, &device_frame);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    KALUGA_DEBUG("get_device_cap worked\n");
+    //transfer destination
+    struct capref cap = {
+            .cnode = (&arg)->argnode_ref,
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0
+    };
+    err = cap_copy(cap, device_frame);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    
+   err = default_start_function_pure(0, mi, "enet {}", &arg);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    return err;
+}
+
 errval_t imx8x_startup(void)
 {
     errval_t err;
@@ -396,6 +432,10 @@ errval_t imx8x_startup(void)
         USER_PANIC_ERR(err, "imx8x sdhc");
     }
 
+    err = start_network(0x5B040000);
+    if(err_is_fail(err) && err_no(err) != KALUGA_ERR_MODULE_NOT_FOUND) {
+        USER_PANIC_ERR(err, "imx8x network");
+    }
 
     return SYS_ERR_OK;
 }
