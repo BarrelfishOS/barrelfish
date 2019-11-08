@@ -101,14 +101,12 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
 
 void wait_for_interrupt(void)
 {
-    // REVIEW: Timer interrupt could be masked here.
-
-    // Switch to system mode with interrupts enabled. -- OLD
-    // Switch to priviledged mode with interrupts enabled.
+    // Load magic and enable interrupts.
     __asm volatile(
-        "mov    x0, #" XTR(AARCH64_MODE_PRIV) "              \n\t"
+        "mov    w0, #" XTR(WAIT_FOR_INTERRUPT_MAGIC) "              \n\t"
         "0:                                             \n\t"
 #if defined(__ARM_ARCH_8A__)
+        "msr daifclr, #2                  \n\t"
         "wfi                  \n\t"
 #else
           // If no WFI functionality exists on system, just

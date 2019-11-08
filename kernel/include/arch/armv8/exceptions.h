@@ -29,6 +29,8 @@
 #define AARCH32_EVECTOR_EL0_FIQ     0x12
 #define AARCH32_EVECTOR_EL0_SERROR  0x13
 
+#define WAIT_FOR_INTERRUPT_MAGIC    0x1234
+
 #if !defined(__ASSEMBLER__)
 
 enum aarch64_exception_class {
@@ -144,11 +146,21 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
     __attribute__((noreturn));
 
 /**
- * Handle IRQs in occuring in USR or SYS mode.
+ * Handle IRQs without saving any state, hence it should be called when
+ * the state is properly saved and an interrupt occurs. Can happen
+ * from EL0 interrupt after we saved the state and EL1 (kernel) interrupt.
  *
  * This function should be called with interrupts disabled.
  */
-void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
+void nosave_handle_irq(void) __attribute__((noreturn));
+
+/**
+ * Handle IRQs occuring in EL0. Expects a partially saved register
+ * state. Stores the arguments and FPU state in the save_area. 
+ *
+ * This function should be called with interrupts disabled.
+ */
+void save_handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
                 uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
     __attribute__((noreturn));
 

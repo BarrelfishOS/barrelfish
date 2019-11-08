@@ -75,7 +75,7 @@ el1_sp_el0_sync:
     invalid_exception AARCH64_EVECTOR_EL0_SYNC
 .align 7 /* 0x080 */
 el1_sp_el0_irq:
-    invalid_exception AARCH64_EVECTOR_EL0_IRQ /* TODO: Waait, wenn we do wait for interrupt in kernel, that shouldnt be invalid */
+    invalid_exception AARCH64_EVECTOR_EL0_IRQ 
 .align 7 /* 0x100 */
 el1_sp_el0_fiq:
     invalid_exception AARCH64_EVECTOR_EL0_FIQ
@@ -90,6 +90,14 @@ el1_sync:
     invalid_exception AARCH64_EVECTOR_EL1_SYNC
 .align 7 /* 0x280 */
 el1_irq:
+    /* This happens only in case the kernel runs out of work and
+     * calls wait_for_interrupt. To make sure we come from this function
+     * we store a magic value in a register */
+    mov w1, #WAIT_FOR_INTERRUPT_MAGIC
+    cmp w0,w1
+    b.ne el1_irq_failure
+    b nosave_handle_irq
+el1_irq_failure:
     invalid_exception AARCH64_EVECTOR_EL1_IRQ
 .align 7 /* 0x300 */
 el1_fiq:
@@ -251,7 +259,7 @@ el0_aarch64_irq:
     /* x0 = save area, x1 = EPC,
      * x2 = user x0, x3 = user x1,
      * x4 = user x2, x5 = user x3 */
-    b handle_irq
+    b save_handle_irq
 
     /* 30 instructions. */
 

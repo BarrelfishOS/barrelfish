@@ -201,10 +201,40 @@ void handle_user_fault(lvaddr_t fault_address, uintptr_t cause,
     resume(&resume_area);
 }
 
-void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
-                uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+void nosave_handle_irq(void) 
 {
     uint32_t irq = 0;
+    irq = platform_get_active_irq();
+
+    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
+      dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
+                    "in kernel");
+
+    static int first_timer_interrupt_fired = 0;
+    // Offer it to the timer
+    if (platform_is_timer_interrupt(irq)) {
+        if(!first_timer_interrupt_fired) {
+            printk(LOG_NOTE, "ARMv8-A: Timer interrupt received!\n");
+            first_timer_interrupt_fired = 1;
+        }
+        platform_acknowledge_irq(irq);
+#ifndef CONFIG_ONESHOT_TIMER
+        // Set next trigger
+        systime_set_timer(kernel_timeslice);
+#endif
+        wakeup_check(systime_now());
+        dispatch(schedule());
+    } else {
+        printf("%s: %d\n", __func__, irq);
+        platform_acknowledge_irq(irq);
+        send_user_interrupt(irq);
+        panic("Unhandled IRQ %"PRIu32"\n", irq);
+    }
+}
+
+void save_handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
+                uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+{
 
     /* Save the FPU registers */
     __asm volatile(
@@ -237,49 +267,19 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     save_area->named.spsr  = armv8_SPSR_EL1_rd(NULL);
     save_area->named.pc    = fault_pc;
 
-    irq = platform_get_active_irq();
-
-    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
-          dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
-                        "in kernel");
-
     if (dcb_current != NULL) {
         dispatcher_handle_t handle = dcb_current->disp;
         if (save_area == dispatcher_get_disabled_save_area(handle)) {
             assert(dispatcher_is_disabled_ip(handle, fault_pc));
             dcb_current->disabled = true;
         } else {
-/*            debug(SUBSYS_DISPATCH,
-                  "save_area=%p, dispatcher_get_enabled_save_are(handle)=%p\n",
-                   save_area, dispatcher_get_enabled_save_area(handle));
-*/
-
             assert(save_area == dispatcher_get_enabled_save_area(handle));
             assert(!dispatcher_is_disabled_ip(handle, fault_pc));
             dcb_current->disabled = false;
         }
     }
-    static int first_timer_interrupt_fired = 0;
-    // Offer it to the timer
-    if (platform_is_timer_interrupt(irq)) {
-        if(!first_timer_interrupt_fired){
-            printk(LOG_NOTE, "ARMv8-A: Timer interrupt received\n");
-            first_timer_interrupt_fired = 1;
-        }
-        platform_acknowledge_irq(irq);
-        wakeup_check(systime_now());
-#ifndef CONFIG_ONESHOT_TIMER
-        // Set next trigger
-        systime_set_timer(kernel_timeslice);
-#endif
-        dispatch(schedule());
-    } else {
-        printf("%s: %d\n", __func__, irq);
-        platform_acknowledge_irq(irq);
-        send_user_interrupt(irq);
-        panic("Unhandled IRQ %"PRIu32"\n", irq);
-    }
 
+    nosave_handle_irq();
 }
 
 #define STACK_DUMP_LIMIT 32
