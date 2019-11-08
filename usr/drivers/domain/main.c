@@ -58,23 +58,12 @@ int main(int argc, char** argv)
     err = ddomain_communication_init(kaluga_iref, atoi(argv[2]));
     assert(err_is_ok(err));
 
-#ifdef __ARM_ARCH_8A__
-    while(1) {
-        err = event_dispatch_non_block(get_default_waitset());
-        if (err != LIB_ERR_NO_EVENT) {
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
-            }
-        }
-    }
-#else 
     while(1) {
         err = event_dispatch(get_default_waitset());
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
         }
     }
-#endif
 
     return 0;
 }

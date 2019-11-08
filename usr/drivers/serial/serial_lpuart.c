@@ -24,7 +24,7 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/systime.h>
 
-
+#define DELAY  10000
 //#define LPUART_DEBUG_ON
 
 #if defined(LPUART_DEBUG_ON) || defined(GLOBAL_DEBUG)
@@ -48,7 +48,6 @@ static void print_regvalues(struct serial_lpuart *spc)
 static void serial_poll(struct serial_lpuart *spc)
 {
     while (lpuart_stat_rdrf_rdf(&spc->uart)) {
-        LPUART_DEBUG("befohooore\n");
         char c = lpuart_rxdata_buf_rdf((&spc->uart));
         if (c)
             LPUART_DEBUG("Read char=%c\n", c);
@@ -63,27 +62,14 @@ static void serial_poll(struct serial_lpuart *spc)
     }
 }
 
-static void serial_poll2(void *arg)
+static void serial_poll_ev(void *arg)
 {
-    LPUART_DEBUG("my call back worked, arg=%p\n", arg);
     serial_poll((struct serial_lpuart *)arg);
-    struct deferred_event *de = malloc(sizeof(struct deferred_event));
-    deferred_event_init(de);
-    struct event_closure ec;
-    ec.handler = serial_poll2;
-    ec.arg = arg;
-    errval_t err = deferred_event_register(de, get_default_waitset(), 1000, ec);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "deferred event register failed.");
-    }
-}
 
-static void install_event(delayus_t delay, struct serial_lpuart *spc)
-{
     struct deferred_event *de = malloc(sizeof(struct deferred_event));
     deferred_event_init(de);
-    errval_t err = deferred_event_register(de, get_default_waitset(), delay,
-                                           MKCLOSURE(serial_poll2, spc));
+    errval_t err = deferred_event_register(de, get_default_waitset(), DELAY,
+                                           MKCLOSURE(serial_poll_ev, arg));
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "deferred event register failed.");
     }
@@ -208,7 +194,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     SERIAL_DEBUG("lpuart Serial driver initialized.\n");
     debug_printf("installing handler, spc=%p\n", spc);
-    install_event(1000, spc);
+    serial_poll_ev(spc);
     return SYS_ERR_OK;
 }
 
