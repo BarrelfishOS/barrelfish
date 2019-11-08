@@ -759,15 +759,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine using U-Boot",
 
-    boot "qemu_armv8_uboot" [ "armv8" ] ([
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--image", In BuildTree "root" "/armv8_a57_qemu_image.efi",
-      Str "--arch", Str "armv8",
-      Str "--uboot"
-       ]
-      )
-    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
-
     boot_fastmodels "ARM_FastModels_Base_A57x1" [ "armv8" ] 
       "armv8_a57_fvp_base_image"
       "ARM_FastModels/ARMv8_Base_A57x1/ARMv8_Base_A57x1"
