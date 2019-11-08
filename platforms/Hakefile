@@ -398,7 +398,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "pl390_dist",
                        "fish",
                        "angler",
-                       "kaluga",
+                       "kaluga",    
+                       "enet",
                        "acpi"
                        ] ]
 

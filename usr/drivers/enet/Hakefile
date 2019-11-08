@@ -1,0 +1,39 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2019, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/enet imx8 network driver
+--
+--------------------------------------------------------------------------
+
+
+[
+  -- Builds a driver module: this is identical to building a
+  -- library, the only difference is in how this is linked with the domain
+  build library {
+    target = "enet_module",
+    cFiles = [ "enet_module.c"]
+  },
+
+  -- Builds a driver domain: Use addModules instead of addLibraries to
+  -- link with driver modules.
+  -- The custom linker script is used to add the section where the modules
+  -- are stored.
+  build library {
+    target = "enet",
+    cFiles = [ "main.c"],
+    addLibraries = [ "driverkit" ],
+    addModules = ["enet_module"],
+    architectures = ["armv8"]
+  },
+
+  build driverdomain {
+    target = "enet",
+    addModules = ["enet_module"],
+    architectures = ["armv8"]
+  }
+]
