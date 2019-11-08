@@ -526,7 +526,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       ([ ("armv8", "/sbin/cpu_imx8x"), ("armv8", "/sbin/boot_armv8_generic")  ]
        ++
        [ ("root", "/armv8_imx8x_image.efi") ])
-    "NXP iMX8QPX",
+    "NXP iMX8QXP",
 
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++
