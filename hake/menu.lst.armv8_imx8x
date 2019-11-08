@@ -24,6 +24,7 @@ modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
 
 # Drivers
+module /armv8/sbin/enet auto
 #module /armv8/sbin/corectrl auto
 #module /armv8/sbin/pci auto
 
