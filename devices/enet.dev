@@ -1,0 +1,283 @@
+/*
+ * Copyright (c) 2019, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * enet.dev
+ *
+ * DESCRIPTION: imx8x network device
+ *
+ * Number refer to i.MX 8DualXPlus/8QuadXPlus Applications Processor Reference Manual
+ */
+
+device enet lsbfirst ( addr base ) "Imx8x enet controller" {
+
+  /****************************************************************************
+   * 14.6.5.1/3630 Interrupt Event Register
+   ***************************************************************************/
+
+  register eir rw addr(base, 0x0004) "Interrupt Event Register" {
+    rxb1              1 rw1c "Receive buffer interrupt class 1";
+    rxf1              1 rw1c "Receive frame interrupt class 1";
+    txb1              1 rw1c "Transmit buffer interrupt class 1";
+    txf1              1 rw1c "Transmit frame interrupt class 1";
+    rxb2              1 rw1c "Receive buffer interrupt class 2";
+    rxf2              1 rw1c "Receive frame interrupt class 2";
+    txb2              1 rw1c "Transmit buffer interrupt class 2";
+    txf2              1 rw1c "Transmit frame interrupt class 2";
+    _                 1 rsvd;
+    parsrf            1 rw1c "Interrupt mask bit corresponding to EIR[PARSRF].";
+    parsrr            1 rw1c "Interrupt mask bit corresponding to EIR[PARSRR].";
+    _                 1 rsvd;
+    rxflush0          1 rw1c "Corresponds to interrupt source EIR[RXFLUSH_0]";
+    rxflush1          1 rw1c "Corresponds to interrupt source EIR[RXFLUSH_1]";
+    rxflush2          1 rw1c "Corresponds to interrupt source EIR[RXFLUSH_2]";
+    ts_timer          1 rw1c "TS_TIMER interrupt mask";
+    ts_avail          1 rw1c "TS_AVAIL interrupt mask";
+    wakeup            1 rw1c "WAKEUP interrupt mask";
+    plr               1 rw1c "PLR interrupt mask";
+    un                1 rw1c "UN interrupt mask";
+    rl                1 rw1c "RL interrupt mask";
+    lc                1 rw1c "LC interrupt mask";
+    eberr             1 rw1c "EBERR interrupt mask";
+    mii               1 rw1c "MII interrupt mask";
+    rxb               1 rw1c "RXB interrupt mask";
+    rxf               1 rw1c "RXF interrupt mask";
+    txb               1 rw1c "TXB interrupt mask";
+    txf               1 rw1c "TXF interrupt mask";
+    gra               1 rw1c "GRA interrupt mask";
+    babt              1 rw1c "BABT interrupt mask";
+    babr              1 rw1c "BABR interrupt mask";
+    _                 1 rsvd;
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.2/3634 Interrupt Mask Register
+   ***************************************************************************/
+
+  register eimr rw addr(base, 0x0008) "Interrupt Mask Register" {
+    rxb1              1 "Receive buffer interrupt class 1";
+    rxf1              1 "Receive frame interrupt class 1";
+    txb1              1 "Transmit buffer interrupt class 1";
+    txf1              1 "Transmit frame interrupt class 1";
+    rxb2              1 "Receive buffer interrupt class 2";
+    rxf2              1 "Receive frame interrupt class 2";
+    txb2              1 "Transmit buffer interrupt class 2";
+    txf2              1 "Transmit frame interrupt class 2";
+    _                 1 rsvd;
+    parsrf            1 "Interrupt mask bit corresponding to EIR[PARSRF].";
+    parsrr            1 "Interrupt mask bit corresponding to EIR[PARSRR].";
+    _                 1 rsvd;
+    rxflush0          1 "Corresponds to interrupt source EIR[RXFLUSH_0]";
+    rxflush1          1 "Corresponds to interrupt source EIR[RXFLUSH_1]";
+    rxflush2          1 "Corresponds to interrupt source EIR[RXFLUSH_2]";
+    ts_timer          1 "TS_TIMER interrupt mask";
+    ts_avail          1 "TS_AVAIL interrupt mask";
+    wakeup            1 "WAKEUP interrupt mask";
+    plr               1 "PLR interrupt mask";
+    un                1 "UN interrupt mask";
+    rl                1 "RL interrupt mask";
+    lc                1 "LC interrupt mask";
+    eberr             1 "EBERR interrupt mask";
+    mii               1 "MII interrupt mask";
+    rxb               1 "RXB interrupt mask";
+    rxf               1 "RXF interrupt mask";
+    txb               1 "TXB interrupt mask";
+    txf               1 "TXF interrupt mask";
+    gra               1 "GRA interrupt mask";
+    babt              1 "BABT interrupt mask";
+    babr              1 "BABR interrupt mask";
+    _                 1 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.5/3640 Ethernet control register
+   ***************************************************************************/
+    
+  register ecr rw addr(base, 0x0024) "Control register" {
+    _                14 rsvd;
+    rxc_dly           1 "Receive clock delay";
+    txc_dly           1 "Transmit clock delay";
+    _                 4 rsvd;
+    svlandbl          1 "S-VLAN double tag";
+    vlanuse2nd        1 "VLAN use second tag";
+    svlanen           1 "S-VLAN enable";
+    dbswp             1 "Descriptor Byte Swapping Enable";
+    _                 1 rsvd;
+    dbgen             1 "Debug enable";
+    speed             1 "Select between 10/100 Mbit (0) and 1000 Mbit (1)";
+    en1588            1 "EN1588 Enable";
+    sleep             1 "Sleep Mode enable";
+    magicen           1 "Magic packet detection enable";
+    etheren           1 "Ethernet enable";
+    reset             1 "Ethernet MAC Reset";
+  };
+
+  /****************************************************************************
+   * 14.6.5.6/3643  MII Speed Control Register
+   ***************************************************************************/
+    
+  register mscr rw addr(base, 0x0044) "MII Speed Control Register" {
+    _                 1 rsvd;
+    mii_speed         6 "MII Speed";
+    dis_pre           1 "Disable preamble";
+    hold_time         3 "Hold time on MDIO Output";
+    _                21 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.9/3646  Receive Control Register
+   ***************************************************************************/
+    
+  register rcr rw addr(base, 0x0084) "Receive Control Register" {
+    loop              1 "Internal Loopback";
+    drt               1 "Disable Receive on Transmit";
+    mii_mode          1 "Media Independant Interface Mode";
+    prom              1 "Promiscuous Mode";
+    bc_rej            1 "Broadcast Frame Reject";
+    fce               1 "Flow Control Enable";
+    rgmii_en          1 "RGMII Mode Enable";
+    _                 1 rsvd;
+    rmii_mode         1 "RMII Mode Enable";
+    rmii_10t          1 "Enable 10-Mbits/mode of the RMII or RGMII";
+    _                 2 rsvd;
+    paden             1 "Enable Frame Padding Remove On Receive";
+    paufwd            1 "Terminate/Forward Pause Frames";
+    crcfwd            1 "Terminate/Forward Receive CRC";
+    cfen              1 "MAC Control Frame Enable";
+    max_fl            14 "Maximum Frame Length";
+    nlc               1 "Payload Length Check Disable";
+    grs               1 "Graceful Receive Stop";
+  };
+
+  /****************************************************************************
+   * 14.6.5.11/3649 Transmit Control Register
+   ***************************************************************************/
+
+  // 14.6.5.10
+  register tcr rw addr(base, 0x000C4) "Transmit Control Register" {
+    gts           1 "Graceful Transmit Stop";
+    _             1 rsvd;
+    fden          1 "Full-Duplex Enable";
+    tfc_pause     1 "Transmit Frame Control Pause";
+    rfc_pause     1 "Receive Frame Control Pause";
+    addsel        3 "Source MAC Address Select on Transmit";
+    addins        1 "Set MAC Address on Transmit";
+    crcfwd        1 "Forward Frame From Application With CRC";
+    _             1 rsvd;
+    _             21 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.11/3651 Physical Address Lower Register
+   ***************************************************************************/
+
+  // 14.6.5.11
+  register palr rw addr(base, 0x000E4) "Physical Address Lower Register" {
+    paddr1           32 "Pause Address";
+  };
+
+  /****************************************************************************
+   * 14.6.5.12/3651 Physical Address Upper Register
+   ***************************************************************************/
+
+  register paur rw addr(base, 0x000E8) "Physical Address Upper Register" {
+    typ              16 "Always contains 0x8808";
+    paddr2           16 "Pause Address";
+  };
+  
+  /****************************************************************************
+   * 14.6.5.12/3651 Opcode/Pause Duration Register
+   ***************************************************************************/
+
+  register opd rw addr(base, 0x000EC) "Opcode/Pause Duration Register" {
+    pause_dur           16 "Pause duration";
+    opcode              16 "Opcode Field in Pause Frames";
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.27/3662 Receive Descriptor Ring 0 Start Register
+   ***************************************************************************/
+  register rdsr rw addr(base, 0x00180) "Receive Descriptor Ring 0 Start Register" {
+    _                3  rsvd;
+    start            29 "Pointer to the beginning of receive descriptor queue";
+  };
+
+  /****************************************************************************
+   * 14.6.5.28/3663 Transmit Descriptor Ring 0 Start Register
+   ***************************************************************************/
+  register tdsr rw addr(base, 0x00184) "Transmit Descriptor Ring 0 Start Register" {
+    _                3  rsvd;
+    start            29 "Pointer to the beginning of transmit descriptor queue";
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.29/3663 Maximum Receive Buffer Size Register ring 0
+   ***************************************************************************/
+  register mrbr rw addr(base, 0x00188) "Receive Descriptor Ring 0 Start Register" {
+    _                4  rsvd;
+    start            10 "Receive buffer size in bytes";
+    _                18 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.30/3664 Receive FIFO Section Full Threshold
+   ***************************************************************************/
+  register rsfl rw addr(base, 0x00190) "Receive FIFO Section Full Threshold" {
+    rx_section_full  10  "Value of Receive FIFO Sectoin Full Threshold";
+    _                22 rsvd;
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.31/3665 Receive FIFO Section Empty Threshold
+   ***************************************************************************/
+  register rsem rw addr(base, 0x00194) "Receive FIFO Section Empty Threshold" {
+    rx_section_empty    10  "Value of Receive FIFO Sectoin Empty Threshold";
+    _                   6 rsvd;
+    stat_section_empty  5 "RX Status Section Empty Threshold";
+    _                   11 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.32/3665 Receive FIFO Almost Empty Threshold
+   ***************************************************************************/
+  register raem rw addr(base, 0x00198) "Receive FIFO Almost Empty Threshold" {
+    rx_almost_full  10  "Value of Receive FIFO Almost Empty Threshold";
+    _                22 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.33/3666 Receive FIFO Almost Empty Threshold
+   ***************************************************************************/
+  register rafl rw addr(base, 0x0019C) "Receive FIFO Almost Full Threshold" {
+    rx_almost_empty  10  "Value of Receive FIFO Almost Full Threshold";
+    _                22 rsvd;
+  };
+
+  datatype bufdesc "Legacy descriptor" {
+    sc          16 "Control and status info";
+    len         16 "Data length";
+    addr        32 "Buffer address";
+  };
+
+    /*
+  datatype bufdesc_ex "Enhanced descriptor" {
+    sc          16 "Control and status info";
+    len         16 "Data length";
+    addr        32 "Buffer address";
+    esc         32 "";
+    prot        32 "";
+    ts          32 ""; 
+    res0        64 "";
+  };
+    */
+
+};

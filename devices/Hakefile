@@ -133,7 +133,8 @@
            "zynq7/zynq_uart",
            "zynq7/zynq_slcr",
            "sfn5122f",
-           "sfn5122f_q"
+           "sfn5122f_q",
+           "enet"
          ], arch <- allArchitectures
 ] ++
 
