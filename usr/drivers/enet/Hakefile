@@ -16,6 +16,8 @@
   -- library, the only difference is in how this is linked with the domain
   build library {
     target = "enet_module",
+    addLibraries = [ "driverkit", "driverkit_iommu" ],
+    mackerelDevices = [ "enet" ],
     cFiles = [ "enet_module.c"]
   },
 
@@ -25,8 +27,8 @@
   -- are stored.
   build library {
     target = "enet",
+    addLibraries = [ "driverkit", "driverkit_iommu" ],
     cFiles = [ "main.c"],
-    addLibraries = [ "driverkit" ],
     addModules = ["enet_module"],
     architectures = ["armv8"]
   },
