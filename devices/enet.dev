@@ -95,6 +95,17 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
     _                 1 rsvd;
   };
 
+
+  /****************************************************************************
+   * 14.6.5.3/3638
+   ***************************************************************************/
+    
+  register radr rw addr(base, 0x0010) "Receive Descriptor Active Register ring0" {
+    _                24 rsvd;
+    radr              1 "Receive Descriptor Active";
+    _                 7 rsvd;
+  };
+
   /****************************************************************************
    * 14.6.5.5/3640 Ethernet control register
    ***************************************************************************/
@@ -215,6 +226,31 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
   register tdsr rw addr(base, 0x00184) "Transmit Descriptor Ring 0 Start Register" {
     _                3  rsvd;
     start            29 "Pointer to the beginning of transmit descriptor queue";
+  };
+
+  /****************************************************************************
+   * 14.6.5.18/3655 Descriptor Group Upper Address Register
+   ***************************************************************************/
+  register gaur rw addr(base, 0x00120) "Descriptor Group Upper Address Register" {
+    gaddr            32 "Contains upper 32 bits of 64 bit hash table";
+  };
+
+  /****************************************************************************
+   * 14.6.5.19/3656 Descriptor Group Lower Address Register
+   ***************************************************************************/
+  register galr rw addr(base, 0x00124) "Descriptor Group Lower Address Register" {
+    gaddr            32 "Contains lower 32 bits of 64 bit hash table";
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.20/3657 Transmit FIFO Watermark Register
+   ***************************************************************************/
+  register tfwr rw addr(base, 0x00144) "Transmit FIFO Watermark Register " {
+    tfwr            6 "Transmit FIFO Write";
+    _               2 rsvd;
+    strfwd          1 "Store and Forward Enable";
+    _               23 rsvd;
   };
 
 
