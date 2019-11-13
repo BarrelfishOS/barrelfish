@@ -14,27 +14,16 @@
 [
   -- Builds a driver module: this is identical to building a
   -- library, the only difference is in how this is linked with the domain
-  build library {
+  build drivermodule {
     target = "enet_module",
-    addLibraries = [ "driverkit", "driverkit_iommu" ],
+    addLibraries = [ "driverkit", "driverkit_iommu", "devif_internal"],
     mackerelDevices = [ "enet" ],
     cFiles = [ "enet_module.c"]
   },
 
-  -- Builds a driver domain: Use addModules instead of addLibraries to
-  -- link with driver modules.
-  -- The custom linker script is used to add the section where the modules
-  -- are stored.
-  build library {
-    target = "enet",
-    addLibraries = [ "driverkit", "driverkit_iommu" ],
-    cFiles = [ "main.c"],
-    addModules = ["enet_module"],
-    architectures = ["armv8"]
-  },
-
   build driverdomain {
     target = "enet",
+    cFiles = [ "main.c"],
     addModules = ["enet_module"],
     architectures = ["armv8"]
   }
