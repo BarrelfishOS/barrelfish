@@ -22,60 +22,176 @@
 #include <driverkit/iommu.h>
 #include <dev/enet_dev.h>
 
-#define ENET_DEBUG(x...) debug_printf("[enet] " x);
-
-#define TX_RING_SIZE 512
-#define ENET_RX_FRSIZE 2048
-#define ENET_RX_PAGES 256
-
-#define RX_RING_SIZE (BASE_PAGE_SIZE / ENET_RX_FRSIZE) * ENET_RX_PAGES
-
-#define ENET_SC_WRAP ((ushort)0x2000)
-
-struct enet_rx_queue {
-    struct devq q;
-    size_t size;
-    struct dmem desc_mem;
-
-    // hd + tail
-    size_t head;
-    size_t tail;
-
-    // Descriptor + Cleanq
-    enet_bufdesc_array_t *ring;
-    struct devq_buf *ring_bufs;
-};
-
-struct enet_tx_queue {    
-    struct devq q;
-    size_t size;
-    // stop and wake threashold
-    uint16_t stop_th; 
-    uint16_t wake_th;
-    char* tso_hdr;
-    struct dmem desc_mem;
-
-    // hd + tail
-    size_t head;
-    size_t tail;
-
-    // Descriptor + Cleanq
-    enet_bufdesc_array_t *ring;
-    struct devq_buf *ring_bufs;
-};
-
-struct enet_driver_state {
-    struct bfdriver_instance *bfi;
-    struct capref regs;
-    lvaddr_t d_vaddr;
-
-    struct enet_rx_queue* rxq;
-    struct enet_tx_queue* txq;
-    enet_t* d;
-    uint64_t mac;
-};
+#include "enet.h"
 
 
+static struct region_entry* get_region(struct enet_queue* q, regionid_t rid)
+{
+    struct region_entry* entry = q->regions;
+    while (entry != NULL) {
+        if (entry->rid == rid) {
+            return entry;
+        }
+        entry = entry->next;
+    }
+    return NULL;
+}
+
+static errval_t enet_register(struct devq* q, struct capref cap, regionid_t rid)
+{
+    errval_t err;
+    struct enet_queue* queue = (struct enet_queue*) q;
+
+    // keep track of regions since we need the virtual address ...
+    struct region_entry* entry = calloc(1, sizeof(struct region_entry));
+    assert(entry);
+    entry->rid = rid;
+    entry->next = NULL;
+    
+    struct frame_identity id;
+    err = frame_identify(cap, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    void* va;
+    err = vspace_map_one_frame_attr(&va, id.bytes, cap,
+                                    VREGION_FLAGS_READ_WRITE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    entry->mem.devaddr = id.base;
+    entry->mem.vbase = (lvaddr_t) va;
+    entry->mem.mem = cap;
+    entry->mem.size = id.bytes;
+    
+    ENET_DEBUG("register region id %d base=%lx \n", rid, entry->mem.devaddr);
+    // linked list of regions
+    struct region_entry* cur = queue->regions;
+    if (cur == NULL) {
+        queue->regions = entry;
+        return SYS_ERR_OK;
+    }
+
+    while (cur->next != NULL) {
+        cur = cur->next;
+    }
+    
+    cur->next = entry;
+
+    ENET_DEBUG("registerd region id %d base=%p len=%ld \n", rid, 
+                (void*) entry->mem.vbase, entry->mem.size);
+    return SYS_ERR_OK;
+}
+
+static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
+                                genoffset_t* offset,
+                                genoffset_t* length,
+                                genoffset_t* valid_data,
+                                genoffset_t* valid_length,
+                                uint64_t* flags)
+{
+    //struct enet_queue* q = (struct enet_queue*) que;      
+    //enet_bufdesc_t desc = q->ring[q->head];
+    return  SYS_ERR_OK;
+}
+
+static errval_t enet_tx_dequeue(struct devq* que, regionid_t* rid,
+                                genoffset_t* offset,
+                                genoffset_t* length,
+                                genoffset_t* valid_data,
+                                genoffset_t* valid_length,
+                                uint64_t* flags)
+{
+    //struct enet_queue* q = (struct enet_queue*) que;      
+    //enet_bufdesc_t desc = q->ring[q->head];
+    return  SYS_ERR_OK;
+}
+
+static errval_t enet_tx_enqueue(struct devq* que, regionid_t rid, genoffset_t offset,
+                                genoffset_t length, genoffset_t valid_data,
+                                genoffset_t valid_length, uint64_t flags)
+{
+
+    return SYS_ERR_OK;
+}
+static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t offset,
+                                genoffset_t length, genoffset_t valid_data,
+                                genoffset_t valid_length, uint64_t flags)
+{
+    struct enet_queue* q = (struct enet_queue*) que;   
+    //enet_bufdesc_addr_insert(desc, );
+    struct region_entry *entry = get_region(q, rid);
+    assert(entry);    
+    
+    // TODO SEE IF THERE IS SPACE!
+   
+    lpaddr_t addr = 0;
+    addr = (lpaddr_t) entry->mem.devaddr + offset;
+ 
+    struct devq_buf buf= q->ring_bufs[q->tail];
+    buf.offset = offset;
+    buf.length = length;
+    buf.valid_length = valid_length;
+    buf.valid_data = valid_data;
+    buf.rid = rid;
+    buf.flags = flags;
+   
+    enet_bufdesc_t desc = q->ring[q->tail];
+    enet_bufdesc_addr_insert(desc, addr);
+
+    if (q->tail == (q->size -1)) {
+        enet_bufdesc_sc_insert(desc, ENET_SC_WRAP | ENET_RX_EMPTY);
+    } else {
+        enet_bufdesc_sc_insert(desc, ENET_RX_EMPTY);
+    }
+
+    q->tail = (q->tail + 1) & (q->size -1);
+    return SYS_ERR_OK;
+}
+// bool promiscous for promiscous mode. 
+// This will also set it so that all multicast packets will also be received!
+static void enet_init_multicast_filt(struct enet_driver_state* st, bool promisc)
+{
+    if (promisc) {
+        enet_rcr_prom_wrf(st->d, 1);
+        return;
+    }
+
+    enet_rcr_prom_wrf(st->d, 0);
+    
+    // TODO Catching all multicast packets for now
+    enet_gaur_gaddr_wrf(st->d, 0xFFFFFFFF);
+    enet_galr_gaddr_wrf(st->d, 0xFFFFFFFF);
+    // TODO if we do not catch all multicast packet then do this:
+    // crc32 value of mac address
+    /*
+    unsigned int crc = 0xffffffff;
+    unsigned char hash;
+    unsigned int hash_high = 0, hash_low = 0;
+    for (int i = 0; i < 6; i++) {
+        unsigned char data = ((uint8_t*) &st->mac)[i];
+
+        for (int bit = 0; bit < 8; bit++, data >>= 1) {
+            crc = (crc >> 1) ^ (((crc ^ data) & 1) ? ENET_CRC32_POLY : 0);  
+        }
+        
+        hash = (crc >> (32 - ENET_HASH_BITS)) & 0x3f;  
+        
+        if (hash > 31) {
+            hash_high |= 1 << (hash - 32);
+        } else {
+            hash_low |= 1 << hash;
+        }
+    } 
+  
+    enet_gaur_gaddr_wrf(st->d, hash_high);
+    enet_galr_gaddr_wrf(st->d, hash_low);
+    */
+    // TODO if this is M5272 then set the hash table entries to 0 ...
+}
 
 static void enet_read_mac(struct enet_driver_state* st)
 {
@@ -98,6 +214,12 @@ static void enet_write_mac(struct enet_driver_state* st)
     enet_paur_paddr2_wrf(st->d, upper);
 }
 
+static void enet_activate_rx_ring(struct enet_driver_state* st)
+{
+    // bit is always set to 1 only when ring is empty then it is set to 0
+   enet_radr_radr_wrf(st->d, 0); 
+}
+
 static errval_t enet_rings_start(struct enet_driver_state* st) 
 {   
     // tell the card the start of the RX descriptor ring
@@ -117,6 +239,15 @@ static errval_t enet_rings_start(struct enet_driver_state* st)
 
     errval_t err = SYS_ERR_OK;
     return err;
+}
+
+static void enet_init_mii(struct enet_driver_state* st)
+{
+    // TODO check these vlaues: set by using register dump on linux
+    // set MII speed
+    enet_mscr_mii_speed_wrf(st->d, 1);
+    // set hold time 
+    enet_mscr_hold_time_wrf(st->d, 0);
 }
 
 static errval_t enet_rings_init(struct enet_driver_state* st)
@@ -180,14 +311,14 @@ static errval_t enet_restart(struct enet_driver_state* st)
     ENET_DEBUG("Reset RX/TX rings\n");
     err = enet_rings_init(st);
     if (err_is_fail(err)) {
-        ENET_DEBUG("Failed init of rings \n");
+        debug_printf("Failed init of rings \n");
         return err;
     }
 
     ENET_DEBUG("Restart RX/TX rings\n");
     err = enet_rings_start(st);
     if (err_is_fail(err)) {
-        ENET_DEBUG("Failed starting rings \n");
+        debug_printf("Failed starting rings \n");
         return err;
     }
 
@@ -220,6 +351,53 @@ static errval_t enet_restart(struct enet_driver_state* st)
     enet_opd_pause_dur_wrf(st->d, 0xFFF0);
     
     // TODO setup multicast filter line 1087
+#ifdef ENET_PROMISC
+    ENET_DEBUG("Setting multicast filter promiscous mode \n");
+    enet_init_multicast_filt(st, true);
+#else
+    ENET_DEBUG("Setting multicast filter NOT in promiscous mode \n");
+    enet_init_multicast_filt(st, false);
+#endif
+
+    // Enable enet store forward mode (ENET quirk)
+    enet_tfwr_strfwd_wrf(st->d, 1);
+
+    // TODO enable advanced descriptors
+    //enet_ecr_en1588_wrf(st->d, 1);
+    
+    enet_ecr_dbswp_wrf(st->d, 1);
+    enet_ecr_speed_wrf(st->d, 0);
+    enet_ecr_etheren_wrf(st->d, 1);
+
+
+    ENET_DEBUG("Activate RX ring \n");
+    enet_activate_rx_ring(st);
+
+    ENET_DEBUG("Set interrupts we want to handle \n");
+    // Set interrupts we want to handle
+    enet_eimr_mii_wrf(st->d, 1);
+    enet_eimr_txf_wrf(st->d, 1);
+    enet_eimr_rxf_wrf(st->d, 1); 
+    enet_eimr_txf1_wrf(st->d, 1);
+    enet_eimr_rxf1_wrf(st->d, 1);
+    enet_eimr_txf2_wrf(st->d, 1);
+    enet_eimr_rxf2_wrf(st->d, 1);
+
+    ENET_DEBUG("TODO: Enable interrupts\n");
+    // TODO enable interrupt coalesing
+    // TODO get/setup interrupt 
+    return SYS_ERR_OK;
+}
+
+static errval_t enet_open(struct enet_driver_state *st)
+{
+    errval_t err;
+    // TODO fec_enet_alloc_buffers? needed?
+    err = enet_restart(st);
+    if (err_is_fail(err)) {
+        // TODO cleanup
+        return err;
+    }
     return SYS_ERR_OK;
 }
 
@@ -282,8 +460,8 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     
     // TODO Alloc queue struts 
     ENET_DEBUG("Allocating TX/RX ring data structures \n");
-    st->rxq = calloc(1, sizeof(struct enet_tx_queue));
-    st->txq = calloc(1, sizeof(struct enet_tx_queue));
+    st->rxq = calloc(1, sizeof(struct enet_queue));
+    st->txq = calloc(1, sizeof(struct enet_queue));
     st->rxq->size = RX_RING_SIZE;
     st->txq->size = TX_RING_SIZE;
     assert(st->rxq);
@@ -359,8 +537,40 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     // restart NIC
     ENET_DEBUG("Restart NIC\n");
     err = enet_restart(st);
+    if (err_is_fail(err)) {
+        // TODO cleanup
+        return err;
+    }
+
+    ENET_DEBUG("Init MII bus\n");
+    enet_init_mii(st);
+
+    err = devq_init(&st->rxq->q, false);
+    if (err_is_fail(err)) {
+        debug_printf("enet devq_init error\n");
+        return err;
+    }
+
+    err = devq_init(&st->txq->q, false);
+    if (err_is_fail(err)) {
+        debug_printf("enet devq_init error\n");
+        return err;
+    }
+
+    st->rxq->q.f.reg = enet_register;
+    st->rxq->q.f.enq = enet_rx_enqueue;
+    st->rxq->q.f.deq = enet_rx_dequeue;
 
 
+    st->txq->q.f.reg = enet_register;
+    st->txq->q.f.enq = enet_tx_enqueue;
+    st->txq->q.f.deq = enet_tx_dequeue;
+
+    err = enet_open(st);
+    if (err_is_fail(err)) {
+        // TODO cleanup
+        return err;
+    }
 
     *dev = 0x00;
 
