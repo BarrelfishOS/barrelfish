@@ -12,6 +12,10 @@
 % mapf(msi_a, 100, nullMsg, 11, mem_write(110, 230))
 :- dynamic(mapf/5).        
 
+% Running on x86? irq_platform(x86) is true.
+% on arm? irq_platform(arm) is true.
+:- dynamic(irq_platform/1).        
+
 % The controller predicate describes an instance of a controller
 % See below for details.
 % controller(ControllerLabel, ControllerClass, InputRange, OutputRange)
@@ -186,8 +190,11 @@ index_ones(Index, [H | Tail]) :-
 %>> ARM
 % Controller constraints
 
-mapf_valid_class(gicv2, CtrlLabel, InPort, InMsg, OutPort, OutMsg) :-
-    OutMsg = InMsg.
+mapf_valid_class(gic_dist, CtrlLbl, InPort, InMsg, OutPort, OutMsg) :-
+    controller(CtrlLbl, _, InRange, OutRange),
+    get_min_range(InRange, MinIn),
+    OutMsg is InPort - MinIn.
+
 
 %>> X86
 % Controller constraints
@@ -429,7 +436,7 @@ print_route(Li) :-
 % TODO: Upper bound of CoreId shouldnt be hardcoded (here). 
 int_dest_port(Port) :-
     %corename(Port, _, _). % Does not work bc synchronization issues
-    Port :: [0 .. 1000],
+    Port :: [0 .. 999],
     labeling([Port]).
 
 % Returns a list of integers representing the int destinations
@@ -439,7 +446,11 @@ int_dest_port_list(Li) :-
 %>> X86
 % Returns true if this Msg is acceptable as being delivered to a destination
 int_dest_msg(Msg) :-
+    irq_platform(x86),
     Msg :: [32 .. 255].
+int_dest_msg(Msg) :-
+    irq_platform(arm),
+    Msg :: [32 .. 1019].
     
 
 % Scans all controller and sinkPortRange and returns the maximum used port number
@@ -451,7 +462,7 @@ max_used_port(OutMax) :-
     % Due to synchronization issues, we cant use the following two lines
     %findall(Ri, int_dest_port(Ri), MaxList1), 
     %append(MaxList1, MaxList2, MaxList),
-    append([1000], MaxList2, MaxList),
+    append([999], MaxList2, MaxList),
     ic:max(MaxList, OutMax).
     
 
@@ -493,6 +504,7 @@ x86_iommu_mode :-
 % It uses facts that are added by the acpi and pci discovery, hence
 % it must be run when these facts are added.
 add_x86_controllers :-
+    assert(irq_platform(x86)),
     % pic + iommu is not a valid combination...
     (x86_interrupt_model(apic) ; not(x86_iommu_mode)),
     int_dest_port_list(CpuPorts),
@@ -538,6 +550,19 @@ add_x86_controllers :-
     %    sort(GSIListT,GSIList),
     %    add_pcilnk_controller(GSIList, Name, _)
     %)).
+
+add_armv8_controllers :-
+    assert(irq_platform(arm)),
+    % the distributor routes SPIs in the range 32-1019
+    get_unused_range(987, DistInRange),
+    % Todo fix hardcoded CPU limit
+    get_max_range(DistInRange, DistInMax),
+    OutMin is DistInMax + 1,
+    OutMax is OutMin + 128,
+    DistOutRange = [OutMin .. OutMax],
+    get_unused_controller_label(dist, 0, Lbl),
+    assert_controller(Lbl, gic_dist, DistInRange, DistOutRange),
+    (for(S,OutMin,OutMax), for(D,0,128) do add_connection(S,D) ).
 
 
 

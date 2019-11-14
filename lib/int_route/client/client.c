@@ -114,6 +114,8 @@ static void irq_handler(void *arg)
     irqarg->uc.handler(irqarg->uc.arg);
 }
 
+#define DIST_OFFSET 1000
+
 errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
         struct waitset * ws, interrupt_handler_fn handler, void *handler_arg)
 {
@@ -127,7 +129,9 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
 
     /* allocate irq dest cap */
     struct capref irq_dest_cap;
-#ifdef __arm__
+    /* TODO: Following cases assume a specific irq number layout. 
+     * Replace these cases with a skb query */
+#if defined(__arm__) || defined(__ARM_ARCH_8A__)
     err = alloc_dest_irq_cap_arm(intsrc, irq_idx, &irq_dest_cap);
 #else
     err = alloc_dest_irq_cap(&irq_dest_cap);

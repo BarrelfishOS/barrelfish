@@ -1,8 +1,16 @@
+/**
+ * \file
+ * \brief Interrupt routing debug print
+ */
+
 /*
- * int_route_debug.h
+ * Copyright (c) 2016, 2019, ETH Zurich.
+ * All rights reserved.
  *
- *  Created on: Jul 5, 2016
- *      Author: luki
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstrasse 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #ifndef INT_ROUTE_INT_ROUTE_DEBUG_H_

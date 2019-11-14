@@ -11,10 +11,17 @@
 --------------------------------------------------------------------------
 
 [
-    build library { target = "pl390_dist_module",
+    build drivermodule { target = "pl390_dist_module",
                     flounderBindings = [ "int_route_controller" ],
                     cFiles = ["main.c"],
                     mackerelDevices = [ "pl390_gic_dist" ],
-                    architectures = ["armv7"]
+                    architectures = ["armv7", "armv8"]
+    },
+
+    build driverdomain {
+        target = "pl390_dist",
+        addModules = ["pl390_dist_module"], 
+        architectures = ["armv8"]
     }
+    
 ]

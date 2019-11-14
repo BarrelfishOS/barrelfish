@@ -1,10 +1,12 @@
 #include <armv8_imx8x.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/spawn_client.h>
 #include <skb/skb.h>
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_defs.h>
 #include "kaluga.h"
+#include <pci/pci.h>
 
 static errval_t armv8_startup_common_noacpi(void)
 {
@@ -47,6 +49,7 @@ static errval_t armv8_startup_common_noacpi(void)
     }
 
     KALUGA_DEBUG("Kaluga: wait for spawnd\n");
+    //TODO: Change this once we have support for multiple cores
     err = nameservice_blocking_lookup("spawn.0", NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "wait for spawnd");
@@ -91,7 +94,8 @@ static errval_t imx8x_get_device_cap(lpaddr_t address, size_t size, struct capre
 __attribute__((used))
 static errval_t start_gpio(char*name, lpaddr_t address)
 
-{   errval_t err;
+{
+    errval_t err;
     struct module_info *mi;
     mi = find_module("imx8x_gpio");
     if(mi == NULL){
@@ -136,12 +140,21 @@ static errval_t imx8x_serial_kernel(void)
     err = default_start_function_pure(0, mi,"serial_kernel {}", &arg);
     return err;
 } 
-//serial_lpuart
+
+/* IMX8X Reference Manual page 65 */
+#define UART0_INT 257
+#define UART1_INT 258
+#define UART2_INT 259
+#define UART3_INT 260
+#define DIST_OFFSET 1000  /* First interrupt index on the distributor */
+
 __attribute__((used))
-static errval_t start_serial_lpuart(lpaddr_t address)
+static errval_t start_serial_lpuart(lpaddr_t address, uint32_t irq)
 
 {   errval_t err;
     struct module_info *mi;
+    
+    // get module
     mi = find_module("serial_lpuart");
     if(mi == NULL){
         KALUGA_DEBUG("serial_lpuart not found, not starting");
@@ -150,28 +163,100 @@ static errval_t start_serial_lpuart(lpaddr_t address)
     struct driver_argument arg;
     init_driver_argument(&arg);
     arg.module_name = "serial_lpuart";
+
+    // get device frame
     struct capref device_frame;
     err = imx8x_get_device_cap(address, 0x00010000, &device_frame);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "get_device_cap");
     }
-    KALUGA_DEBUG("get_device_cap worked\n");
-    //transfer destination
+    KALUGA_DEBUG("got device frame for lpuart\n");
+
+
     struct capref cap = {
-            .cnode = (&arg)->argnode_ref,
+            .cnode = arg.argnode_ref,
             .slot = DRIVERKIT_ARGCN_SLOT_BAR0
     };
     err = cap_copy(cap, device_frame);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "get_device_cap");
     }
-    // Store capability in driver_argument: See add_mem_args in start_pci.c lines 197 and following
+
+    // get irq src for lpuart
+    struct capref irq_src;
+    err = slot_alloc(&irq_src);
+    assert(err_is_ok(err));
+
+    err = sys_debug_create_irq_src_cap(irq_src, irq + DIST_OFFSET, irq + DIST_OFFSET);
+    assert(err_is_ok(err));
+
+    struct capref irq_dst = {
+        .cnode = arg.argnode_ref,
+        .slot = PCIARG_SLOT_INT 
+    };
+    err = cap_copy(irq_dst, irq_src);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "cap_copy\n");
+        return err;
+    }
+    KALUGA_DEBUG("got irq src cap frame for lpuart\n");
+     
     err = default_start_function_pure(0, mi, "serial_lpuart {}", &arg);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "get_device_cap");
     }
     return err;
 } 
+
+static lpaddr_t platform_gic_distributor_base = 0x51a00000;
+//static lpaddr_t platform_gic_redistributor_base = 0x51b00000;
+
+static errval_t
+start_int_route_domains(void)
+{
+    errval_t err;
+    // Int route server
+    char *argv[] = {NULL};
+    err = spawn_program(0, "int_route", argv, NULL, 0, NULL); 
+    if(err_is_fail(err)){
+         DEBUG_ERR(err,"int_route start");
+         return err;
+    }
+
+    //Distributor driver
+    struct module_info *mi;
+    mi = find_module("pl390_dist");
+    if(mi == NULL){
+        KALUGA_DEBUG("pl390_dist not found, not starting\n");
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = "pl390_dist";
+    struct capref device_frame;
+
+    err = imx8x_get_device_cap(platform_gic_distributor_base, 0x1000, &device_frame);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    KALUGA_DEBUG("get_device_cap worked\n");
+    //transfer destination
+    struct capref cap = {
+            .cnode = arg.argnode_ref,
+            .slot = 0
+    };
+    err = cap_copy(cap, device_frame);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    err = default_start_function_pure(0, mi, "gic.dist {}", &arg);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    return err;
+
+   
+}
 
 errval_t imx8x_startup(void)
 {
@@ -180,6 +265,12 @@ errval_t imx8x_startup(void)
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "startup common");
     }
+
+    err = start_int_route_domains();
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "start int_route");
+    }
+
     err = start_gpio("imx8x.gpio1 {}", 0x5D090000);
     if(err_is_fail(err) && err_no(err) != KALUGA_ERR_MODULE_NOT_FOUND) {
         USER_PANIC_ERR(err, "gpio1 start");
@@ -189,7 +280,7 @@ errval_t imx8x_startup(void)
         USER_PANIC_ERR(err, "gpio2 start");
     }
 
-    err = start_serial_lpuart(0x5A090000);
+    err = start_serial_lpuart(0x5A090000, UART3_INT);
     if(err_is_fail(err) && err_no(err) != KALUGA_ERR_MODULE_NOT_FOUND) {
         USER_PANIC_ERR(err, "imx8x serial lpuart");
     }

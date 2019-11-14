@@ -402,6 +402,12 @@ static void get_irq_dest_cap(struct monitor_blocking_binding *b)
     }
 }
 
+#if defined(__ARM_ARCH_8A__)
+#define DISP_OFFSET 1000
+#else
+#define DISP_OFFSET 0
+#endif
+
 static void get_irq_dest_cap_arm(
         struct monitor_blocking_binding *b,
         struct capref irqsrc, int irq_idx)
@@ -416,15 +422,15 @@ static void get_irq_dest_cap_arm(
 
     if(irqsrc_cap.u.irqsrc.vec_start + irq_idx > irqsrc_cap.u.irqsrc.vec_end ||
             irq_idx < 0){
-        USER_PANIC("invalid irq_idx");
+        USER_PANIC("Invalid irq_idx");
     }
 
     struct capref dest_cap;
     slot_alloc(&dest_cap);
     err = invoke_irqtable_alloc_dest_cap(cap_irq, dest_cap,
-            irqsrc_cap.u.irqsrc.vec_start + irq_idx);
+            irqsrc_cap.u.irqsrc.vec_start + irq_idx - DISP_OFFSET);
     if(err_is_fail(err)){
-        DEBUG_ERR(err,"x");
+        printf("requested idx %d\n", irqsrc_cap.u.irqsrc.vec_start + irq_idx);
         USER_PANIC_ERR(err, "could not allocate dest cap!");
     }
 

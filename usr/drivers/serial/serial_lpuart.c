@@ -48,20 +48,29 @@ static void print_regvalues(struct serial_lpuart *spc)
 static void serial_poll(struct serial_lpuart *spc)
 {
     while (lpuart_stat_rdrf_rdf(&spc->uart)) {
-        char c = lpuart_rxdata_buf_rdf((&spc->uart));
+        char c = lpuart_rxdata_buf_rdf(&spc->uart);
         if (c)
             LPUART_DEBUG("Read char=%c\n", c);
         else
             LPUART_DEBUG("Read NULL char\n");
+
         serial_input(&spc->m, &c, 1);
-        uint8_t or = lpuart_stat_or_rdf(&spc->uart);
-        if (or == 1) {
-            LPUART_DEBUG("OR FLAG IS SET\n");
+
+        if (lpuart_stat_or_rdf(&spc->uart)) {
+            debug_printf("receive buffer overrun!\n");
             lpuart_stat_or_wrf(&spc->uart, 1);
         }
     }
 }
 
+static void serial_int(void *arg)
+{
+    LPUART_DEBUG("serial_int: enter\n");
+    serial_poll((struct serial_lpuart *)arg);
+}
+
+// For using deferred to poll the device.
+__attribute__((used))
 static void serial_poll_ev(void *arg)
 {
     serial_poll((struct serial_lpuart *)arg);
@@ -77,7 +86,8 @@ static void serial_poll_ev(void *arg)
 
 
 static void hw_init(struct serial_lpuart *spc)
-{  // Disable transceiver
+{  
+    // Disable transceiver
     lpuart_ctrl_t ctrl = lpuart_ctrl_rawrd(&spc->uart);
     ctrl = lpuart_ctrl_te_insert(ctrl, 0);
     ctrl = lpuart_ctrl_re_insert(ctrl, 0);
@@ -109,23 +119,9 @@ static void hw_init(struct serial_lpuart *spc)
     ctrl = lpuart_ctrl_re_insert(ctrl, 1);
     lpuart_ctrl_wr(&spc->uart, ctrl);
     print_regvalues(spc);
-    // ENABLE INTERRUPTS
-    /*
-    //transmit interrupt enable
-     lpuart_ctrl_tie_wrf(&spc->uart,1);
-    //Transmission Complete Interrupt Enable
-    lpuart_ctrl_tcie_wrf(&spc->uart,1);
-    //Receiver Interrupt Enable
+    
+    // Receive interrupt enable
     lpuart_ctrl_rie_wrf(&spc->uart,1);
-    //Overrun Interrupt Enable
-     lpuart_ctrl_orie_wrf(&spc->uart,1);
-     //noise error interrupt enable
-     lpuart_ctrl_neie_wrf(&spc->uart,1);
-     //framing error interrupt enable
-     lpuart_ctrl_feie_wrf(&spc->uart,1);
-     //Parity Error Interrupt Enable
-     lpuart_ctrl_peie_wrf(&spc->uart,1);
-     */
 }
 
 static void serial_putc(struct serial_lpuart *spc, char c)
@@ -146,34 +142,9 @@ static void serial_write(void *m, const char *c, size_t len)
     }
 }
 
-static errval_t serial_lpuart_init(struct serial_lpuart *spc, struct capref irq_src)
-{
-    debug_printf("Hello world from serial lpuart driver\n");
-
-    // errval_t err;
-
-    // if(capref_is_null(irq_src))
-    //     USER_PANIC("serial_kernel requires an irq cap");
-
-    spc->m.output = serial_write;
-    spc->m.output_arg = spc;
-
-    // Register interrupt handler
-    // err = int_route_client_route_and_connect(irq_src, 0,
-    //        get_default_waitset(), serial_interrupt, spc);
-    // if (err_is_fail(err)) {
-    //    USER_PANIC_ERR(err, "interrupt setup failed.");
-    // }
-
-    hw_init(spc);
-
-    // offer service now we're up
-    start_service(&spc->m);
-    return SYS_ERR_OK;
-}
-
 static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 {
+    LPUART_DEBUG("lpuart driver init\n");
     errval_t err;
     struct serial_lpuart *spc = malloc(sizeof(struct serial_lpuart));
     init_serial_common(&spc->m);
@@ -182,19 +153,32 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     struct capref devframe_cap = { .slot = DRIVERKIT_ARGCN_SLOT_BAR0,
                                    .cnode = bfi->argcn };
     err = map_device_cap(devframe_cap, &vbase);
-    debug_printf("vbase = %p\n", vbase);
     lpuart_initialize(&spc->uart, (mackerel_addr_t)vbase);
 
-    /*  struct capref irq_src;
+    struct capref irq_src;
     irq_src.cnode = bfi->argcn;
-    irq_src.slot = PCIARG_SLOT_INT; */
-    err = serial_lpuart_init(spc, NULL_CAP);
-    assert(err_is_ok(err));
+    irq_src.slot = PCIARG_SLOT_INT; 
+
+    spc->m.output = serial_write;
+    spc->m.output_arg = spc;
+
+    // Register interrupt handler
+    err = int_route_client_route_and_connect(irq_src, 0,
+           get_default_waitset(), serial_int, spc);
+    if (err_is_fail(err)) {
+       USER_PANIC_ERR(err, "interrupt setup failed.");
+    }
+    LPUART_DEBUG("interrupt setup complete\n");
+
+    hw_init(spc);
+
+    // offer service now we're up
+    start_service(&spc->m);
     bfi->dstate = spc;
 
-    SERIAL_DEBUG("lpuart Serial driver initialized.\n");
-    debug_printf("installing handler, spc=%p\n", spc);
-    serial_poll_ev(spc);
+    LPUART_DEBUG("lpuart Serial driver initialized.\n");
+    //For using deferred events
+    //serial_poll_ev(spc);
     return SYS_ERR_OK;
 }
 
