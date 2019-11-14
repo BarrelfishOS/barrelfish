@@ -225,7 +225,6 @@ void nosave_handle_irq(void)
         wakeup_check(systime_now());
         dispatch(schedule());
     } else {
-        printf("%s: %d\n", __func__, irq);
         platform_acknowledge_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
