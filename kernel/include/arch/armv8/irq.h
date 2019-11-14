@@ -11,19 +11,22 @@
 #define KERNEL_ARCH_ARM_IRQ_H
 
 /*
- * Interrupt controller (Cortex-A9 MPU INTC) with up to 128 interrupt requests
+ * INTIDs from exceptions to and including SPIs
  */
-#define NUM_INTR                (128+32)
+#define NUM_INTR                (1024)
 
 /// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
 #define NDISPATCH               (NUM_INTR)
 
 struct capability;
 struct idc_recv_msg;
-//struct sysret irq_table_set(struct capability *to, struct idc_recv_msg *msg);
-//struct sysret irq_table_delete(struct capability *to, struct idc_recv_msg *msg);
+
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint);
 errval_t irq_table_delete(unsigned int nidt);
+errval_t irq_connect(struct capability *irq_dest, capaddr_t endpoint);
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn,
+        capaddr_t out_cap_addr, int vec_hint);
+
 struct kcb;
 errval_t irq_table_notify_domains(struct kcb *kcb);
 void send_user_interrupt(int irq);

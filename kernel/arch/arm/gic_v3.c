@@ -63,7 +63,7 @@ void gic_init(void)
         itlines = 1020;
     printk(LOG_NOTE, "gic: #INTIDs supported: %" PRIu32 "\n", itlines);
 
-    // Put all interrupts into Group 1 and enable them
+    // Put all interrupts into Group 1 and disable them
     #define MASK_32     0xffffffff
     for (int i = 0; i * 32 < itlines; i++) {
         // Clear

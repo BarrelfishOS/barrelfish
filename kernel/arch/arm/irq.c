@@ -15,7 +15,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
 
-#include <arch/armv7/irq.h>
+#include <irq.h>
 
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
@@ -99,7 +99,7 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_level, capaddr_t dcn,
         return SYS_ERR_IRQ_INVALID;
     }
     if(vec_hint >= NDISPATCH){
-        printk(LOG_WARN, "irq: vec_hint invalid\n", vec_hint);
+        printk(LOG_WARN, "irq: vec_hint (%d) invalid\n", vec_hint);
         return SYS_ERR_IRQ_INVALID;
     }
 
