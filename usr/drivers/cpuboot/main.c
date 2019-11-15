@@ -74,7 +74,8 @@ static void initialize(void)
     vfs_init();
     bench_init();
 
-#if defined(__aarch64__) || (defined(__x86__) && !defined(__k1om__))
+#if (defined(__x86__) && !defined(__k1om__))
+    // ARMv8 is doing this only on demand (on the parking boot protocol)
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "connect to acpi failed.");

@@ -6,7 +6,7 @@
 struct int_startup_argument;
 
 errval_t watch_for_cores(void);
-errval_t wait_for_all_spawnds(void);
+errval_t wait_for_all_spawnds(int use_acpi);
 errval_t start_boot_driver(coreid_t where,
                            struct module_info* mi,
                            char* record, struct driver_argument * int_arg);

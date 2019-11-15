@@ -189,7 +189,7 @@ errval_t arch_startup(char * add_device_db_file)
 
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
-    err = wait_for_all_spawnds();
+    err = wait_for_all_spawnds(1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }
@@ -241,7 +241,7 @@ errval_t arch_startup(char * add_device_db_file)
         }
     }
 
-    err = wait_for_all_spawnds();
+    err = wait_for_all_spawnds(1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }

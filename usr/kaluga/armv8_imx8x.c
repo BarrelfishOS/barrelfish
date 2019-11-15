@@ -8,6 +8,10 @@
 #include "kaluga.h"
 #include <pci/pci.h>
 
+// For booting cores
+#include <hw_records_arch.h>
+#include <barrelfish/cpu_arch.h>
+
 static errval_t armv8_startup_common_noacpi(void)
 {
     errval_t err = SYS_ERR_OK;
@@ -27,11 +31,9 @@ static errval_t armv8_startup_common_noacpi(void)
         USER_PANIC_ERR(err, "Device DB not loaded.");
     }
 
-    KALUGA_DEBUG("Kaluga: watch_for_cores\n");
-
-    err = watch_for_cores();
+    err = skb_execute("[plat_imx8x].");
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching cores.");
+        USER_PANIC_ERR(err, "Plat imx8x not loaded.");
     }
 
     KALUGA_DEBUG("Kaluga: pci_root_bridge\n");
@@ -48,14 +50,6 @@ static errval_t armv8_startup_common_noacpi(void)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
-    KALUGA_DEBUG("Kaluga: wait for spawnd\n");
-    //TODO: Change this once we have support for multiple cores
-    err = nameservice_blocking_lookup("spawn.0", NULL);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "wait for spawnd");
-    }
-    err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
     return SYS_ERR_OK;
 }
 
@@ -258,12 +252,56 @@ start_int_route_domains(void)
    
 }
 
+extern size_t cpu_count;
+
+static errval_t start_cores(void){
+    /* We can't discover cores an ARMv8 embedded platforms. This 
+     * works similar to armv7 startup. */
+    errval_t err;
+    KALUGA_DEBUG("Kaluga: start_cores\n");
+
+    err = skb_execute_query("findall(mpid(X), arm_mpid(X), Li), write(Li).");
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Finding cores.");
+    }
+    int id;
+    struct list_parser_status skb_list;
+    skb_read_list_init(&skb_list);
+    size_t skb_cpus = 0;
+    while(skb_read_list(&skb_list, "mpid(%d)", &id)) {
+        skb_cpus++;
+        err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT, id, id,
+                id, id, CURRENT_CPU_TYPE, id, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, id);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "oct_set core");
+        }
+    }
+    cpu_count = skb_cpus;
+
+    err = watch_for_cores();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching cores.");
+    }
+
+    err = wait_for_all_spawnds(0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
+    }
+    return err;
+}
+
 errval_t imx8x_startup(void)
 {
     errval_t err;
     err = armv8_startup_common_noacpi();
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "startup common");
+    }
+
+    err = start_cores();
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "start cores");
     }
 
     err = start_int_route_domains();

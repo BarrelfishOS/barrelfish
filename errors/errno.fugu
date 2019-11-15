@@ -1048,6 +1048,7 @@ errors kaluga  KALUGA_ERR_ {
     failure DRIVER_ALREADY_STARTED "Driver for this type of device is already running.",
     failure DRIVER_NOT_AUTO        "Driver not declared as auto in menu.lst.",
     failure WAITING_FOR_ACPI       "Unable to wait for ACPI",
+    failure WATCHING_FOR_SPAWNDS   "Unable to watch for spawnds",
     failure QUERY_LOCAL_APIC       "Unable to query local APIC.",
     failure UNKNOWN_PLATFORM       "Unable to initialize platform",
     failure CAP_ACQUIRE            "Unable to acquire capabilities for driver",

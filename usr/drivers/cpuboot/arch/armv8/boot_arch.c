@@ -575,6 +575,10 @@ static errval_t get_boot_protocol(coreid_t core_id, uint32_t *parking_version,
                   parked_address);
 
     if (*parking_version) {
+        err = connect_to_acpi();
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "connect to acpi failed.");
+        }
         struct acpi_binding* acl = get_acpi_binding();
 
         err = slot_alloc(&parking_page->cap);

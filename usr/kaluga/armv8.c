@@ -69,7 +69,7 @@ static errval_t armv8_startup_common(void)
 
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
-    err = wait_for_all_spawnds();
+    err = wait_for_all_spawnds(1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }

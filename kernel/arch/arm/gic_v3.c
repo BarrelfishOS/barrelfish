@@ -47,8 +47,6 @@ void gic_init(void)
     lvaddr_t gic_dist = local_phys_to_mem(platform_gic_distributor_base);
     gic_v3_dist_initialize(&gic_v3_dist_dev, (char *)gic_dist);
 
-    printf("%s: dist:%lx\n", __func__, gic_dist);
-
     printk(LOG_NOTE, "GICD IIDR "
             "implementer=0x%x, revision=0x%x, variant=0x%x,prodid=0x%x\n",
             gic_v3_dist_GICD_IIDR_Implementer_rdf(&gic_v3_dist_dev),

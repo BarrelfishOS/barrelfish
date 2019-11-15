@@ -54,13 +54,16 @@ static void cpu_change_event(octopus_mode_t mode, const char* record, void* stat
 
         /* find the corectrl module for the given cpu type */
         struct module_info* mi = find_corectrl_for_cpu_type((enum cpu_type)type);
-        if (mi != NULL) {
-            err = mi->start_function(0, mi, (CONST_CAST)record, NULL);
-            if (err_is_fail(err)) {
-                printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n",
-                       barrelfish_id);
-                goto out;
-            }
+        if(mi == NULL){
+            debug_printf("corectrl module not found!\n");
+            err = KALUGA_ERR_MODULE_NOT_FOUND;
+            goto out;
+        }
+        err = mi->start_function(0, mi, (CONST_CAST)record, NULL);
+        if (err_is_fail(err)) {
+            debug_printf("Boot driver not found. Do not boot discovered CPU %"
+                   PRIu64".\n", barrelfish_id);
+            goto out;
         }
     }
     if (mode & OCT_ON_DEL) {
@@ -161,7 +164,20 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         argv[argc] = barrelfish_id_s;
         argc += 1;
         // Copy kernel args over to new core
-        struct module_info* cpu_module = find_module("cpu");
+        char * cpu_binary = "cpu";
+
+        // Check if we get a cpu binary from the skb
+        err = skb_execute_query("cpu_driver(X),write(X).");
+        if(err_is_ok(err)){
+            cpu_binary = rindex(skb_get_output(), '/');
+            if(cpu_binary) cpu_binary++;
+        }
+
+        struct module_info* cpu_module = find_module(cpu_binary);
+        if(cpu_module == NULL){
+            debug_printf("Module %s not found\n", cpu_binary);
+            return KALUGA_ERR_MODULE_NOT_FOUND;
+        }
         if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
             KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s and barrelfish_id_s=%s\n",
                          __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
@@ -218,6 +234,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     // cap in octopus, and delete it when the matching spawnd is up
     char spawnd[32];
     snprintf(spawnd, 32, "spawn.%s", barrelfish_id_s);
+    KALUGA_DEBUG("Waiting until %s is up!\n", spawnd);
     struct inheritcn_del_st *tstate = calloc(1, sizeof(*tstate));
     tstate->capref = inheritcn_cap;
     tstate->coreid = barrelfish_id;
@@ -252,7 +269,7 @@ static void spawnd_change_event(octopus_mode_t mode, const char* record,
 
 extern size_t cpu_count;
 
-errval_t wait_for_all_spawnds(void)
+errval_t wait_for_all_spawnds(int use_acpi)
 {
     // Note: The whole wait for all_spawnds_up thing is a hack.
     // Our overall design goal is a system where cores
@@ -263,13 +280,13 @@ errval_t wait_for_all_spawnds(void)
     // otherwise. Therefore we need to fix those parts first.
     errval_t err;
     char* record = NULL;
-#if !defined(__ARM_ARCH_7A__)
-    KALUGA_DEBUG("Waiting for acpi");
-    err = oct_wait_for(&record, "acpi { iref: _ }");
-    if (err_is_fail(err)) {
-        return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
+    if(use_acpi){
+        KALUGA_DEBUG("Waiting for acpi");
+        err = oct_wait_for(&record, "acpi { iref: _ }");
+        if (err_is_fail(err)) {
+            return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
+        }
     }
-#endif
 
     // No we should be able to get core count
     // of all cores to estimate the amount of
@@ -293,7 +310,7 @@ errval_t wait_for_all_spawnds(void)
     octopus_trigger_id_t tid;
     err = oct_trigger_existing_and_watch(spawnds, spawnd_change_event, (void*)count, &tid);
     if (err_is_fail(err)) {
-        return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
+        return err_push(err, KALUGA_ERR_WATCHING_FOR_SPAWNDS);
     }
 
     return oct_wait_for(&record, "all_spawnds_up { iref: 0 }");
