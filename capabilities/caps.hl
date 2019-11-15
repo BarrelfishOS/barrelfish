@@ -32,7 +32,7 @@ define objsize_vnode 4096; /* BASE_PAGE_SIZE */
 define objsize_vnode_arm_l1 16384;
 define objsize_vnode_arm_l2 1024;
 /* size of a kernel control block */
-define objsize_kcb 65536; /* OBJSIZE_KCB */
+define objsize_kcb 131072; /* 128*1024, OBJSIZE_KCB */
 /* size of a mapping cap:
  * if mappings are zero-sized they mess up range queries */
 define objsize_mapping 1;

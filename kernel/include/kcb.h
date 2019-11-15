@@ -17,6 +17,7 @@
 
 #include <kernel.h>
 #include <capabilities.h>
+#include <barrelfish_kpi/capbits.h>
 #include <irq.h>
 #include <mdb/mdb_tree.h>
 
@@ -74,6 +75,8 @@ struct kcb {
     struct RAM pending_ram[4];
     // TODO: maybe add a shared part which can replace struct core_data?
 };
+
+STATIC_ASSERT(sizeof(struct kcb) <= OBJSIZE_KCB, "struct kcb too big");
 
 ///< The kernel control block
 extern struct kcb *kcb_current;
