@@ -430,7 +430,7 @@ static void get_irq_dest_cap_arm(
     err = invoke_irqtable_alloc_dest_cap(cap_irq, dest_cap,
             irqsrc_cap.u.irqsrc.vec_start + irq_idx - DISP_OFFSET);
     if(err_is_fail(err)){
-        printf("requested idx %d\n", irqsrc_cap.u.irqsrc.vec_start + irq_idx);
+        //printf("requested idx %"PRIu64"\n", irqsrc_cap.u.irqsrc.vec_start + irq_idx);
         USER_PANIC_ERR(err, "could not allocate dest cap!");
     }
 
