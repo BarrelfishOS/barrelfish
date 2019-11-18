@@ -23,7 +23,17 @@
 
 #define ENET_RX_EMPTY ((ushort) 0x8000)
 #define ENET_SC_WRAP ((ushort)0x2000)
-
+#define ENET_Rx_intr ((ushort)0x1000)
+#define ENET_RX_LAST ((ushort) 0x0800)
+#define ENET_RX_FIRST ((ushort) 0x0400)
+#define ENET_RX_MISS ((ushort) 0x0100)
+#define ENET_RX_LG ((ushort) 0x0020)
+#define ENET_RX_NO ((ushort) 0x0010)
+#define ENET_RX_SH ((ushort) 0x0008)
+#define ENET_RX_CR ((ushort) 0x0004)
+#define ENET_RX_OV ((ushort) 0x0002)
+#define ENET_RX_CL ((ushort) 0x0001)
+#define ENET_RX_STATS ((ushort) 0x013f)
 
 struct region_entry {
     uint32_t rid;
