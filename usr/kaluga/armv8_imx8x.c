@@ -270,7 +270,7 @@ static errval_t start_cores(void){
     size_t skb_cpus = 0;
     while(skb_read_list(&skb_list, "mpid(%d)", &id)) {
         skb_cpus++;
-        err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT, id, id,
+        err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT, id, 1 /*enabled*/,
                 id, id, CURRENT_CPU_TYPE, id, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, id);
         if(err_is_fail(err)){

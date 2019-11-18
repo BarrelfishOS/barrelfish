@@ -21,8 +21,8 @@ entry_symbol(armBootParking, "boot_entry_parking").
 % Core boot information
 arm_mpid(0).
 arm_mpid(1).
-%arm_mpid(2).
-%arm_mpid(3).
+arm_mpid(2).
+arm_mpid(3).
 boot_driver_entry(_, armBootPSCI).
 psci_use_hvc(0).
 
