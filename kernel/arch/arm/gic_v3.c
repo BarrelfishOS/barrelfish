@@ -128,10 +128,8 @@ void gic_cpu_interface_enable(void)
 // second socket of ThunderX hack
     if (my_core_id >= 48) {
         gic_v3_redist_initialize(&gic_v3_redist_dev, (char *)gic_redist + 0x100000000000 + 0x20000 * (my_core_id - 48));
-        printf("%s: redist:%lx\n", __func__, (char *)gic_redist + 0x100000000000 + 0x20000 * (my_core_id - 48));
     } else {
         gic_v3_redist_initialize(&gic_v3_redist_dev, (char *)gic_redist + 0x20000 * my_core_id);
-        printf("%s: redist:%lx\n", __func__, (char *)gic_redist + 0x20000 * my_core_id);
     }
 
     // Linux does:
@@ -145,7 +143,6 @@ void gic_cpu_interface_enable(void)
 
     gic_v3_redist_GICR_TYPER_t gicr_typer;
     gicr_typer = gic_v3_redist_GICR_TYPER_rd(&gic_v3_redist_dev);
-    printf("%s: GICR_TYPER: affinity:%x  cpu_no:%x\n", __func__, gic_v3_redist_GICR_TYPER_Affinity_Value_extract(gicr_typer), gic_v3_redist_GICR_TYPER_Processor_Number_extract(gicr_typer));
 
     gic_v3_redist_GICR_ICACTIVER0_rawwr(&gic_v3_redist_dev, MASK_32);
     //Disable PPIs

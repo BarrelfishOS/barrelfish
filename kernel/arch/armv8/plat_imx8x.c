@@ -106,7 +106,7 @@ size_t platform_get_ram_size(void)
  */
 errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
-    printf("Invoking PSCI on: cpu=0x%lx, entry=0x%lx, context=0x%lx\n", target, gen_entry, context);
+    printk(LOG_NOTE, "Invoking PSCI on: cpu=0x%lx, entry=0x%lx, context=0x%lx\n", target, gen_entry, context);
     struct armv8_core_data *cd = (struct armv8_core_data *)local_phys_to_mem(context);
     cd->page_table_root = armv8_TTBR1_EL1_rd(NULL);
     cd->cpu_driver_globals_pointer = (uintptr_t)global;

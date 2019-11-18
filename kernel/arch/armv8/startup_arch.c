@@ -552,8 +552,6 @@ static struct dcb *spawn_init_common(const char *name,
     disp_aarch64->enabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_I_MASK;
     sysreg_write_tpidrro_el0((uint64_t)disp->udisp);
 
-    dump_dispatcher(disp);
-
     return init_dcb;
 }
 

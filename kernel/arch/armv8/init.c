@@ -33,6 +33,7 @@
 #include <arch/arm/platform.h>
 #include <systime.h>
 #include <coreboot.h>
+#include <dev/armv8_dev.h>
 
 static struct global global_temp;
 
@@ -131,10 +132,15 @@ arch_init(struct armv8_core_data *core_data) {
     kernel_stack = local_phys_to_mem(core_data->cpu_driver_stack);
     kernel_stack_top = local_phys_to_mem(core_data->cpu_driver_stack_limit);
 
+    uint8_t mpidr_aff0 = armv8_MPIDR_EL1_Aff0_rdf(NULL);
+    uint8_t mpidr_aff1 = armv8_MPIDR_EL1_Aff1_rdf(NULL);
+    uint8_t mpidr_aff2 = armv8_MPIDR_EL1_Aff2_rdf(NULL);
+    uint8_t mpidr_aff3 = armv8_MPIDR_EL1_Aff3_rdf(NULL);
+
     switch (armv8_glbl_core_data->boot_magic) {
         case ARMV8_BOOTMAGIC_BSP:
             assert(my_core_id == 0);
-            MSG("Barrelfish CPU driver starting on ARMv8 (BSP)\n");
+            printf("Barrelfish CPU driver starting on ARMv8 (BSP)\n");
 
             struct multiboot_info *multiboot = (struct multiboot_info *)
                 local_phys_to_mem(armv8_glbl_core_data->multiboot_image.base);
@@ -149,7 +155,9 @@ arch_init(struct armv8_core_data *core_data) {
 
             global = (struct global *)core_data->cpu_driver_globals_pointer;
 
-            MSG("Barrelfish CPU driver starting on ARMv8 (APP) \n");
+            printf("Barrelfish CPU driver starting on ARMv8 (APP) "
+                    "mpid=%"PRIu8":%"PRIu8":%"PRIu8":%"PRIu8"\n",
+                    mpidr_aff3, mpidr_aff2, mpidr_aff1, mpidr_aff0);
 
             break;
         default: {
