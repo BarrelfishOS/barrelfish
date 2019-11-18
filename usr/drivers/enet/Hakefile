@@ -16,7 +16,7 @@
   -- library, the only difference is in how this is linked with the domain
   build drivermodule {
     target = "enet_module",
-    addLibraries = [ "driverkit", "driverkit_iommu", "devif_internal"],
+    addLibraries = [ "driverkit", "driverkit_iommu", "devif_internal", "devif"],
     mackerelDevices = [ "enet" ],
     cFiles = [ "enet_module.c"]
   },

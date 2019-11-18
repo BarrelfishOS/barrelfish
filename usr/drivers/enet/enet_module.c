@@ -18,6 +18,7 @@
 
 #include <devif/queue_interface_backend.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
 #include <dev/enet_dev.h>
@@ -93,8 +94,31 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
                                 genoffset_t* valid_length,
                                 uint64_t* flags)
 {
-    //struct enet_queue* q = (struct enet_queue*) que;      
-    //enet_bufdesc_t desc = q->ring[q->head];
+    struct enet_queue* q = (struct enet_queue*) que;      
+    enet_bufdesc_t desc = q->ring[q->head];
+    struct devq_buf buf = q->ring_bufs[q->head];
+
+    uint16_t status = enet_bufdesc_sc_extract(desc);
+    ENET_DEBUG("SC %lx \n", enet_bufdesc_sc_extract(desc));
+    if (!(status & ENET_RX_EMPTY)) {
+        // TODO error handling!
+        *valid_length = enet_bufdesc_len_extract(desc);
+        ENET_DEBUG("Received Packet %lu \n", *valid_length);
+        *offset = buf.offset;
+        *valid_data = 0;
+        *rid = buf.rid;
+        *flags = buf.flags;
+    } else {
+        return DEVQ_ERR_QUEUE_EMPTY;
+    }
+    status &= ~ENET_RX_STATS;
+    status |= ENET_RX_EMPTY;
+    // TODO this might already had back ownership!! 
+    
+    enet_bufdesc_sc_insert(desc, status);
+    
+    q->head = q->head & (q->size -1);
+
     return  SYS_ERR_OK;
 }
 
@@ -148,9 +172,11 @@ static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
         enet_bufdesc_sc_insert(desc, ENET_RX_EMPTY);
     }
 
+    ENET_DEBUG("enqueue offset=%lx length=%zu\n", offset, length);
     q->tail = (q->tail + 1) & (q->size -1);
     return SYS_ERR_OK;
 }
+
 // bool promiscous for promiscous mode. 
 // This will also set it so that all multicast packets will also be received!
 static void enet_init_multicast_filt(struct enet_driver_state* st, bool promisc)
@@ -572,6 +598,39 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         return err;
     }
 
+    struct capref mem;
+    err = frame_alloc(&mem, 512*2048, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    regionid_t rid;
+    err = devq_register((struct devq*) st->rxq, mem, &rid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    
+    for (int i = 0; i < 512; i++) {
+        err = devq_enqueue((struct devq*) st->rxq, rid, i*(2048), 2048,
+                            0, 2048, 0);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    struct devq_buf buf;
+    while(true) {
+        err = devq_dequeue((struct devq*) st->rxq, &buf.rid, &buf.offset,
+                           &buf.length, &buf.valid_data, &buf.valid_length,
+                           &buf.flags);
+        if (err_is_ok(err)) {
+            
+        } else {
+
+        }
+        barrelfish_usleep(1000*1000);
+    }
     *dev = 0x00;
 
     return SYS_ERR_OK;
