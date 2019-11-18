@@ -74,8 +74,8 @@ let
     jobs "armv7"  = [
          testJob "armv7-qemu-zynq7" "Memtest on qemu-zynq7" $
             scalebench ["memtest"] ["qemu_armv7_zynq7"],
-         testJob "armv7-qemu" "Memtest on qemu" $
-            scalebench ["memtest"] ["qemu_armv7"],
+         testJob "armv7-qemu" "Multicore Memtest on 4 core qemu" $
+            scalebench ["memtest_multicore"] ["qemu_armv7_c4"],
          testJob "armv7-gem5" "Gem5 simulator" $
             scalebench ["memtest"] ["armv7_gem5"],
          testJob "armv7-fvp" "FVP simulator" $

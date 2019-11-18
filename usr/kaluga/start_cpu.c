@@ -61,8 +61,9 @@ static void cpu_change_event(octopus_mode_t mode, const char* record, void* stat
         }
         err = mi->start_function(0, mi, (CONST_CAST)record, NULL);
         if (err_is_fail(err)) {
-            debug_printf("Boot driver not found. Do not boot discovered CPU %"
-                   PRIu64".\n", barrelfish_id);
+            DEBUG_ERR(err, "corectrl start");
+            debug_printf("Not booting discovered CPU %"PRIu64".\n",
+                    barrelfish_id);
             goto out;
         }
     }
@@ -174,10 +175,8 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         }
 
         struct module_info* cpu_module = find_module(cpu_binary);
-        if(cpu_module == NULL){
-            debug_printf("Module %s not found\n", cpu_binary);
-            return KALUGA_ERR_MODULE_NOT_FOUND;
-        }
+        // ARMv7 doesn't need a cpu_module, hence cpu_module == NULL is acceptable
+        // here.
         if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
             KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s and barrelfish_id_s=%s\n",
                          __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
