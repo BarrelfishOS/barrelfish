@@ -63,6 +63,8 @@ let
              scalebench ["memtest"] ["qemu_armv8_4"],
          testJob "armv8-hw-quick" "Memtest on hw" $
              scalebench ["memtest"] ["armv8_fvp_a57x1"],
+         testJob "armv8-hw-colibri" "Memtest on local colibri board" $
+             scalebench ["memtest_multicore"] ["colibri_local"],
          testJob "armv8-hw-full" "Full set hw" $
              scalebench armv8_full_tests ["gorgonzola","roquefort"],
          testJob "armv8-known-to-fail" "Known-to-fail" $

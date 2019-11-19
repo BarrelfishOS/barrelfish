@@ -43,6 +43,10 @@ class ColibriMachine(ARMMachineBase):
         m.add_module("proc_mgmt", ["boot"])
         m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
+        m.add_module("corectrl", ["auto"])
+        m.add_module("serial_lpuart", ["auto"])
+        m.add_module("pl390_dist", ["auto"])
+        m.add_module("int_route", ["auto"])
         return m
 
     def get_boot_driver(self):
