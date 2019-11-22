@@ -345,6 +345,25 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     } else {
         fault_type = PAGEFLT_READ;
     }
+#elif defined(__ARM_ARCH_8A__)
+    const uintptr_t EC_IABT            = 0x20;
+    const uintptr_t EC_DABT            = 0x24;
+    const uintptr_t ISS_WRITE_NOT_READ = (1 << 6);
+
+    uintptr_t ec = error >> 26;
+
+    if (ec == EC_IABT) {
+        fault_type = PAGEFLT_EXEC;
+    }
+    else if ((ec == EC_DABT) && (error & ISS_WRITE_NOT_READ)) {
+        fault_type = PAGEFLT_WRITE;
+    }
+    else if (ec == EC_DABT) {
+        fault_type = PAGEFLT_READ;
+    }
+    else {
+        fault_type = PAGEFLT_NULL;
+    }
 #else
     assert_print("Warning: don't know how to determine fault type on this arch!\n");
     fault_type = PAGEFLT_NULL;

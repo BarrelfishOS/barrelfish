@@ -38,7 +38,7 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
 
-    printk(LOG_WARN, "user page fault%s in '%.*s': addr %"PRIxLVADDR
+    printk(LOG_DEBUG, "user page fault%s in '%.*s': addr %"PRIxLVADDR
                       " IP %"PRIxPTR"\n",
            disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address, saved_pc);
@@ -78,7 +78,7 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 
         resume_area->named.x0   = disp_gen->udisp;
         resume_area->named.x1   = fault_address;
-        resume_area->named.x2   = 0;
+        resume_area->named.x2   = armv8_ESR_EL1_rd(NULL);
         resume_area->named.x3   = saved_pc;
         /* Why does the kernel do this? */
         resume_area->named.x10  = disp->got_base;
@@ -89,8 +89,6 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 
         // Upcall user to save area
         disp->d.disabled = true;
-		printk(LOG_WARN, "page fault at %p calling handler %p\n",
-               fault_address, handler);
     }
 }
 
