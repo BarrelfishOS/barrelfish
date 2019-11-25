@@ -228,8 +228,10 @@ void *create_multiboot_info(struct menu_lst *menu,
             (struct multiboot_tag_string *) cursor;
         bootcmd->type = MULTIBOOT_TAG_TYPE_CMDLINE;
         bootcmd->size = ALIGN(sizeof(struct multiboot_tag_string)
-                              + strlen(menu->kernel.args) + 1);
-        strcpy(bootcmd->string, menu->kernel.args);
+                             + strlen(menu->kernel.path) +
+                             strlen(menu->kernel.args) + 2);
+        sprintf(bootcmd->string, "%s %s", menu->kernel.path,
+                menu->kernel.args);
         cursor += bootcmd->size;
     }
 
