@@ -127,7 +127,7 @@ void platform_notify_bsp(lpaddr_t *mailbox)
  */
 size_t platform_get_core_count(void)
 {
-    return 0;
+    return 4;
 }
 
 /*
