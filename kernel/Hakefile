@@ -663,6 +663,8 @@ let
         "armv8",
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
+        "gic_v3_dist",
+        "gic_v3_redist",
         "rpi3_miniuart"
     ],
     addLibraries = [
@@ -764,6 +766,8 @@ let
         "armv8",
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
+        "gic_v3_dist",
+        "gic_v3_redist",
         "lpuart"
     ],
     addLibraries = [
