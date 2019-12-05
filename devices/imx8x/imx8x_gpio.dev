@@ -1,0 +1,391 @@
+/*
+ * Copyright (c) 2009, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * lpuart.dev
+ *
+ * DESCRIPTION: iMX8X GPIO
+ *
+ * This is derived from:
+ *
+ * i.MX 8DualXPlus Appliacations Processor Reference Manual, revision D, NXP
+ * Pages 7950 - 7968
+ * (IMX8DQXPRM.pdf)
+ *
+ */
+
+device imx8x_gpio msbfirst (addr base) "IMX8X GPIO" {
+
+	constants direction "GPIO directon" {
+		input  = 0b0 "GPIO is configured as input.";
+		output = 0b1 "GPIO is configured as output.";
+	};
+
+	constants ic "Interrupt condition" {
+		ll = 0b00 "Low-level sensitive";
+		hl = 0b01 "High-level sensitive";
+		re = 0b10 "Rising-edge sensitive";
+		fe = 0b11 "Falling-edge sensitive";
+	};
+
+    register DR rw addr(base, 0x0) "GPIO Data Register" {
+		pin31 1 "Pin 31 data";
+		pin30 1 "Pin 30 data";
+		pin29 1 "Pin 29 data";
+		pin28 1 "Pin 28 data";
+		pin27 1 "Pin 27 data";
+		pin26 1 "Pin 26 data";
+		pin25 1 "Pin 25 data";
+		pin24 1 "Pin 24 data";
+		pin23 1 "Pin 23 data";
+		pin22 1 "Pin 22 data";
+		pin21 1 "Pin 21 data";
+		pin20 1 "Pin 20 data";
+		pin19 1 "Pin 19 data";
+		pin18 1 "Pin 18 data";
+		pin17 1 "Pin 17 data";
+		pin16 1 "Pin 16 data";
+		pin15 1 "Pin 15 data";
+		pin14 1 "Pin 14 data";
+		pin13 1 "Pin 13 data";
+		pin12 1 "Pin 12 data";
+		pin11 1 "Pin 11 data";
+		pin10 1 "Pin 10 data";
+		pin9  1 "Pin 9 data";
+		pin8  1 "Pin 8 data";
+		pin7  1 "Pin 7 data";
+		pin6  1 "Pin 6 data";
+		pin5  1 "Pin 5 data";
+		pin4  1 "Pin 4 data";
+		pin3  1 "Pin 3 data";
+		pin2  1 "Pin 2 data";
+		pin1  1 "Pin 1 data";
+		pin0  1 "Pin 0 data";
+	};
+
+	register GDIR rw addr(base, 0x4) "GPIO direction register" {
+		pin31 1 type(direction) "Pin 31 direction";
+		pin30 1 type(direction) "Pin 30 direction";
+		pin29 1 type(direction) "Pin 29 direction";
+		pin28 1 type(direction) "Pin 28 direction";
+		pin27 1 type(direction) "Pin 27 direction";
+		pin26 1 type(direction) "Pin 26 direction";
+		pin25 1 type(direction) "Pin 25 direction";
+		pin24 1 type(direction) "Pin 24 direction";
+		pin23 1 type(direction) "Pin 23 direction";
+		pin22 1 type(direction) "Pin 22 direction";
+		pin21 1 type(direction) "Pin 21 direction";
+		pin20 1 type(direction) "Pin 20 direction";
+		pin19 1 type(direction) "Pin 19 direction";
+		pin18 1 type(direction) "Pin 18 direction";
+		pin17 1 type(direction) "Pin 17 direction";
+		pin16 1 type(direction) "Pin 16 direction";
+		pin15 1 type(direction) "Pin 15 direction";
+		pin14 1 type(direction) "Pin 14 direction";
+		pin13 1 type(direction) "Pin 13 direction";
+		pin12 1 type(direction) "Pin 12 direction";
+		pin11 1 type(direction) "Pin 11 direction";
+		pin10 1 type(direction) "Pin 10 direction";
+		pin9  1 type(direction) "Pin 9 direction";
+		pin8  1 type(direction) "Pin 8 direction";
+		pin7  1 type(direction) "Pin 7 direction";
+		pin6  1 type(direction) "Pin 6 direction";
+		pin5  1 type(direction) "Pin 5 direction";
+		pin4  1 type(direction) "Pin 4 direction";
+		pin3  1 type(direction) "Pin 3 direction";
+		pin2  1 type(direction) "Pin 2 direction";
+		pin1  1 type(direction) "Pin 1 direction";
+		pin0  1 type(direction) "Pin 0 direction";
+	};
+
+	register PSR ro addr(base, 0x8) "GPIO pad status register" {
+		pin31 1 "Pin 31 pad status";
+		pin30 1 "Pin 30 pad status";
+		pin29 1 "Pin 29 pad status";
+		pin28 1 "Pin 28 pad status";
+		pin27 1 "Pin 27 pad status";
+		pin26 1 "Pin 26 pad status";
+		pin25 1 "Pin 25 pad status";
+		pin24 1 "Pin 24 pad status";
+		pin23 1 "Pin 23 pad status";
+		pin22 1 "Pin 22 pad status";
+		pin21 1 "Pin 21 pad status";
+		pin20 1 "Pin 20 pad status";
+		pin19 1 "Pin 19 pad status";
+		pin18 1 "Pin 18 pad status";
+		pin17 1 "Pin 17 pad status";
+		pin16 1 "Pin 16 pad status";
+		pin15 1 "Pin 15 pad status";
+		pin14 1 "Pin 14 pad status";
+		pin13 1 "Pin 13 pad status";
+		pin12 1 "Pin 12 pad status";
+		pin11 1 "Pin 11 pad status";
+		pin10 1 "Pin 10 pad status";
+		pin9  1 "Pin 9 pad status";
+		pin8  1 "Pin 8 pad status";
+		pin7  1 "Pin 7 pad status";
+		pin6  1 "Pin 6 pad status";
+		pin5  1 "Pin 5 pad status";
+		pin4  1 "Pin 4 pad status";
+		pin3  1 "Pin 3 pad status";
+		pin2  1 "Pin 2 pad status";
+		pin1  1 "Pin 1 pad status";
+		pin0  1 "Pin 0 pad status";
+	};
+
+	register ICR1 rw addr(base, 0xc) "GPIO interrupt configuration register1" {
+		icr15 2 type(ic) "Pin 15 interrupt configuration";
+		icr14 2 type(ic) "Pin 14 interrupt configuration";
+		icr13 2 type(ic) "Pin 13 interrupt configuration";
+		icr12 2 type(ic) "Pin 12 interrupt configuration";
+		icr11 2 type(ic) "Pin 11 interrupt configuration";
+		icr10 2 type(ic) "Pin 10 interrupt configuration";
+		icr9  2 type(ic) "Pin 9 interrupt configuration";
+		icr8  2 type(ic) "Pin 8 interrupt configuration";
+		icr7  2 type(ic) "Pin 7 interrupt configuration";
+		icr6  2 type(ic) "Pin 6 interrupt configuration";
+		icr5  2 type(ic) "Pin 5 interrupt configuration";
+		icr4  2 type(ic) "Pin 4 interrupt configuration";
+		icr3  2 type(ic) "Pin 3 interrupt configuration";
+		icr2  2 type(ic) "Pin 2 interrupt configuration";
+		icr1  2 type(ic) "Pin 1 interrupt configuration";
+		icr0  2 type(ic) "Pin 0 interrupt configuration";
+	};
+
+	register ICR2 rw addr(base, 0x10) "GPIO interrupt configuration register2" {
+		icr31 2 type(ic) "Pin 31 interrupt configuration";
+		icr30 2 type(ic) "Pin 30 interrupt configuration";
+		icr29 2 type(ic) "Pin 29 interrupt configuration";
+		icr28 2 type(ic) "Pin 28 interrupt configuration";
+		icr27 2 type(ic) "Pin 27 interrupt configuration";
+		icr26 2 type(ic) "Pin 26 interrupt configuration";
+		icr25 2 type(ic) "Pin 25 interrupt configuration";
+		icr24 2 type(ic) "Pin 24 interrupt configuration";
+		icr23 2 type(ic) "Pin 23 interrupt configuration";
+		icr22 2 type(ic) "Pin 22 interrupt configuration";
+		icr21 2 type(ic) "Pin 21 interrupt configuration";
+		icr20 2 type(ic) "Pin 20 interrupt configuration";
+		icr19 2 type(ic) "Pin 19 interrupt configuration";
+		icr18 2 type(ic) "Pin 18 interrupt configuration";
+		icr17 2 type(ic) "Pin 17 interrupt configuration";
+		icr16 2 type(ic) "Pin 16 interrupt configuration";
+	};
+
+	register IMR rw addr(base, 0x14) "GPIO interrupt mask register" {
+		pin31 1 "Pin 31 interrupt mask";
+		pin30 1 "Pin 30 interrupt mask";
+		pin29 1 "Pin 29 interrupt mask";
+		pin28 1 "Pin 28 interrupt mask";
+		pin27 1 "Pin 27 interrupt mask";
+		pin26 1 "Pin 26 interrupt mask";
+		pin25 1 "Pin 25 interrupt mask";
+		pin24 1 "Pin 24 interrupt mask";
+		pin23 1 "Pin 23 interrupt mask";
+		pin22 1 "Pin 22 interrupt mask";
+		pin21 1 "Pin 21 interrupt mask";
+		pin20 1 "Pin 20 interrupt mask";
+		pin19 1 "Pin 19 interrupt mask";
+		pin18 1 "Pin 18 interrupt mask";
+		pin17 1 "Pin 17 interrupt mask";
+		pin16 1 "Pin 16 interrupt mask";
+		pin15 1 "Pin 15 interrupt mask";
+		pin14 1 "Pin 14 interrupt mask";
+		pin13 1 "Pin 13 interrupt mask";
+		pin12 1 "Pin 12 interrupt mask";
+		pin11 1 "Pin 11 interrupt mask";
+		pin10 1 "Pin 10 interrupt mask";
+		pin9  1 "Pin 9 interrupt mask";
+		pin8  1 "Pin 8 interrupt mask";
+		pin7  1 "Pin 7 interrupt mask";
+		pin6  1 "Pin 6 interrupt mask";
+		pin5  1 "Pin 5 interrupt mask";
+		pin4  1 "Pin 4 interrupt mask";
+		pin3  1 "Pin 3 interrupt mask";
+		pin2  1 "Pin 2 interrupt mask";
+		pin1  1 "Pin 1 interrupt mask";
+		pin0  1 "Pin 0 interrupt mask";
+	};
+
+	register ISR rw1c addr(base, 0x18) "GPIO interrupt status regsiter" {
+		pin31 1 "Pin 31 interrupt status";
+		pin30 1 "Pin 30 interrupt status";
+		pin29 1 "Pin 29 interrupt status";
+		pin28 1 "Pin 28 interrupt status";
+		pin27 1 "Pin 27 interrupt status";
+		pin26 1 "Pin 26 interrupt status";
+		pin25 1 "Pin 25 interrupt status";
+		pin24 1 "Pin 24 interrupt status";
+		pin23 1 "Pin 23 interrupt status";
+		pin22 1 "Pin 22 interrupt status";
+		pin21 1 "Pin 21 interrupt status";
+		pin20 1 "Pin 20 interrupt status";
+		pin19 1 "Pin 19 interrupt status";
+		pin18 1 "Pin 18 interrupt status";
+		pin17 1 "Pin 17 interrupt status";
+		pin16 1 "Pin 16 interrupt status";
+		pin15 1 "Pin 15 interrupt status";
+		pin14 1 "Pin 14 interrupt status";
+		pin13 1 "Pin 13 interrupt status";
+		pin12 1 "Pin 12 interrupt status";
+		pin11 1 "Pin 11 interrupt status";
+		pin10 1 "Pin 10 interrupt status";
+		pin9  1 "Pin 9 interrupt status";
+		pin8  1 "Pin 8 interrupt status";
+		pin7  1 "Pin 7 interrupt status";
+		pin6  1 "Pin 6 interrupt status";
+		pin5  1 "Pin 5 interrupt status";
+		pin4  1 "Pin 4 interrupt status";
+		pin3  1 "Pin 3 interrupt status";
+		pin2  1 "Pin 2 interrupt status";
+		pin1  1 "Pin 1 interrupt status";
+		pin0  1 "Pin 0 interrupt status";
+	};
+
+	register EDGE_SEL rw addr(base, 0x1c) "GPIO edge select register" {
+		pin31 1 "Pin 31 edge select";
+		pin30 1 "Pin 30 edge select";
+		pin29 1 "Pin 29 edge select";
+		pin28 1 "Pin 28 edge select";
+		pin27 1 "Pin 27 edge select";
+		pin26 1 "Pin 26 edge select";
+		pin25 1 "Pin 25 edge select";
+		pin24 1 "Pin 24 edge select";
+		pin23 1 "Pin 23 edge select";
+		pin22 1 "Pin 22 edge select";
+		pin21 1 "Pin 21 edge select";
+		pin20 1 "Pin 20 edge select";
+		pin19 1 "Pin 19 edge select";
+		pin18 1 "Pin 18 edge select";
+		pin17 1 "Pin 17 edge select";
+		pin16 1 "Pin 16 edge select";
+		pin15 1 "Pin 15 edge select";
+		pin14 1 "Pin 14 edge select";
+		pin13 1 "Pin 13 edge select";
+		pin12 1 "Pin 12 edge select";
+		pin11 1 "Pin 11 edge select";
+		pin10 1 "Pin 10 edge select";
+		pin9  1 "Pin 9 edge select";
+		pin8  1 "Pin 8 edge select";
+		pin7  1 "Pin 7 edge select";
+		pin6  1 "Pin 6 edge select";
+		pin5  1 "Pin 5 edge select";
+		pin4  1 "Pin 4 edge select";
+		pin3  1 "Pin 3 edge select";
+		pin2  1 "Pin 2 edge select";
+		pin1  1 "Pin 1 edge select";
+		pin0  1 "Pin 0 edge select";
+	};
+
+	/* The following 3 registers seem not to work... */
+
+	register DR_SET wo addr(base, 0x84) "GPIO data register set" {
+		pin31 1 "Set pin 31";
+		pin30 1 "Set pin 30";
+		pin29 1 "Set pin 29";
+		pin28 1 "Set pin 28";
+		pin27 1 "Set pin 27";
+		pin26 1 "Set pin 26";
+		pin25 1 "Set pin 25";
+		pin24 1 "Set pin 24";
+		pin23 1 "Set pin 23";
+		pin22 1 "Set pin 22";
+		pin21 1 "Set pin 21";
+		pin20 1 "Set pin 20";
+		pin19 1 "Set pin 19";
+		pin18 1 "Set pin 18";
+		pin17 1 "Set pin 17";
+		pin16 1 "Set pin 16";
+		pin15 1 "Set pin 15";
+		pin14 1 "Set pin 14";
+		pin13 1 "Set pin 13";
+		pin12 1 "Set pin 12";
+		pin11 1 "Set pin 11";
+		pin10 1 "Set pin 10";
+		pin9  1 "Set pin 9";
+		pin8  1 "Set pin 8";
+		pin7  1 "Set pin 7";
+		pin6  1 "Set pin 6";
+		pin5  1 "Set pin 5";
+		pin4  1 "Set pin 4";
+		pin3  1 "Set pin 3";
+		pin2  1 "Set pin 2";
+		pin1  1 "Set pin 1";
+		pin0  1 "Set pin 0";
+	};
+
+	register DR_CLEAR wo addr(base, 0x88) "GPIO data register clear" {
+		pin31 1 "Clear pin 31";
+		pin30 1 "Clear pin 30";
+		pin29 1 "Clear pin 29";
+		pin28 1 "Clear pin 28";
+		pin27 1 "Clear pin 27";
+		pin26 1 "Clear pin 26";
+		pin25 1 "Clear pin 25";
+		pin24 1 "Clear pin 24";
+		pin23 1 "Clear pin 23";
+		pin22 1 "Clear pin 22";
+		pin21 1 "Clear pin 21";
+		pin20 1 "Clear pin 20";
+		pin19 1 "Clear pin 19";
+		pin18 1 "Clear pin 18";
+		pin17 1 "Clear pin 17";
+		pin16 1 "Clear pin 16";
+		pin15 1 "Clear pin 15";
+		pin14 1 "Clear pin 14";
+		pin13 1 "Clear pin 13";
+		pin12 1 "Clear pin 12";
+		pin11 1 "Clear pin 11";
+		pin10 1 "Clear pin 10";
+		pin9  1 "Clear pin 9";
+		pin8  1 "Clear pin 8";
+		pin7  1 "Clear pin 7";
+		pin6  1 "Clear pin 6";
+		pin5  1 "Clear pin 5";
+		pin4  1 "Clear pin 4";
+		pin3  1 "Clear pin 3";
+		pin2  1 "Clear pin 2";
+		pin1  1 "Clear pin 1";
+		pin0  1 "Clear pin 0";
+	};
+
+	register DR_TOGGLE wo addr(base, 0x8c) "GPIO data register toggle" {
+		pin31 1 "Toggle pin 31";
+		pin30 1 "Toggle pin 30";
+		pin29 1 "Toggle pin 29";
+		pin28 1 "Toggle pin 28";
+		pin27 1 "Toggle pin 27";
+		pin26 1 "Toggle pin 26";
+		pin25 1 "Toggle pin 25";
+		pin24 1 "Toggle pin 24";
+		pin23 1 "Toggle pin 23";
+		pin22 1 "Toggle pin 22";
+		pin21 1 "Toggle pin 21";
+		pin20 1 "Toggle pin 20";
+		pin19 1 "Toggle pin 19";
+		pin18 1 "Toggle pin 18";
+		pin17 1 "Toggle pin 17";
+		pin16 1 "Toggle pin 16";
+		pin15 1 "Toggle pin 15";
+		pin14 1 "Toggle pin 14";
+		pin13 1 "Toggle pin 13";
+		pin12 1 "Toggle pin 12";
+		pin11 1 "Toggle pin 11";
+		pin10 1 "Toggle pin 10";
+		pin9  1 "Toggle pin 9";
+		pin8  1 "Toggle pin 8";
+		pin7  1 "Toggle pin 7";
+		pin6  1 "Toggle pin 6";
+		pin5  1 "Toggle pin 5";
+		pin4  1 "Toggle pin 4";
+		pin3  1 "Toggle pin 3";
+		pin2  1 "Toggle pin 2";
+		pin1  1 "Toggle pin 1";
+		pin0  1 "Toggle pin 0";
+	};
+};
+

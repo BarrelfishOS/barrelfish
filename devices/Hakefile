@@ -80,6 +80,7 @@
            "imx8x/sdhc",
            "apm88xxxx/apm88xxxx_pc16550",
            "armv8/armv8_cache_ctrl",
+           "imx8x/imx8x_gpio",
            "omap/ehci",
            "omap/ohci",
            "omap/omap_uart",
