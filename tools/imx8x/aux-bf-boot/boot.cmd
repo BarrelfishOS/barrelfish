@@ -1,1 +1,1 @@
-bootefi 0x90000000
+bootefi $loadaddr

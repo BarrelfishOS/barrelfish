@@ -1,9 +1,9 @@
 uuu_version 1.2.91
 
 CFG: FB: -vid 0x0525 -pid 0x4026
-FB: ucmd setenv fastboot_buffer 0x82e00000
+FB: ucmd setenv fastboot_buffer $scriptaddr
 FB: download -f boot.scr
-FB: ucmd setenv fastboot_buffer 0x90000000
+FB: ucmd setenv fastboot_buffer $loadaddr
 FB: download -f image.efi
-FB: acmd source 0x82e00000
+FB: acmd source $scriptaddr
 FB: done
