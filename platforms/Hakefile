@@ -395,13 +395,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "memtest",
                        "int_route",
                        "serial_kernel",
-                       "serial_lpuart",
                        "pl390_dist",
                        "fish",
                        "angler",
                        "kaluga",
                        "acpi"
                        ] ]
+
+    -- ARMv8 modules for running on the colibri imx8x boards
+    imx8x_modules = [ "/sbin/" ++ f | f <- [
+                        "serial_lpuart",
+                        "imx8x_sdhc"
+                   ]]
 
 
   in
@@ -609,7 +614,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     armv8Image "armv8_rpi3" "armv8_rpi3" "armv8_generic" "a53_rpi3" modules_generic armv8_modules,
 
-    armv8Image "armv8_imx8x" "armv8_imx8x" "armv8_generic" "imx8x" modules_generic armv8_modules,
+    armv8Image "armv8_imx8x" "armv8_imx8x" "armv8_generic" "imx8x" modules_generic (armv8_modules ++ imx8x_modules),
 
     armv8EFIImage "armv8_a57_fvp_base" "armv8_a57_fvp_base" "armv8_generic" "a57_fvp" modules_generic armv8_modules,
 

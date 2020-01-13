@@ -25,10 +25,10 @@ modulenounzip /skb_ramfs.cpio.gz nospawn
 
 # Drivers
 module /armv8/sbin/corectrl auto
-#module /armv8/sbin/pci auto
 module /armv8/sbin/serial_lpuart auto 
 module /armv8/sbin/pl390_dist auto 
 module /armv8/sbin/int_route auto
+module /armv8/sbin/imx8x_sdhc auto
 
 
 # General user domains

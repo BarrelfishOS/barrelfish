@@ -202,6 +202,73 @@ static errval_t start_serial_lpuart(lpaddr_t address, uint32_t irq)
     return err;
 } 
 
+
+#define USDHC1_BASE 0x5B010000
+#define USDHC2_BASE 0x5B020000
+#define USDHC0_INT 264
+#define USDHC1_INT 265
+#define USDHC2_INT 266
+
+__attribute__((used))
+static errval_t start_sdhc(lpaddr_t address, uint32_t irq)
+
+{   errval_t err;
+    struct module_info *mi;
+    
+    // get module
+    mi = find_module("imx8x_sdhc");
+    if(mi == NULL){
+        KALUGA_DEBUG("imx8x_sdhc not found, not starting");
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = "sdhc";
+
+    // get device frame
+    struct capref device_frame;
+    err = imx8x_get_device_cap(address, 0x00010000, &device_frame);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    KALUGA_DEBUG("got device frame for sdhc\n");
+
+
+    struct capref cap = {
+            .cnode = arg.argnode_ref,
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0
+    };
+    err = cap_copy(cap, device_frame);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+
+    // get irq src for lpuart
+    struct capref irq_src;
+    err = slot_alloc(&irq_src);
+    assert(err_is_ok(err));
+
+    err = sys_debug_create_irq_src_cap(irq_src, irq + DIST_OFFSET, irq + DIST_OFFSET);
+    assert(err_is_ok(err));
+
+    struct capref irq_dst = {
+        .cnode = arg.argnode_ref,
+        .slot = PCIARG_SLOT_INT 
+    };
+    err = cap_copy(irq_dst, irq_src);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "cap_copy\n");
+        return err;
+    }
+    KALUGA_DEBUG("got irq src cap frame for lpuart\n");
+     
+    err = default_start_function_pure(0, mi, "sdhc {}", &arg);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "get_device_cap");
+    }
+    return err;
+} 
+
 static lpaddr_t platform_gic_distributor_base = 0x51a00000;
 //static lpaddr_t platform_gic_redistributor_base = 0x51b00000;
 
@@ -322,6 +389,13 @@ errval_t imx8x_startup(void)
     if(err_is_fail(err) && err_no(err) != KALUGA_ERR_MODULE_NOT_FOUND) {
         USER_PANIC_ERR(err, "imx8x serial lpuart");
     }
+
+    // SDHC2 is the one that is broken out on the carrier board.
+    err = start_sdhc(USDHC2_BASE, USDHC2_INT);
+    if(err_is_fail(err) && err_no(err) != KALUGA_ERR_MODULE_NOT_FOUND) {
+        USER_PANIC_ERR(err, "imx8x sdhc");
+    }
+
 
     return SYS_ERR_OK;
 }

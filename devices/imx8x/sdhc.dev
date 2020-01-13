@@ -1,0 +1,366 @@
+/*
+ * Copyright (c) 2019, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * sdhc.dev
+ *
+ * DESCRIPTION: IMX8X SD Host Controller
+ *
+ * See:
+ *   SD Specifications Part A2: SD Host Controller Simplified Specification
+ *   Version 3.00, February 25, 2011. 
+ *   Technical Committee, SD Association
+ *
+ */
+ 
+ device sdhc msbfirst (addr base) "IMX8X SD Host Controller" {
+
+     // 14.8.8.1.2
+     register ds_addr rw addr(base, 0x00) "DMA system address" type(uint32);
+     register cmd_arg2 rw also addr(base, 0x00) "Argument 2" type(uint32);
+
+     // 14.8.8.1.3
+     register blk_att rw addr(base, 0x04) "Block count" {
+         blkcnt           16      "Block count";
+         _                 3 mbz;
+         blksize          13      "Transfer block size (bytes)";
+     };
+
+     // 14.8.8.1.4
+     register cmd_arg rw addr(base, 0x08) "Argument 1" type(uint32);
+
+     // 14.8.8.1.5
+     constants auto_en "Auto command enable values" {
+	 auto_en_dis = 0b00	"Auto Command Disabled";
+	 auto_en_12  = 0b01	"Auto CMD12 Enable";
+	 auto_en_23  = 0b10	"Auto CMD23 Enable";
+     };
+     constants cmd_tp "Command type" {
+	 cmd_tp_abrt = 0b11	"Abort CMD12, CMD52 for writing I/O Abort";
+	 cmd_tp_rsme = 0b10	"Resume CMD52 for writing Function Select";
+	 cmd_tp_susp = 0b01	"Suspend CMD52 for writing Bus Suspend";
+	 cmd_tp_norm = 0b00	"Normal; other commands";
+     };
+     constants rsp_tp "Response type" {
+	 rsp_tp_none = 0b00	"No response";
+	 rsp_tp_136  = 0b01	"Response length 136";
+	 rsp_tp_48   = 0b10	"Response length 48";
+	 rsp_tp_48cb = 0b11	"Response length 48 check busy after response";
+     };
+     register cmd_xfr_typ rw addr(base, 0x0C) "Command Transfer Type" {
+         _              2 mbz;
+         cmdinx         6              "Command index";
+         cmdtyp         2 type(cmd_tp) "Command type";
+         dpsel          1       "Data present select";
+         cicen          1       "Command index check enable";
+         cccen          1       "Command CRC check enable";
+         _              1 mbz;
+         rsptyp         2  type(rsp_tp)   "Response type select";
+         _              16 mbz;
+     };
+
+     // 14.8.8.1.6-9
+     register cmd_rsp0 rw addr(base, 0x10) "Command Response 0" type(uint32);
+     register cmd_rsp1 rw addr(base, 0x14) "Command Response 1" type(uint32);
+     register cmd_rsp2 rw addr(base, 0x18) "Command Response 2" type(uint32);
+     register cmd_rsp3 rw addr(base, 0x1C) "Command Response 3" type(uint32);
+
+     // 14.8.8.1.10
+     register data_buff_acc_port rw addr(base, 0x20) "Data Buffer Access Port" type(uint32);
+    
+
+     // 14.8.8.1.11 
+     register pres_state rw addr(base, 0x24) "Present State" {
+        dlsl            8 "Data Line Signal Level";
+        clsl            1 "CMD Line Signal Level";
+        _               3  mbz;          
+        wpspl           1 "Write Protect Switch Pin Level";
+        cdpl            1 "Card Detect Pin Level";
+        _               1 mbz;
+        cinst           1 "Card inserted";
+        tscd            1 "Tape Select Change Done";
+        _               2 mbz;
+        rtr             1 "Retuning request";
+        bren            1 "Buffer read enable";
+        bwen            1 "Buffer write enable";
+        rta             1 "Read transfer active";
+        wta             1 "Write transfer active";
+        sdoff           1 "SD Clock Gated Off Internally";
+        peroff          1 "IPG_PERCLK Gated Off Internally";
+        hckoff          1 "HCLK Gated Off Internally";
+        ipgoff          1 "IPG_CLK Gated Off Internally";
+        sdstb           1 "SD Clock Stable";
+        dla             1 "Data Line Active";
+        cdihb           1 "Command Inhibit (DATA)";
+        cihb            1 "Command Inhibit (CMD)";
+     };
+
+     // 14.8.8.1.12 
+     register prot_ctrl rw addr(base, 0x28) "Protocol Control" {
+        _ 1 mbz;
+        non_exact_blk_rd 1;
+        _ 3 mbz;
+        wecrm 1;
+        wecins 1;
+        wecint 1;
+        _ 3;
+        rd_done_no_8clk 1;
+        iabg 1;
+        rwctl 1;
+        creq 1;
+        sabgreq 1;
+        _ 6 mbz;
+        dmasel 2;
+        cdss 1;
+        cdtl 1;
+        emode 2;
+        d3cd 1;
+        dtw 2;
+        lctl 1;
+     };
+
+     // 14.8.8.1.13 
+     register sys_ctrl rw addr(base, 0x2C) "System control" {
+        _               3 mbz;
+        rstt            1 "Reset Tuning";
+        inita           1 "initialization activation";
+        rstd            1 "Software reset Data";
+        rstc            1 "Software reset CMD";
+        rsta            1 "Software reset ALL";
+        ipp_rst_n       1 "";
+         _              3 mbz;
+        dtocv           4 "data timeout counter value";
+        sdclkfs         8 "sdclk frequency select";
+        dvs             4 "divisor";
+        _               4 mbz;
+        
+     };
+
+     // 14.8.8.1.14 
+     register int_status rw1c addr(base, 0x30) "Inerrupt Status" {
+         _              3 mbz;
+         dmae           1 "DMA Error";
+         _              1 mbz;
+         tne            1 "Tuning Error";
+         _              1 mbz;
+         ac12e          1 "Auto Cmd 12 Error";
+         _              1 mbz;
+         debe           1 "Data End Bit Error";
+         dce            1 "Data CRC Error";
+         dtoe           1 "Data Timeout Error";
+         cie            1 "Command Index Error";
+         cebe           1 "Command End Bit error";
+         cce            1 "Command CRC Error";
+         ctoe           1 "Command Timeout Error";
+
+         // 16 bit boundary 
+         _              1 mbz;
+         cqi            1 "Command Queueing Interrupt";
+         tp             1 "Tuning pass";
+         rte            1 "Re-Tuning event";
+         _              3 mbz;
+         cint           1 "Card interrupt";
+         crm            1 "Card removal";
+         cins           1 "Card insertion";
+         brr            1 "Buffer read ready";
+         bwr            1 "Buffer write ready";
+         dint           1 "DMA interrupt";
+         bge            1 "Block gap event";
+         tc             1 "Transfer complete";
+         cc             1 "Command complete";
+     };
+
+    regtype ir "Interrupt Enable Register" {
+         _                3 mbz;
+         dmaeen           1 "DMA Error";
+         _                1 mbz;
+         tneen            1 "Tuning Error";
+         _                1 mbz;
+         ac12een          1 "Auto Cmd 12 Error";
+         _                1 mbz;
+         debeen           1 "Data End Bit Error";
+         dceen            1 "Data CRC Error";
+         dtoeen           1 "Data Timeout Error";
+         cieen            1 "Command Index Error";
+         cebeen           1 "Command End Bit error";
+         cceen            1 "Command CRC Error";
+         ctoeen           1 "Command Timeout Error";
+
+         // 16 bit boundary 
+         _                1 mbz;
+         cqien            1 "Command Queueing Interrupt";
+         tpen             1 "Tuning pass";
+         rteen            1 "Re-Tuning event";
+         _                3 mbz;
+         cinten           1 "Card interrupt";
+         crmen            1 "Card removal";
+         cinsen           1 "Card insertion";
+         brren            1 "Buffer read ready";
+         bwren            1 "Buffer write ready";
+         dinten           1 "DMA interrupt";
+         bgeen            1 "Block gap event";
+         tcen             1 "Transfer complete";
+         ccen             1 "Command complete";
+     };
+
+     register int_status_en addr(base, 0x34) "Interrupt Status enable" type(ir);
+     register int_signal_en addr(base, 0x38) "Interrupt Signal enable" type(ir);
+
+     // 14.8.8.1.17
+     register autocmd12_err_status addr(base, 0x3c) "Auto CMD12 Error Status" {
+        _ 8 mbz;
+        smp_clk_sel 1;
+        execute_tuning 1;
+        _ 14 mbz;
+        cnibac12e 1;
+        _ 2 mbz;
+        ac12ie 1;
+        ac12ce 1;
+        ac12ebe 1;
+        ac12toe 1; 
+        ac12ne  1;
+     };
+
+    // 14.8.8.1.18
+    register host_ctrl_cap addr(base, 0x40) "Host Controller Capabilities" {
+        _ 5 mbz;
+        vs_18 1;
+        vs_30 1;
+        vs_33 1;
+        srs   1;
+        dmas  1;
+        hss   1;
+        admas 1;
+        _ 1 mbz;
+        mbl 3;
+        retuning_mode 2;
+        use_tuning_sdr50 1;
+        _ 1 mbz;
+        time_count_retuning 4;
+        _ 5 mbz;
+        ddr50_support 1;
+        sdr104_support 1;
+        sdr50_support 1;
+    };
+
+    // 14.8.8.1.19
+    register wtmk_lvl addr(base, 0x44) "Watermark Level" {
+        _ 8 mbz;
+        wr_wml 8;
+        _ 8 mbz;
+        rd_wml 8;
+    };
+
+    // 14.8.8.1.20
+    register mix_ctrl addr(base, 0x48) "Mix Control" {
+        _ 1 mb1;
+        _ 1 mbz;
+        _ 1 mbz;
+        _ 1;
+        en_hs400_mode 1;
+        hs400_mode 1;
+        fbclk_sel 1;
+        auto_tune_en 1;
+        smp_clk_sel 1;
+        exe_tune 1;
+        _ 14;
+        ac23en 1;
+        nibble_pos 1;
+        msbsel 1;
+        dtdsel 1;
+        ddr_en 1;
+        ac12en 1;
+        bcen 1;
+        dmaen 1;
+    };
+
+     // 14.8.8.1.24
+     register dll rw addr(base, 0x60) "Delay line control" {
+        dll_ctrl_ref_update_int 4; 
+        dll_ctrl_slv_update_int 8;
+        _ 1 mbz;
+        dll_ctrl_slv_dly_target1 3;
+        dll_ctrl_slv_override_val 7;
+        dll_ctrl_slv_override  1;
+        dll_ctrl_gate_update 1;
+        dll_ctrl_slv_dly_target0 4;
+        dll_ctrl_slv_force_upd 1;
+        dll_ctrl_reset 1;
+        dll_ctrl_enable 1; 
+     };
+
+     // 14.8.8.1.26
+     register clk_tune_ctrl_status  rw addr(base, 0x68) "CLK Tuning Control and Status" {
+        pre_err 1;
+        tap_sel_pre 7;
+        tap_sel_out 4;
+        tap_sel_post 4;
+        nxt_err 1;
+        dly_cell_set_pre 7;
+        dly_cell_set_out 4;
+        dly_cell_set_post 4;
+     };
+
+    // 14.8.8.1.29
+    //register vend_spec rw addr(base, 0xC0) "Vendor Specific" {
+    //   cmd_byte_en        1  "cmd byte en";
+    //   _                 15 mbz;
+    //   crc_chk_dis        1 "CRC Check Disable";
+    //   _                  6 mbz;
+    //   frc_sdclk_on       1 "Force CLK output active";
+    //   _                  4 mbz;
+    //   ac12_wr_chkbusy_en 1 "Check busy enable";
+    //   conflict_chk_en    1 "Conflic check enable";
+    //   vselect            1 "Voltage selection";
+    //   _                  1 mbz;
+    //};
+
+    // This is vend_spec according to uboot
+    register vend_spec rw addr(base, 0xC0) "Vendor Specific" {
+       _                  17 mbz;
+       cken 1;
+       peren 1;
+       hcken 1;
+       ipgen 1;
+       _                  11 mbz;
+    };
+
+
+    // 14.8.8.1.30
+    register mmc_boot rw addr(base, 0xC4) "MMC Boot Register" {
+        boot_blk_cnt        16;
+        _                    7 mbz;
+        disable_time_out     1;
+        auto_sabg_en         1;
+        boot_en              1;
+        boot_mode            1;
+        boot_ack             1;
+        dtocv_ack            4;
+    };
+
+    // 14.8.8.1.31
+    register vend_spec2 rw addr(base, 0xC8) "Vendor Specific 2" {
+        fbclk_tap_sel 16;
+        en_32k_clk  1;
+        bus_rst 1;
+        part_dll_debug 1;
+        acmd23_argu2_en  1;
+        hs400_rd_clk_stop_en 1;
+        hs400_wr_clk_stop_en 1;
+        _ 3 mbz;
+        tuning_cmd_en 1;
+        tuning_1bit_en 1;
+        tuning_8bit_en 1;
+        card_int_d3_test 1;
+        _ 3 mbz;
+        
+    };
+    
+     
+
+ };
