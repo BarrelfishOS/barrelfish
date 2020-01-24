@@ -172,8 +172,75 @@ static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
         enet_bufdesc_sc_insert(desc, ENET_RX_EMPTY);
     }
 
-    ENET_DEBUG("enqueue offset=%lx length=%zu\n", offset, length);
+    //ENET_DEBUG("enqueue offset=%lx length=%zu\n", offset, length);
     q->tail = (q->tail + 1) & (q->size -1);
+    return SYS_ERR_OK;
+}
+
+
+__attribute__((unused)) static errval_t enet_write_mdio(struct enet_driver_state* st, uint8_t phyaddr,
+                                uint8_t regaddr, uint16_t data)
+{
+    
+    // Some protocol ...
+
+    // TODO Need + 40 registeR!!!
+    enet_mmfr_t reg;
+    enet_mmfr_pa_insert(reg, phyaddr);
+    enet_mmfr_ra_insert(reg, regaddr);
+    enet_mmfr_data_insert(reg, data);   
+    enet_mmfr_st_insert(reg, 0x1);   
+    enet_mmfr_ta_insert(reg, 0x1);   
+
+    // 1 is write 2 is read
+    enet_mmfr_op_insert(reg, 0x1);   
+
+    enet_mmfr_wr(st->d, reg);
+
+    uint16_t tries = 1000;
+    while (!(enet_eir_mii_rdf(st->d) & 0x1)) {
+        barrelfish_usleep(10);
+        tries--;
+        if (tries == 0) {
+            return ENET_ERR_MDIO_WRITE;
+        }
+    }
+    
+    enet_eir_mii_wrf(st->d, 0x1);
+    return SYS_ERR_OK;
+}
+
+__attribute__((unused)) static errval_t enet_read_mdio(struct enet_driver_state* st, uint8_t phyaddr,
+                                uint8_t regaddr, uint16_t *data)
+{
+    
+    // Some protocol ...
+    enet_eir_mii_wrf(st->d, 0x1);
+
+    // TODO Need + 40 registeR!!!
+    enet_mmfr_t reg;
+    enet_mmfr_pa_insert(reg, phyaddr);
+    enet_mmfr_ra_insert(reg, regaddr);
+    enet_mmfr_st_insert(reg, 0x1);   
+    enet_mmfr_ta_insert(reg, 0x1);   
+
+    // 1 is write 2 is read
+    enet_mmfr_op_insert(reg, 0x2);   
+
+    enet_mmfr_wr(st->d, reg);
+
+    uint16_t tries = 1000;
+    while (!(enet_eir_mii_rdf(st->d) & 0x1)) {
+        barrelfish_usleep(10);
+        tries--;
+        if (tries == 0) {
+            return ENET_ERR_MDIO_WRITE;
+        }
+    }
+    
+    enet_eir_mii_wrf(st->d, 0x1);
+    *data = enet_mmfr_data_rdf(st->d);
+    
     return SYS_ERR_OK;
 }
 
@@ -252,7 +319,7 @@ static errval_t enet_rings_start(struct enet_driver_state* st)
     enet_rdsr_wr(st->d, st->rxq->desc_mem.devaddr);
     
     // Normally 2048er buffs but the alignment constraints are worst case 64
-    enet_mrbr_wr(st->d, 2048-64);
+    enet_mrbr_wr(st->d, ROUND_DOWN(2048-64, 64));
     
     // RX: For other queues would be possible to enable DMA here (1+2)
     // Not needed for queue 0
@@ -320,11 +387,19 @@ static errval_t enet_restart(struct enet_driver_state* st)
 {
     errval_t err;
     // reset device
-    ENET_DEBUG("Reste device\n");
-    enet_ecr_wr(st->d, 0);
+    ENET_DEBUG("Reset device\n");
+    
+    uint64_t ecr = enet_ecr_rd(st->d);
+    enet_ecr_wr(st->d, ecr | 0x1);
+    while (enet_ecr_rd(st->d) & 0x1) {
+        barrelfish_usleep(10);
+        // TODO timeout
+    }
 
+    enet_eimr_wr(st->d, 0);
     // Write back mac again
     ENET_DEBUG("Reset MAC\n");
+    // TODO do this later? NOT in dump
     enet_write_mac(st);
     enet_read_mac(st);
     
@@ -348,25 +423,31 @@ static errval_t enet_restart(struct enet_driver_state* st)
         return err;
     }
 
-    // set full duplex mod3
-    enet_tcr_fden_wrf(st->d, 1);
+    // set max pkt size
+    enet_rcr_max_fl_wrf(st->d, 1522);
+
+    // set full duplex mode
+    // TODO check if needed?
+    //enet_tcr_fden_wrf(st->d, 1);
     
     // TODO check these vlaues: set by using register dump on linux
     // set MII speed
-    enet_mscr_mii_speed_wrf(st->d, 1);
+    //enet_mscr_mii_speed_wrf(st->d, 1);a
+    // Set MII speed, do not drop preamble and set hold time to 10ns
+    enet_mscr_mii_speed_wrf(st->d, 0x18);
+    enet_mscr_hold_time_wrf(st->d, 0x1);
     // set hold time 
-    enet_mscr_hold_time_wrf(st->d, 0);
-    
+    //enet_mscr_hold_time_wrf(st->d, 0); TODO implication of hold time!
 
     // TODO check if this is verion M5272 then have to fix some quirks here
 
     // ENET_MAC is special here!
     // flow control and length check
-    enet_rcr_fce_wrf(st->d, 1);
-    enet_rcr_nlc_wrf(st->d, 1);
+    //enet_rcr_fce_wrf(st->d, 1);
+    //enet_rcr_nlc_wrf(st->d, 1);
     // Only have RMII (Fast ethernet)
-    enet_rcr_rmii_mode_wrf(st->d, 1);
-    enet_rcr_rmii_10t_wrf(st->d, 0);
+    //enet_rcr_rmii_mode_wrf(st->d, 1);
+    //enet_rcr_rmii_10t_wrf(st->d, 0);
     
     // Assume this is not M5272
     // FIFO threshold parameter to reduce overrun
@@ -493,6 +574,8 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     assert(st->rxq);
     assert(st->txq);
 
+    st->rxq->align = 0x3f;
+    st->txq->align = 0;
 
     // TODO check for advanced descriptors
     // TODO linking iommu driverkit library does not seem to work ...
@@ -629,7 +712,10 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         } else {
 
         }
-        barrelfish_usleep(1000*1000);
+        for(volatile int i = 0; i < 100000000; i++) {
+            i++;
+            i--;
+        }
     }
     *dev = 0x00;
 

@@ -1095,6 +1095,11 @@ errors sata SATA_ERR_ {
     failure INVALID_TYPE        "Unknown FIS type or invalid/unimplemented field for type",
 };
 
+errors sata ENET_ERR_ {
+    failure MDIO_WRITE        "Timeout while trying to write to MDIO",
+    failure MDIO_READ        "Timeout while trying to reading from MDIO",
+};
+
 errors mmchs MMC_ERR_ {
     failure TRANSFER                "Error during card read/write operation.",
     FAILURE READ_READY              "Card not ready for reading.",
