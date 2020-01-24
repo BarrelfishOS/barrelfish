@@ -130,6 +130,19 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
   };
 
   /****************************************************************************
+   * 14.6.5.6/3643  MII Management Frame Register
+   ***************************************************************************/
+    
+  register mmfr rw addr(base, 0x0040) "MII Management Frame Register" {
+    data             16 "Data written to or read from PHY register";
+    ta                2  "Turn Around: needs to be programmed to 10 to be valid";
+    ra                5  "Register Address";
+    pa                5  "Phy address";
+    op                2  "Operation Code";
+    st                2  "Start of Frame Delimeter";
+  };
+
+  /****************************************************************************
    * 14.6.5.6/3643  MII Speed Control Register
    ***************************************************************************/
     
