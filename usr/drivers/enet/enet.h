@@ -23,7 +23,7 @@
 #define RX_RING_SIZE (BASE_PAGE_SIZE / ENET_RX_FRSIZE) * ENET_RX_PAGES
 
 
-#define ENET_RX_EMPTY ((ushort) 0x8000)
+#define ENET_RX_EMPTY 0x8000
 #define ENET_SC_WRAP ((ushort)0x2000)
 #define ENET_RX_intr ((ushort)0x1000)
 #define ENET_RX_LAST ((ushort) 0x0800)
@@ -53,6 +53,7 @@ struct enet_queue {
     char* tso_hdr;
 
     struct dmem desc_mem;
+    enet_t* d;
 
     // hd + tail
     size_t head;

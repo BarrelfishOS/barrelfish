@@ -328,9 +328,43 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
     _                22 rsvd;
   };
 
+
+  /****************************************************************************
+   * 14.6.5.79/3766 Rx Packet Count Statistic Register
+   ***************************************************************************/
+  register rmon_r_packets rw addr(base, 0x00284) "Rx Packet Count Statistic Register" {
+    count            16  "Number of packets received";
+    _                16  rsvd;
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.81/3767 Rx Packets with CRC/Align Error Statistic Register
+   ***************************************************************************/
+  register rmon_r_packets_crc_align rw addr(base, 0x00290) "Rx Packets with CRC/Align Error Statistic Register" {
+    count            16  "Number of packets received with CRC or align error";
+    _                16  rsvd;
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.94/3767 Rx Octets Statistic Register
+   ***************************************************************************/
+  register rmon_r_octets rw addr(base, 0x002C4) "Rx Packets with CRC/Align Error Statistic Register" {
+    count             32  "Number of received octets";
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.95/3773 Frame not Counted Correctly Statistic Register
+   ***************************************************************************/
+  register iee_r_drop rw addr(base, 0x002C8) "Frame not Counted Correctly Statistic Register" {
+    count            16  "Frame count";
+    _                16  rsvd;
+  };
   datatype bufdesc "Legacy descriptor" {
-    sc          16 "Control and status info";
     len         16 "Data length";
+    sc          16 "Control and status info";
     addr        32 "Buffer address";
   };
 
