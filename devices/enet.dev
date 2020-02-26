@@ -111,22 +111,22 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
    ***************************************************************************/
     
   register ecr rw addr(base, 0x0024) "Control register" {
-    _                14 rsvd;
-    rxc_dly           1 "Receive clock delay";
-    txc_dly           1 "Transmit clock delay";
-    _                 4 rsvd;
-    svlandbl          1 "S-VLAN double tag";
-    vlanuse2nd        1 "VLAN use second tag";
-    svlanen           1 "S-VLAN enable";
-    dbswp             1 "Descriptor Byte Swapping Enable";
-    _                 1 rsvd;
-    dbgen             1 "Debug enable";
-    speed             1 "Select between 10/100 Mbit (0) and 1000 Mbit (1)";
-    en1588            1 "EN1588 Enable";
-    sleep             1 "Sleep Mode enable";
-    magicen           1 "Magic packet detection enable";
-    etheren           1 "Ethernet enable";
     reset             1 "Ethernet MAC Reset";
+    etheren           1 "Ethernet enable";
+    magicen           1 "Magic packet detection enable";
+    sleep             1 "Sleep Mode enable";
+    en1588            1 "EN1588 Enable";
+    speed             1 "Select between 10/100 Mbit (0) and 1000 Mbit (1)";
+    dbgen             1 "Debug enable";
+    _                 1 rsvd;
+    dbswp             1 "Descriptor Byte Swapping Enable";
+    svlanen           1 "S-VLAN enable";
+    vlanuse2nd        1 "VLAN use second tag";
+    svlandbl          1 "S-VLAN double tag";
+    _                 4 rsvd;
+    txc_dly           1 "Transmit clock delay";
+    rxc_dly           1 "Receive clock delay";
+    _                14 rsvd;
   };
 
   /****************************************************************************
@@ -224,6 +224,48 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
     opcode              16 "Opcode Field in Pause Frames";
   };
 
+  /****************************************************************************
+   * 14.6.5.16/3654 Descriptor Individual Upper Address
+   ***************************************************************************/
+
+  register iaur rw addr(base, 0x00118) "Descriptor Individual Upper Address Reg" {
+    iaddr1              32 "Upper 32 bits of 64-bit hash table used in address regcogntion";
+  };
+
+  /****************************************************************************
+   * 14.6.5.17/3655 Descriptor Individual Lower Address
+   ***************************************************************************/
+
+  register ialr rw addr(base, 0x0011C) "Descriptor Individual Lower Address Reg" {
+    iaddr2              32 "Lower 32 bits of 64-bit hash table used in address regcogntion";
+  };
+
+  /****************************************************************************
+   * 14.6.5.18/3656 Descriptor Group Upper Address
+   ***************************************************************************/
+
+  register gaur rw addr(base, 0x00120) "Descriptor Individual Upper Address Reg" {
+    iaddr1              32 "Upper 32 bits of 64-bit hash table used in address regcogntion";
+  };
+
+  /****************************************************************************
+   * 14.6.5.19/3656 Descriptor Group Lower Address
+   ***************************************************************************/
+
+  register galr rw addr(base, 0x00124) "Descriptor Individual Lower Address Reg" {
+    iaddr2              32 "Lower 32 bits of 64-bit hash table used in address regcogntion";
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.20/3657 Transmit FIFO Watermark Register
+   ***************************************************************************/
+  register tfwr rw addr(base, 0x00144) "Transmit FIFO Watermark Register " {
+    tfwr            6 "Transmit FIFO Write";
+    _               2 rsvd;
+    strfwd          1 "Store and Forward Enable";
+    _               23 rsvd;
+  };
 
   /****************************************************************************
    * 14.6.5.27/3662 Receive Descriptor Ring 0 Start Register
@@ -239,31 +281,6 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
   register tdsr rw addr(base, 0x00184) "Transmit Descriptor Ring 0 Start Register" {
     _                3  rsvd;
     start            29 "Pointer to the beginning of transmit descriptor queue";
-  };
-
-  /****************************************************************************
-   * 14.6.5.18/3655 Descriptor Group Upper Address Register
-   ***************************************************************************/
-  register gaur rw addr(base, 0x00120) "Descriptor Group Upper Address Register" {
-    gaddr            32 "Contains upper 32 bits of 64 bit hash table";
-  };
-
-  /****************************************************************************
-   * 14.6.5.19/3656 Descriptor Group Lower Address Register
-   ***************************************************************************/
-  register galr rw addr(base, 0x00124) "Descriptor Group Lower Address Register" {
-    gaddr            32 "Contains lower 32 bits of 64 bit hash table";
-  };
-
-
-  /****************************************************************************
-   * 14.6.5.20/3657 Transmit FIFO Watermark Register
-   ***************************************************************************/
-  register tfwr rw addr(base, 0x00144) "Transmit FIFO Watermark Register " {
-    tfwr            6 "Transmit FIFO Write";
-    _               2 rsvd;
-    strfwd          1 "Store and Forward Enable";
-    _               23 rsvd;
   };
 
 

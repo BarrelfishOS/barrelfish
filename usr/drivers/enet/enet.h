@@ -12,18 +12,20 @@
 
 #define ENET_DEBUG(x...) debug_printf("[enet] " x);
 
-//#define ENET_PROMISC
+#define ENET_PROMISC
 
 #define TX_RING_SIZE 512
 #define ENET_RX_FRSIZE 2048
 #define ENET_RX_PAGES 256
+
+#define ENET_MAX_PKT_SIZE 1536
 
 #define RX_RING_SIZE (BASE_PAGE_SIZE / ENET_RX_FRSIZE) * ENET_RX_PAGES
 
 
 #define ENET_RX_EMPTY ((ushort) 0x8000)
 #define ENET_SC_WRAP ((ushort)0x2000)
-#define ENET_Rx_intr ((ushort)0x1000)
+#define ENET_RX_intr ((ushort)0x1000)
 #define ENET_RX_LAST ((ushort) 0x0800)
 #define ENET_RX_FIRST ((ushort) 0x0400)
 #define ENET_RX_MISS ((ushort) 0x0100)
@@ -56,10 +58,12 @@ struct enet_queue {
     size_t head;
     size_t tail;
 
+    // alignment
+    size_t align;
+
     // Descriptor + Cleanq
     enet_bufdesc_array_t *ring;
     struct devq_buf *ring_bufs;
-
 
     struct region_entry* regions;
 };
@@ -73,6 +77,8 @@ struct enet_driver_state {
     struct enet_queue* txq;
     enet_t* d;
     uint64_t mac;
+
+    uint32_t phy_id;
 };
 
 #define ENET_HASH_BITS 6

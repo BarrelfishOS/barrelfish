@@ -1096,6 +1096,8 @@ errors sata SATA_ERR_ {
 };
 
 errors sata ENET_ERR_ {
+    failure DEV_RESET        "Device reset failed",
+    failure PHY_RESET        "Phy reset failed",
     failure MDIO_WRITE        "Timeout while trying to write to MDIO",
     failure MDIO_READ        "Timeout while trying to reading from MDIO",
 };

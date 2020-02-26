@@ -25,6 +25,17 @@
 
 #include "enet.h"
 
+static void some_sleep(uint64_t rep)
+{    
+    // TODO some sleep, barrelfish_usleep() seems to be broken!
+    while(rep) {
+        for(volatile int i = 0; i < 100000; i++) {
+            i++;
+            i--;
+        }
+        rep--;
+    }
+}
 
 static struct region_entry* get_region(struct enet_queue* q, regionid_t rid)
 {
@@ -98,8 +109,10 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
     enet_bufdesc_t desc = q->ring[q->head];
     struct devq_buf buf = q->ring_bufs[q->head];
 
+    ENET_DEBUG("Try dequeue %d \n", q->head);
+    __builtin___clear_cache(q->ring[q->head], q->ring[q->head+1]);
+
     uint16_t status = enet_bufdesc_sc_extract(desc);
-    ENET_DEBUG("SC %lx \n", enet_bufdesc_sc_extract(desc));
     if (!(status & ENET_RX_EMPTY)) {
         // TODO error handling!
         *valid_length = enet_bufdesc_len_extract(desc);
@@ -112,11 +125,13 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
         return DEVQ_ERR_QUEUE_EMPTY;
     }
     status &= ~ENET_RX_STATS;
-    status |= ENET_RX_EMPTY;
+    //status |= ENET_RX_EMPTY;
     // TODO this might already had back ownership!! 
     
     enet_bufdesc_sc_insert(desc, status);
     
+    __builtin___clear_cache(q->ring[q->head], q->ring[q->head+1]);
+
     q->head = q->head & (q->size -1);
 
     return  SYS_ERR_OK;
@@ -165,6 +180,7 @@ static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
    
     enet_bufdesc_t desc = q->ring[q->tail];
     enet_bufdesc_addr_insert(desc, addr);
+    enet_bufdesc_len_insert(desc, 0);
 
     if (q->tail == (q->size -1)) {
         enet_bufdesc_sc_insert(desc, ENET_SC_WRAP | ENET_RX_EMPTY);
@@ -172,62 +188,65 @@ static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
         enet_bufdesc_sc_insert(desc, ENET_RX_EMPTY);
     }
 
+    __builtin___clear_cache(q->ring[q->tail], q->ring[q->tail+1]);
     //ENET_DEBUG("enqueue offset=%lx length=%zu\n", offset, length);
     q->tail = (q->tail + 1) & (q->size -1);
     return SYS_ERR_OK;
 }
 
-
-__attribute__((unused)) static errval_t enet_write_mdio(struct enet_driver_state* st, uint8_t phyaddr,
-                                uint8_t regaddr, uint16_t data)
+static errval_t enet_write_mdio(struct enet_driver_state* st, int8_t phyaddr,
+                                int8_t regaddr, int16_t data)
 {
     
     // Some protocol ...
 
     // TODO Need + 40 registeR!!!
-    enet_mmfr_t reg;
-    enet_mmfr_pa_insert(reg, phyaddr);
-    enet_mmfr_ra_insert(reg, regaddr);
-    enet_mmfr_data_insert(reg, data);   
-    enet_mmfr_st_insert(reg, 0x1);   
-    enet_mmfr_ta_insert(reg, 0x1);   
+    enet_mmfr_t reg = 0;
+    reg = enet_mmfr_pa_insert(reg, phyaddr);
+    reg = enet_mmfr_ra_insert(reg, regaddr);
+    reg = enet_mmfr_data_insert(reg, data);   
+    reg = enet_mmfr_st_insert(reg, 0x1);   
+    reg = enet_mmfr_ta_insert(reg, 0x2);   
 
     // 1 is write 2 is read
-    enet_mmfr_op_insert(reg, 0x1);   
+    reg = enet_mmfr_op_insert(reg, 0x1);   
+ 
+    ENET_DEBUG("Write MDIO: write cmd %lx \n", reg);
 
     enet_mmfr_wr(st->d, reg);
 
     uint16_t tries = 1000;
     while (!(enet_eir_mii_rdf(st->d) & 0x1)) {
-        barrelfish_usleep(10);
         tries--;
+        //barrelfish_usleep(10);
         if (tries == 0) {
             return ENET_ERR_MDIO_WRITE;
         }
     }
-    
+   
     enet_eir_mii_wrf(st->d, 0x1);
     return SYS_ERR_OK;
 }
 
-__attribute__((unused)) static errval_t enet_read_mdio(struct enet_driver_state* st, uint8_t phyaddr,
-                                uint8_t regaddr, uint16_t *data)
+static errval_t enet_read_mdio(struct enet_driver_state* st, int8_t phyaddr,
+                               int8_t regaddr, int16_t *data)
 {
     
     // Some protocol ...
     enet_eir_mii_wrf(st->d, 0x1);
 
     // TODO Need + 40 registeR!!!
-    enet_mmfr_t reg;
-    enet_mmfr_pa_insert(reg, phyaddr);
-    enet_mmfr_ra_insert(reg, regaddr);
-    enet_mmfr_st_insert(reg, 0x1);   
-    enet_mmfr_ta_insert(reg, 0x1);   
-
+    enet_mmfr_t reg = 0;
+    reg = enet_mmfr_pa_insert(reg, phyaddr);
+    reg = enet_mmfr_ra_insert(reg, regaddr);
+    reg = enet_mmfr_st_insert(reg, 0x1);   
+    reg = enet_mmfr_ta_insert(reg, 0x2);   
     // 1 is write 2 is read
-    enet_mmfr_op_insert(reg, 0x2);   
+    reg = enet_mmfr_op_insert(reg, 0x2);   
 
     enet_mmfr_wr(st->d, reg);
+    
+    ENET_DEBUG("Read MDIO: read cmd %lx \n", reg);
 
     uint16_t tries = 1000;
     while (!(enet_eir_mii_rdf(st->d) & 0x1)) {
@@ -244,8 +263,257 @@ __attribute__((unused)) static errval_t enet_read_mdio(struct enet_driver_state*
     return SYS_ERR_OK;
 }
 
+static errval_t enet_get_phy_id(struct enet_driver_state* st)
+{
+    errval_t err;
+    int16_t data; 
+    uint32_t phy_id;
+
+    // get phy ID1
+    err = enet_read_mdio(st, 0x2,  0x2, &data);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+    phy_id = data << 16;
+
+    // get phy ID2
+    err = enet_read_mdio(st, 0x2,  0x3, &data);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+
+    phy_id |= data;
+    st->phy_id = phy_id;    
+    return err;
+}
+
+#define PHY_RESET 0x8000
+
+#define PHY_RESET_CMD 0x0
+#define PHY_STATUS_CMD 0x1
+#define PHY_AUTONEG_CMD 0x4
+#define PHY_LPA_CMD 0x5
+#define PHY_CTRL1000_CMD 0x09
+#define PHY_STAT1000_CMD 0x0a
+
+static errval_t enet_reset_phy(struct enet_driver_state* st)
+{
+    debug_printf("PHY ID %d \n", st->phy_id);
+    errval_t err;
+    err = enet_write_mdio(st, 0x2, PHY_RESET_CMD, PHY_RESET);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+
+    int16_t data;
+    err = enet_read_mdio(st, 0x2, PHY_RESET_CMD, &data);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+    
+    int timeout = 500;
+    while ((data & PHY_RESET) && timeout > 0) {
+        err = enet_read_mdio(st, 0x2, PHY_RESET_CMD, &data);
+        if (err_is_fail(err))  {
+            return err;
+        }   
+    
+        barrelfish_usleep(1000);
+        timeout--;
+    }
+
+    if (data & PHY_RESET) {
+        return ENET_ERR_PHY_RESET;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t enet_setup_autoneg(struct enet_driver_state* st)
+{
+    errval_t err;
+    int16_t status;
+    int16_t autoneg;
+
+    // Read BASIC MODE status register
+    err = enet_read_mdio(st, 0x2, 0x1, &status);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+
+    // READ autoneg status
+    err = enet_read_mdio(st, 0x2, PHY_AUTONEG_CMD, &autoneg);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+    
+    // Read BASIC contorl register
+    err = enet_read_mdio(st, 0x2, PHY_RESET_CMD, &status);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+
+    // TODO uboot driver seems to only read this stuff ?
+    return SYS_ERR_OK;
+}
+
+#define AUTONEG_100FULL 0x0100
+#define AUTONEG_100HALF 0x0080
+#define AUTONEG_10FULL  0x0040
+#define AUTONEG_10HALF  0x0020
+#define AUTONEG_PSB_802_3 0x0001
+
+#define AUTONEG_ENABLE 0x1000
+#define AUTONEG_RESTART 0x0200
+static errval_t enet_restart_autoneg(struct enet_driver_state* st)
+{
+    errval_t err;
+    err = enet_write_mdio(st, st->phy_id, PHY_RESET_CMD, PHY_RESET);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    some_sleep(1000);
+    //barrelfish_usleep(1000);
+
+    err = enet_write_mdio(st, st->phy_id, PHY_AUTONEG_CMD, 
+                          AUTONEG_100FULL | AUTONEG_100HALF | AUTONEG_10FULL |
+                          AUTONEG_10HALF | AUTONEG_PSB_802_3);
+    if (err_is_fail(err)) {
+        return err;
+    }
+ 
+    err = enet_write_mdio(st, st->phy_id, PHY_RESET_CMD, 
+                          AUTONEG_ENABLE | AUTONEG_RESTART);
+    if (err_is_fail(err)) {
+        return err;
+    }
+   
+    return SYS_ERR_OK;
+}
+
+
+static errval_t enet_init_phy(struct enet_driver_state* st)
+{
+    errval_t err;
+    err = enet_get_phy_id(st);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+ 
+    err = enet_reset_phy(st);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+   
+    // board_phy_config in uboot driver. Don't know what
+    // this actually does ...
+    err = enet_write_mdio(st, 0x2, 0x1d, 0x1f);
+    assert(err_is_ok(err));
+    err = enet_write_mdio(st, 0x2, 0x1e, 0x8);
+    assert(err_is_ok(err));
+    err = enet_write_mdio(st, 0x2, 0x1d, 0x00);
+    assert(err_is_ok(err));
+    err = enet_write_mdio(st, 0x2, 0x1e, 0x82ee);
+    assert(err_is_ok(err));
+    err = enet_write_mdio(st, 0x2, 0x1d, 0x05);
+    assert(err_is_ok(err));
+    err = enet_write_mdio(st, 0x2, 0x1e, 0x100);
+    assert(err_is_ok(err));
+
+    err = enet_setup_autoneg(st);
+    if (err_is_fail(err))  {
+        return err;
+    }   
+
+    return SYS_ERR_OK;
+}
+
+
+
+#define PHY_STATUS_LSTATUS 0x0004
+#define PHY_STATUS_ANEG_COMP 0x0020
+#define PHY_STATUS_ESTAT 0x0100
+#define PHY_STATUS_ERCAP 0x0001
+
+
+#define PHY_LPA_100HALF  0x0080
+#define PHY_LPA_100FULL 0x0100
+#define PHY_LPA_10FULL  0x0040
+// TODO check for rest of link capabilities
+static void enet_parse_link(struct enet_driver_state* st)
+{
+    // just a sanity check if values are ok
+    errval_t err;
+    int16_t status;
+    err = enet_read_mdio(st, 0x2, PHY_STAT1000_CMD, &status);
+    assert(err_is_ok(err));
+
+    int16_t mii_reg;
+    err = enet_read_mdio(st, 0x2, PHY_STATUS_CMD, &mii_reg);
+    assert(err_is_ok(err));
+
+    if (status < 0) {   
+        debug_printf("ENET not capable of 1G \n");
+        return;
+    } else {
+        err = enet_read_mdio(st, 0x2, PHY_CTRL1000_CMD, &status);
+        assert(err_is_ok(err));
+        
+        if (status == 0) {
+            int16_t lpa, lpa2;   
+            err = enet_read_mdio(st, 0x2, PHY_AUTONEG_CMD, &lpa);
+            assert(err_is_ok(err));
+
+            err = enet_read_mdio(st, 0x2, PHY_LPA_CMD, &lpa2);
+            assert(err_is_ok(err));
+        
+            lpa &= lpa2;
+            if (lpa & (PHY_LPA_100FULL | PHY_LPA_100HALF)) {
+                if (lpa & PHY_LPA_100FULL) {
+                    debug_printf("LINK 100 Mbit/s FULL duplex \n");
+                } else {
+                    debug_printf("LINK 100 Mbit/s half\n");
+                }
+            }
+        }
+    }
+
+}
+
+static errval_t enet_phy_startup(struct enet_driver_state* st)
+{
+    errval_t err;
+    // board_phy_config in uboot driver. Don't know what
+    // this actually does ...
+    int16_t mii_reg;
+    err = enet_read_mdio(st, 0x2, PHY_STATUS_CMD, &mii_reg);
+    assert(err_is_ok(err));
+
+    if (mii_reg & PHY_STATUS_LSTATUS) {
+        debug_printf("LINK already UP\n");
+        return SYS_ERR_OK;
+    }
+    
+    if (!(mii_reg & PHY_STATUS_ANEG_COMP)) {
+        ENET_DEBUG("Staring autonegotiation \n");
+        while(!(mii_reg & PHY_STATUS_ANEG_COMP))  {
+            err = enet_read_mdio(st, 0x2, PHY_STATUS_CMD, &mii_reg);
+            assert(err_is_ok(err));
+            some_sleep(1000);
+        }
+        
+        ENET_DEBUG("Autonegotation done\n");
+    }
+    
+    enet_parse_link(st);
+    
+    return SYS_ERR_OK;
+}
+
 // bool promiscous for promiscous mode. 
 // This will also set it so that all multicast packets will also be received!
+/*
 static void enet_init_multicast_filt(struct enet_driver_state* st, bool promisc)
 {
     if (promisc) {
@@ -256,11 +524,11 @@ static void enet_init_multicast_filt(struct enet_driver_state* st, bool promisc)
     enet_rcr_prom_wrf(st->d, 0);
     
     // TODO Catching all multicast packets for now
-    enet_gaur_gaddr_wrf(st->d, 0xFFFFFFFF);
-    enet_galr_gaddr_wrf(st->d, 0xFFFFFFFF);
+    enet_gaur_wr(st->d, 0xFFFFFFFF);
+    enet_galr_wr(st->d, 0xFFFFFFFF);
     // TODO if we do not catch all multicast packet then do this:
     // crc32 value of mac address
-    /*
+    #if 0
     unsigned int crc = 0xffffffff;
     unsigned char hash;
     unsigned int hash_high = 0, hash_low = 0;
@@ -282,9 +550,10 @@ static void enet_init_multicast_filt(struct enet_driver_state* st, bool promisc)
   
     enet_gaur_gaddr_wrf(st->d, hash_high);
     enet_galr_gaddr_wrf(st->d, hash_low);
-    */
+    #endif
     // TODO if this is M5272 then set the hash table entries to 0 ...
 }
+*/
 
 static void enet_read_mac(struct enet_driver_state* st)
 {
@@ -309,10 +578,13 @@ static void enet_write_mac(struct enet_driver_state* st)
 
 static void enet_activate_rx_ring(struct enet_driver_state* st)
 {
+    ENET_DEBUG("Activating RX ring \n");
     // bit is always set to 1 only when ring is empty then it is set to 0
-   enet_radr_radr_wrf(st->d, 0); 
+   enet_radr_radr_wrf(st->d, 1); 
+   some_sleep(1000);
 }
 
+/*
 static errval_t enet_rings_start(struct enet_driver_state* st) 
 {   
     // tell the card the start of the RX descriptor ring
@@ -342,6 +614,49 @@ static void enet_init_mii(struct enet_driver_state* st)
     // set hold time 
     enet_mscr_hold_time_wrf(st->d, 0);
 }
+*/
+
+
+static errval_t enet_reset(struct enet_driver_state* st)
+{
+    // reset device
+    ENET_DEBUG("Reset device\n");
+    
+    uint64_t ecr = enet_ecr_rd(st->d);
+    enet_ecr_wr(st->d, ecr | 0x1);
+    int timeout = 500;
+    while ((enet_ecr_rd(st->d) & 0x1) && timeout > 0) {
+        barrelfish_usleep(10);
+        // TODO timeout
+    }
+
+    if (timeout <= 0) {
+        return ENET_ERR_DEV_RESET;
+    }
+   
+    return SYS_ERR_OK;
+}
+
+static void enet_reg_setup(struct enet_driver_state* st)
+{
+    enet_eimr_wr(st->d, 0);
+    
+    // Set interrupt mask register
+    ENET_DEBUG("Set interrupt mask register\n");
+    enet_eimr_wr(st->d, 0x0);
+    // Clear outstanding interrupts
+    ENET_DEBUG("Clear outstanding interrupts\n");
+    enet_eir_wr(st->d, 0xFFFFFFFF);
+    
+    uint64_t reg; 
+    // TODO see if other fields are required, not in dump
+    reg = enet_rcr_rd(st->d);
+    //reg = enet_rcr_mii_mode_insert(reg, 0x1);
+    //reg = enet_rcr_fce_insert(reg, 0x1);
+    reg = enet_rcr_max_fl_insert(reg, 1522);
+    //reg = enet_rcr_rmii_mode_insert(reg, 0x1);
+    enet_rcr_wr(st->d, reg);   
+}
 
 static errval_t enet_rings_init(struct enet_driver_state* st)
 {
@@ -349,20 +664,7 @@ static errval_t enet_rings_init(struct enet_driver_state* st)
     enet_bufdesc_t desc;
     uint16_t val;
 
-    ENET_DEBUG("RX %p ring init to default values \n", st->rxq->ring);
-    for (int i = 0; i < st->rxq->size; i++) {
-        desc = st->rxq->ring[i];
-        enet_bufdesc_sc_insert(desc, 0);
-    }
-
-    // set last one to wrap
-    desc = st->rxq->ring[st->rxq->size - 1];
-    val = enet_bufdesc_sc_extract(desc);
-    val |= 0x2000;
-    enet_bufdesc_sc_insert(desc, val);
-    st->rxq->head = 0;
-    st->rxq->tail = 0;
-    
+    memset(st->txq->ring, 0, st->txq->size*sizeof(enet_bufdesc_t));
     ENET_DEBUG("TX %p ring init to default values \n", st->txq->ring);
     // init send buffer descriptors
     for (int i = 0; i < st->txq->size; i++) {
@@ -374,137 +676,252 @@ static errval_t enet_rings_init(struct enet_driver_state* st)
     // set last one to wrap
     desc = st->txq->ring[st->txq->size - 1];
     val = enet_bufdesc_sc_extract(desc);
-    val |= 0x2000;
+    val |= ENET_SC_WRAP;
     enet_bufdesc_sc_insert(desc, val);
 
     st->txq->head = 0;
     st->txq->tail = 0;
 
-    return SYS_ERR_OK;
-}
+    // TODO dchace flush
 
-static errval_t enet_restart(struct enet_driver_state* st)
-{
-    errval_t err;
-    // reset device
-    ENET_DEBUG("Reset device\n");
-    
-    uint64_t ecr = enet_ecr_rd(st->d);
-    enet_ecr_wr(st->d, ecr | 0x1);
-    while (enet_ecr_rd(st->d) & 0x1) {
-        barrelfish_usleep(10);
-        // TODO timeout
+    memset(st->rxq->ring, 0, st->rxq->size*sizeof(enet_bufdesc_t));
+    ENET_DEBUG("RX %p ring init to default values \n", st->rxq->ring);
+    for (int i = 0; i < st->rxq->size; i++) {
+        desc = st->rxq->ring[i];
+        enet_bufdesc_sc_insert(desc, 0);
     }
 
-    enet_eimr_wr(st->d, 0);
-    // Write back mac again
-    ENET_DEBUG("Reset MAC\n");
-    // TODO do this later? NOT in dump
-    enet_write_mac(st);
-    enet_read_mac(st);
+    // set last one to wrap
+    desc = st->rxq->ring[st->rxq->size - 1];
+    val = enet_bufdesc_sc_extract(desc);
+    val |= ENET_SC_WRAP;
+    enet_bufdesc_sc_insert(desc, val);
+    st->rxq->head = 0;
+    st->rxq->tail = 0;
     
-
-    // Clear outstanding interrupts
-    ENET_DEBUG("Clear outstanding interrupts\n");
-    enet_eir_wr(st->d, 0xFFFFFFFF);
-        
-    //Initalize descriptor rings
-    ENET_DEBUG("Reset RX/TX rings\n");
-    err = enet_rings_init(st);
-    if (err_is_fail(err)) {
-        debug_printf("Failed init of rings \n");
-        return err;
-    }
-
-    ENET_DEBUG("Restart RX/TX rings\n");
-    err = enet_rings_start(st);
-    if (err_is_fail(err)) {
-        debug_printf("Failed starting rings \n");
-        return err;
-    }
-
-    // set max pkt size
-    enet_rcr_max_fl_wrf(st->d, 1522);
-
-    // set full duplex mode
-    // TODO check if needed?
-    //enet_tcr_fden_wrf(st->d, 1);
-    
-    // TODO check these vlaues: set by using register dump on linux
-    // set MII speed
-    //enet_mscr_mii_speed_wrf(st->d, 1);a
-    // Set MII speed, do not drop preamble and set hold time to 10ns
-    enet_mscr_mii_speed_wrf(st->d, 0x18);
-    enet_mscr_hold_time_wrf(st->d, 0x1);
-    // set hold time 
-    //enet_mscr_hold_time_wrf(st->d, 0); TODO implication of hold time!
-
-    // TODO check if this is verion M5272 then have to fix some quirks here
-
-    // ENET_MAC is special here!
-    // flow control and length check
-    //enet_rcr_fce_wrf(st->d, 1);
-    //enet_rcr_nlc_wrf(st->d, 1);
-    // Only have RMII (Fast ethernet)
-    //enet_rcr_rmii_mode_wrf(st->d, 1);
-    //enet_rcr_rmii_10t_wrf(st->d, 0);
-    
-    // Assume this is not M5272
-    // FIFO threshold parameter to reduce overrun
-    enet_rsem_rx_section_empty_wrf(st->d, 0x84);
-    enet_rsfl_rx_section_full_wrf(st->d, 16);
-    enet_raem_rx_almost_full_wrf(st->d, 8);
-    enet_rafl_rx_almost_empty_wrf(st->d, 8);
-    enet_opd_pause_dur_wrf(st->d, 0xFFF0);
-    
-    // TODO setup multicast filter line 1087
-#ifdef ENET_PROMISC
-    ENET_DEBUG("Setting multicast filter promiscous mode \n");
-    enet_init_multicast_filt(st, true);
-#else
-    ENET_DEBUG("Setting multicast filter NOT in promiscous mode \n");
-    enet_init_multicast_filt(st, false);
-#endif
-
-    // Enable enet store forward mode (ENET quirk)
-    enet_tfwr_strfwd_wrf(st->d, 1);
-
-    // TODO enable advanced descriptors
-    //enet_ecr_en1588_wrf(st->d, 1);
-    
-    enet_ecr_dbswp_wrf(st->d, 1);
-    enet_ecr_speed_wrf(st->d, 0);
-    enet_ecr_etheren_wrf(st->d, 1);
-
-
-    ENET_DEBUG("Activate RX ring \n");
-    enet_activate_rx_ring(st);
-
-    ENET_DEBUG("Set interrupts we want to handle \n");
-    // Set interrupts we want to handle
-    enet_eimr_mii_wrf(st->d, 1);
-    enet_eimr_txf_wrf(st->d, 1);
-    enet_eimr_rxf_wrf(st->d, 1); 
-    enet_eimr_txf1_wrf(st->d, 1);
-    enet_eimr_rxf1_wrf(st->d, 1);
-    enet_eimr_txf2_wrf(st->d, 1);
-    enet_eimr_rxf2_wrf(st->d, 1);
-
-    ENET_DEBUG("TODO: Enable interrupts\n");
-    // TODO enable interrupt coalesing
-    // TODO get/setup interrupt 
+    // TODO dchace flush
     return SYS_ERR_OK;
 }
 
 static errval_t enet_open(struct enet_driver_state *st)
 {
-    errval_t err;
-    // TODO fec_enet_alloc_buffers? needed?
-    err = enet_restart(st);
+    errval_t err = SYS_ERR_OK;
+    // Enable full duplex, disable heartbeet
+    enet_tcr_fden_wrf(st->d, 0x1);
+
+    // Invalidate rx descriptors
+    st->rxq->tail = 0;
+    struct capref mem;
+    err = frame_alloc(&mem, 512*2048, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    regionid_t rid;
+    err = devq_register((struct devq*) st->rxq, mem, &rid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    for (int i = 0; i < st->rxq->size; i++) {
+        err = devq_enqueue((struct devq*) st->rxq, rid, i*(2048), 2048,
+                            0, 2048, 0);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    // Enable HW endian swap
+    enet_ecr_dbswp_wrf(st->d, 0x1);
+    // Enable store and forward mode
+    enet_tfwr_strfwd_wrf(st->d, 0x1);
+    // Enable controler
+    enet_ecr_etheren_wrf(st->d, 0x1);
+
+    // TODO don't think this is MX25/MX53 or MX6SL
+    // Startup PHY
+    err = enet_phy_startup(st);
+    if (err_is_fail(err))  {
+        return err;
+    } 
+
+    uint8_t speed = enet_ecr_speed_rdf(st->d);
+    
+    if (!speed) {
+        enet_rcr_rmii_10t_wrf(st->d, 0x1);
+    }
+
+    enet_activate_rx_ring(st);
+    ENET_DEBUG("Init done! \n");
+    return err;
+}
+
+static errval_t enet_init(struct enet_driver_state* st)
+{
+    errval_t err = SYS_ERR_OK;
+    // set HW addreses
+    enet_iaur_wr(st->d, 0);
+    enet_ialr_wr(st->d, 0);
+    enet_gaur_wr(st->d, 0);
+    enet_galr_wr(st->d, 0);
+    enet_write_mac(st);
+
+    ENET_DEBUG("Setting RX/TX rings to default values \n");
+    // Init rings
+    err = enet_rings_init(st);
+    if (err_is_fail(err)){
+        return err;
+    }
+
+    enet_reg_setup(st);
+
+    uint64_t reg; 
+    // Set MII speed, do not drop preamble and set hold time to 10ns
+    reg = enet_mscr_rd(st->d);
+    reg = enet_mscr_mii_speed_insert(reg, 0x18);
+    reg = enet_mscr_hold_time_insert(reg, 0x1);
+    enet_mscr_wr(st->d, reg);
+    
+    // Set Opcode and Pause duration
+    enet_opd_wr(st->d, 0x000100200);
+    enet_tfwr_tfwr_wrf(st->d, 0x2);
+
+    // Set multicast addr filter
+    enet_gaur_wr(st->d, 0);
+    enet_galr_wr(st->d, 0);
+
+    // Max pkt size rewrite ...
+    reg = enet_rcr_rd(st->d);
+    reg = enet_rcr_max_fl_insert(reg, ENET_MAX_PKT_SIZE);
+    enet_rcr_wr(st->d, reg);   
+
+    // Tell card beginning of rx/tx rings
+    enet_rdsr_wr(st->d, st->rxq->desc_mem.devaddr);
+    enet_tdsr_wr(st->d, st->txq->desc_mem.devaddr);
+
+    err = enet_restart_autoneg(st);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = enet_open(st);
     if (err_is_fail(err)) {
         // TODO cleanup
         return err;
     }
+
+    return err;
+}
+
+static errval_t enet_probe(struct enet_driver_state* st)
+{
+    errval_t err;
+    err = enet_reset(st);
+    if (err_is_fail(err)) {
+        return err;
+    }
+ 
+    enet_reg_setup(st);
+   
+    uint64_t reg; 
+    // Set MII speed, do not drop preamble and set hold time to 10ns
+    reg = enet_mscr_rd(st->d);
+    reg = enet_mscr_mii_speed_insert(reg, 0x18);
+    reg = enet_mscr_hold_time_insert(reg, 0x1);
+    enet_mscr_wr(st->d, reg);
+
+    err = enet_init_phy(st);
+    if (err_is_fail(err))  {
+        debug_printf("Failed PHY reset\n");
+        return err;
+    }   
+
+    // Write back mac again
+    ENET_DEBUG("Reset MAC\n");
+    // TODO do this later? NOT in dump
+    enet_write_mac(st);
+    enet_read_mac(st);
+
+    // TODO checked dump until here! 
+    return SYS_ERR_OK;
+}
+
+static errval_t enet_alloc_queues(struct enet_driver_state* st)
+{   
+    errval_t err;
+    ENET_DEBUG("Allocating TX/RX ring data structures \n");
+    st->rxq = calloc(1, sizeof(struct enet_queue));
+    st->txq = calloc(1, sizeof(struct enet_queue));
+    st->rxq->size = RX_RING_SIZE;
+    st->txq->size = TX_RING_SIZE;
+    assert(st->rxq);
+    assert(st->txq);
+
+    st->rxq->align = 0x3f;
+    st->txq->align = 0;
+
+    // TODO check for advanced descriptors
+    // TODO linking iommu driverkit library does not seem to work ...
+    ENET_DEBUG("Allocating RX/TX descriptor ring \n");
+    size_t tot_size = (st->rxq->size + st->txq->size)*sizeof(enet_bufdesc_t);
+    err = frame_alloc(&(st->rxq->desc_mem.mem), tot_size, (size_t *)&(st->rxq->desc_mem.size));
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    ENET_DEBUG("Mapping RX/TX descriptor ring\n");
+    err = vspace_map_one_frame_attr((void**) &(st->rxq->desc_mem.vbase), tot_size, 
+                                    st->rxq->desc_mem.mem, 
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(err)) {
+        cap_destroy(st->rxq->desc_mem.mem);
+        DEBUG_ERR(err, "vspace_map_one_frame failed");
+        return err;
+    }
+
+    struct frame_identity id;
+    err = frame_identify(st->rxq->desc_mem.mem, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    st->rxq->desc_mem.devaddr = id.base;
+    assert((st->rxq->desc_mem.devaddr & st->rxq->align) == 0);
+
+    /*
+    err = driverkit_iommu_mmap_cl(NULL, st->rxq->size + st->txq->size*
+                                  sizeof(enet_bufdesc_t), VREGION_FLAGS_READ_WRITE, 
+                                  &st->rxq->desc_mem);
+    if (err_is_fail(err)) {
+        // TODO cleanup
+        return DRIVERKIT_ERR_DRIVER_INIT;
+    }
+    */
+    st->rxq->ring = (void*) st->rxq->desc_mem.vbase;
+    assert(st->rxq->ring);
+    memset(st->rxq->ring, 0, tot_size);
+
+    st->txq->desc_mem.vbase = (st->rxq->desc_mem.vbase + (st->rxq->size*sizeof(enet_bufdesc_t)));
+    st->txq->desc_mem.devaddr = (st->rxq->desc_mem.devaddr + (st->rxq->size*sizeof(enet_bufdesc_t)));
+    st->txq->ring = (void*) st->txq->desc_mem.vbase;
+    st->txq->desc_mem.size = st->rxq->desc_mem.size;
+
+    assert(st->txq->ring);
+
+
+    /*
+    // Disable RX
+    uint32_t reg_val = enet_eimr_rd(st->d);
+    enet_eimr_rxf_insert(reg_val, 0);
+    enet_eimr_rxf1_insert(reg_val, 0);
+    enet_eimr_rxf2_insert(reg_val, 0);
+    enet_eimr_wr(st->d, reg_val);
+    */
+    ENET_DEBUG("RX phys=%p virt=%p \n", (void*) st->rxq->desc_mem.devaddr,
+                (void*) st->rxq->ring);
+    ENET_DEBUG("TX phys=%p virt=%p \n", (void*) st->txq->desc_mem.devaddr,
+                (void*) st->txq->ring);
+
     return SYS_ERR_OK;
 }
 
@@ -565,77 +982,12 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     */
     // TODO rest phy devm_gpio_request_one()? 
     
-    // TODO Alloc queue struts 
-    ENET_DEBUG("Allocating TX/RX ring data structures \n");
-    st->rxq = calloc(1, sizeof(struct enet_queue));
-    st->txq = calloc(1, sizeof(struct enet_queue));
-    st->rxq->size = RX_RING_SIZE;
-    st->txq->size = TX_RING_SIZE;
-    assert(st->rxq);
-    assert(st->txq);
-
-    st->rxq->align = 0x3f;
-    st->txq->align = 0;
-
-    // TODO check for advanced descriptors
-    // TODO linking iommu driverkit library does not seem to work ...
-    ENET_DEBUG("Allocating RX/TX descriptor ring \n");
-    size_t tot_size = (st->rxq->size + st->txq->size)*sizeof(enet_bufdesc_t);
-    err = frame_alloc(&(st->rxq->desc_mem.mem), tot_size, (size_t *)&(st->rxq->desc_mem.size));
+    // Alloc queues
+    err = enet_alloc_queues(st);
     if (err_is_fail(err)) {
+        USER_PANIC("Failed initalizing queues \n");
         return err;
     }
-
-    ENET_DEBUG("Mapping RX/TX descriptor ring\n");
-    err = vspace_map_one_frame_attr((void**) &(st->rxq->desc_mem.vbase), tot_size, 
-                                    st->rxq->desc_mem.mem, 
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(err)) {
-        cap_destroy(st->rxq->desc_mem.mem);
-        DEBUG_ERR(err, "vspace_map_one_frame failed");
-        return err;
-    }
-
-    struct frame_identity id;
-    err = frame_identify(st->rxq->desc_mem.mem, &id);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    st->rxq->desc_mem.devaddr = id.base;
-
-    /*
-    err = driverkit_iommu_mmap_cl(NULL, st->rxq->size + st->txq->size*
-                                  sizeof(enet_bufdesc_t), VREGION_FLAGS_READ_WRITE, 
-                                  &st->rxq->desc_mem);
-    if (err_is_fail(err)) {
-        // TODO cleanup
-        return DRIVERKIT_ERR_DRIVER_INIT;
-    }
-    */
-    st->rxq->ring = (void*) st->rxq->desc_mem.vbase;
-    assert(st->rxq->ring);
-    memset(st->rxq->ring, 0, tot_size);
-
-    st->txq->desc_mem.vbase = (st->rxq->desc_mem.vbase + (st->rxq->size*sizeof(enet_bufdesc_t)));
-    st->txq->desc_mem.devaddr = (st->rxq->desc_mem.devaddr + (st->rxq->size*sizeof(enet_bufdesc_t)));
-    st->txq->ring = (void*) st->txq->desc_mem.vbase;
-    st->txq->desc_mem.size = st->rxq->desc_mem.size;
-
-    assert(st->txq->ring);
-
-    // Disable RX
-    uint32_t reg_val = enet_eimr_rd(st->d);
-    enet_eimr_rxf_insert(reg_val, 0);
-    enet_eimr_rxf1_insert(reg_val, 0);
-    enet_eimr_rxf2_insert(reg_val, 0);
-    enet_eimr_wr(st->d, reg_val);
-    
-    ENET_DEBUG("RX phys=%p virt=%p \n", (void*) st->rxq->desc_mem.devaddr,
-                (void*) st->rxq->ring);
-    ENET_DEBUG("TX phys=%p virt=%p \n", (void*) st->txq->desc_mem.devaddr,
-                (void*) st->txq->ring);
-
 
     // Alloc cleanq data structs
     
@@ -643,16 +995,15 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     st->txq->ring_bufs = calloc(st->txq->size, sizeof(struct devq_buf));
     assert(st->rxq->ring_bufs);
     assert(st->txq->ring_bufs);
-    // restart NIC
-    ENET_DEBUG("Restart NIC\n");
-    err = enet_restart(st);
+
+    err = enet_probe(st);
     if (err_is_fail(err)) {
         // TODO cleanup
         return err;
     }
 
-    ENET_DEBUG("Init MII bus\n");
-    enet_init_mii(st);
+    //ENET_DEBUG("Init MII bus\n");
+    //enet_init_mii(st);
 
     err = devq_init(&st->rxq->q, false);
     if (err_is_fail(err)) {
@@ -675,32 +1026,12 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     st->txq->q.f.enq = enet_tx_enqueue;
     st->txq->q.f.deq = enet_tx_dequeue;
 
-    err = enet_open(st);
+    err = enet_init(st);
     if (err_is_fail(err)) {
         // TODO cleanup
         return err;
     }
 
-    struct capref mem;
-    err = frame_alloc(&mem, 512*2048, NULL);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    regionid_t rid;
-    err = devq_register((struct devq*) st->rxq, mem, &rid);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    
-    for (int i = 0; i < 512; i++) {
-        err = devq_enqueue((struct devq*) st->rxq, rid, i*(2048), 2048,
-                            0, 2048, 0);
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
 
     struct devq_buf buf;
     while(true) {
@@ -712,10 +1043,7 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         } else {
 
         }
-        for(volatile int i = 0; i < 100000000; i++) {
-            i++;
-            i--;
-        }
+        some_sleep(1000);
     }
     *dev = 0x00;
 
