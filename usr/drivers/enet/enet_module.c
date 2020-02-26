@@ -25,6 +25,7 @@
 
 #include "enet.h"
 
+#define PHY_ID 0x2
 static void some_sleep(uint64_t rep)
 {    
     // TODO some sleep, barrelfish_usleep() seems to be broken!
@@ -33,6 +34,7 @@ static void some_sleep(uint64_t rep)
             i++;
             i--;
         }
+
         rep--;
     }
 }
@@ -109,10 +111,17 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
     enet_bufdesc_t desc = q->ring[q->head];
     struct devq_buf buf = q->ring_bufs[q->head];
 
-    ENET_DEBUG("Try dequeue %d \n", q->head);
-    __builtin___clear_cache(q->ring[q->head], q->ring[q->head+1]);
+    __builtin___clear_cache(desc, desc+sizeof(enet_bufdesc_t));
 
     uint16_t status = enet_bufdesc_sc_extract(desc);
+
+    ENET_DEBUG("Try dequeue %d RADR %d ENABLED %d STATUS %lx \n", q->head, 
+               enet_radr_radr_rdf(q->d), enet_ecr_etheren_rdf(q->d), status);
+    //ENET_DEBUG("RX packets %d \n", enet_rmon_r_packets_rd(q->d));
+    //ENET_DEBUG("RX packets CRC/Align %d \n", enet_rmon_r_packets_crc_align_rd(q->d));
+    //ENET_DEBUG("RX num octet %d \n", enet_rmon_r_octets_rd(q->d));
+    //ENET_DEBUG("RX drop %d \n", enet_iee_r_drop_rd(q->d));
+    
     if (!(status & ENET_RX_EMPTY)) {
         // TODO error handling!
         *valid_length = enet_bufdesc_len_extract(desc);
@@ -189,7 +198,9 @@ static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
     }
 
     __builtin___clear_cache(q->ring[q->tail], q->ring[q->tail+1]);
-    //ENET_DEBUG("enqueue offset=%lx length=%zu\n", offset, length);
+    /*ENET_DEBUG("enqueue ring_buf[%d]=%p phys=%lx offset=%lx length=%zu\n", q->tail, 
+                q->ring[q->tail], addr, offset, length);
+    */
     q->tail = (q->tail + 1) & (q->size -1);
     return SYS_ERR_OK;
 }
@@ -200,7 +211,6 @@ static errval_t enet_write_mdio(struct enet_driver_state* st, int8_t phyaddr,
     
     // Some protocol ...
 
-    // TODO Need + 40 registeR!!!
     enet_mmfr_t reg = 0;
     reg = enet_mmfr_pa_insert(reg, phyaddr);
     reg = enet_mmfr_ra_insert(reg, regaddr);
@@ -235,7 +245,6 @@ static errval_t enet_read_mdio(struct enet_driver_state* st, int8_t phyaddr,
     // Some protocol ...
     enet_eir_mii_wrf(st->d, 0x1);
 
-    // TODO Need + 40 registeR!!!
     enet_mmfr_t reg = 0;
     reg = enet_mmfr_pa_insert(reg, phyaddr);
     reg = enet_mmfr_ra_insert(reg, regaddr);
@@ -270,14 +279,14 @@ static errval_t enet_get_phy_id(struct enet_driver_state* st)
     uint32_t phy_id;
 
     // get phy ID1
-    err = enet_read_mdio(st, 0x2,  0x2, &data);
+    err = enet_read_mdio(st, PHY_ID,  0x2, &data);
     if (err_is_fail(err))  {
         return err;
     }   
     phy_id = data << 16;
 
     // get phy ID2
-    err = enet_read_mdio(st, 0x2,  0x3, &data);
+    err = enet_read_mdio(st, PHY_ID,  0x3, &data);
     if (err_is_fail(err))  {
         return err;
     }   
@@ -300,20 +309,20 @@ static errval_t enet_reset_phy(struct enet_driver_state* st)
 {
     debug_printf("PHY ID %d \n", st->phy_id);
     errval_t err;
-    err = enet_write_mdio(st, 0x2, PHY_RESET_CMD, PHY_RESET);
+    err = enet_write_mdio(st, PHY_ID, PHY_RESET_CMD, PHY_RESET);
     if (err_is_fail(err))  {
         return err;
     }   
 
     int16_t data;
-    err = enet_read_mdio(st, 0x2, PHY_RESET_CMD, &data);
+    err = enet_read_mdio(st, PHY_ID, PHY_RESET_CMD, &data);
     if (err_is_fail(err))  {
         return err;
     }   
     
     int timeout = 500;
     while ((data & PHY_RESET) && timeout > 0) {
-        err = enet_read_mdio(st, 0x2, PHY_RESET_CMD, &data);
+        err = enet_read_mdio(st, PHY_ID, PHY_RESET_CMD, &data);
         if (err_is_fail(err))  {
             return err;
         }   
@@ -336,19 +345,19 @@ static errval_t enet_setup_autoneg(struct enet_driver_state* st)
     int16_t autoneg;
 
     // Read BASIC MODE status register
-    err = enet_read_mdio(st, 0x2, 0x1, &status);
+    err = enet_read_mdio(st, PHY_ID, 0x1, &status);
     if (err_is_fail(err))  {
         return err;
     }   
 
     // READ autoneg status
-    err = enet_read_mdio(st, 0x2, PHY_AUTONEG_CMD, &autoneg);
+    err = enet_read_mdio(st, PHY_ID, PHY_AUTONEG_CMD, &autoneg);
     if (err_is_fail(err))  {
         return err;
     }   
     
     // Read BASIC contorl register
-    err = enet_read_mdio(st, 0x2, PHY_RESET_CMD, &status);
+    err = enet_read_mdio(st, PHY_ID, PHY_RESET_CMD, &status);
     if (err_is_fail(err))  {
         return err;
     }   
@@ -368,7 +377,7 @@ static errval_t enet_setup_autoneg(struct enet_driver_state* st)
 static errval_t enet_restart_autoneg(struct enet_driver_state* st)
 {
     errval_t err;
-    err = enet_write_mdio(st, st->phy_id, PHY_RESET_CMD, PHY_RESET);
+    err = enet_write_mdio(st, PHY_ID, PHY_RESET_CMD, PHY_RESET);
     if (err_is_fail(err)) {
         return err;
     }
@@ -376,14 +385,14 @@ static errval_t enet_restart_autoneg(struct enet_driver_state* st)
     some_sleep(1000);
     //barrelfish_usleep(1000);
 
-    err = enet_write_mdio(st, st->phy_id, PHY_AUTONEG_CMD, 
+    err = enet_write_mdio(st, PHY_ID, PHY_AUTONEG_CMD, 
                           AUTONEG_100FULL | AUTONEG_100HALF | AUTONEG_10FULL |
                           AUTONEG_10HALF | AUTONEG_PSB_802_3);
     if (err_is_fail(err)) {
         return err;
     }
  
-    err = enet_write_mdio(st, st->phy_id, PHY_RESET_CMD, 
+    err = enet_write_mdio(st, PHY_ID, PHY_RESET_CMD, 
                           AUTONEG_ENABLE | AUTONEG_RESTART);
     if (err_is_fail(err)) {
         return err;
@@ -408,17 +417,17 @@ static errval_t enet_init_phy(struct enet_driver_state* st)
    
     // board_phy_config in uboot driver. Don't know what
     // this actually does ...
-    err = enet_write_mdio(st, 0x2, 0x1d, 0x1f);
+    err = enet_write_mdio(st, PHY_ID, 0x1d, 0x1f);
     assert(err_is_ok(err));
-    err = enet_write_mdio(st, 0x2, 0x1e, 0x8);
+    err = enet_write_mdio(st, PHY_ID, 0x1e, 0x8);
     assert(err_is_ok(err));
-    err = enet_write_mdio(st, 0x2, 0x1d, 0x00);
+    err = enet_write_mdio(st, PHY_ID, 0x1d, 0x00);
     assert(err_is_ok(err));
-    err = enet_write_mdio(st, 0x2, 0x1e, 0x82ee);
+    err = enet_write_mdio(st, PHY_ID, 0x1e, 0x82ee);
     assert(err_is_ok(err));
-    err = enet_write_mdio(st, 0x2, 0x1d, 0x05);
+    err = enet_write_mdio(st, PHY_ID, 0x1d, 0x05);
     assert(err_is_ok(err));
-    err = enet_write_mdio(st, 0x2, 0x1e, 0x100);
+    err = enet_write_mdio(st, PHY_ID, 0x1e, 0x100);
     assert(err_is_ok(err));
 
     err = enet_setup_autoneg(st);
@@ -446,26 +455,26 @@ static void enet_parse_link(struct enet_driver_state* st)
     // just a sanity check if values are ok
     errval_t err;
     int16_t status;
-    err = enet_read_mdio(st, 0x2, PHY_STAT1000_CMD, &status);
+    err = enet_read_mdio(st, PHY_ID, PHY_STAT1000_CMD, &status);
     assert(err_is_ok(err));
 
     int16_t mii_reg;
-    err = enet_read_mdio(st, 0x2, PHY_STATUS_CMD, &mii_reg);
+    err = enet_read_mdio(st, PHY_ID, PHY_STATUS_CMD, &mii_reg);
     assert(err_is_ok(err));
 
     if (status < 0) {   
         debug_printf("ENET not capable of 1G \n");
         return;
     } else {
-        err = enet_read_mdio(st, 0x2, PHY_CTRL1000_CMD, &status);
+        err = enet_read_mdio(st, PHY_ID, PHY_CTRL1000_CMD, &status);
         assert(err_is_ok(err));
         
         if (status == 0) {
             int16_t lpa, lpa2;   
-            err = enet_read_mdio(st, 0x2, PHY_AUTONEG_CMD, &lpa);
+            err = enet_read_mdio(st, PHY_ID, PHY_AUTONEG_CMD, &lpa);
             assert(err_is_ok(err));
 
-            err = enet_read_mdio(st, 0x2, PHY_LPA_CMD, &lpa2);
+            err = enet_read_mdio(st, PHY_ID, PHY_LPA_CMD, &lpa2);
             assert(err_is_ok(err));
         
             lpa &= lpa2;
@@ -487,7 +496,7 @@ static errval_t enet_phy_startup(struct enet_driver_state* st)
     // board_phy_config in uboot driver. Don't know what
     // this actually does ...
     int16_t mii_reg;
-    err = enet_read_mdio(st, 0x2, PHY_STATUS_CMD, &mii_reg);
+    err = enet_read_mdio(st, PHY_ID, PHY_STATUS_CMD, &mii_reg);
     assert(err_is_ok(err));
 
     if (mii_reg & PHY_STATUS_LSTATUS) {
@@ -498,7 +507,7 @@ static errval_t enet_phy_startup(struct enet_driver_state* st)
     if (!(mii_reg & PHY_STATUS_ANEG_COMP)) {
         ENET_DEBUG("Staring autonegotiation \n");
         while(!(mii_reg & PHY_STATUS_ANEG_COMP))  {
-            err = enet_read_mdio(st, 0x2, PHY_STATUS_CMD, &mii_reg);
+            err = enet_read_mdio(st, PHY_ID, PHY_STATUS_CMD, &mii_reg);
             assert(err_is_ok(err));
             some_sleep(1000);
         }
@@ -580,8 +589,8 @@ static void enet_activate_rx_ring(struct enet_driver_state* st)
 {
     ENET_DEBUG("Activating RX ring \n");
     // bit is always set to 1 only when ring is empty then it is set to 0
-   enet_radr_radr_wrf(st->d, 1); 
-   some_sleep(1000);
+    enet_radr_radr_wrf(st->d, 1); 
+    some_sleep(1000);
 }
 
 /*
@@ -639,8 +648,6 @@ static errval_t enet_reset(struct enet_driver_state* st)
 
 static void enet_reg_setup(struct enet_driver_state* st)
 {
-    enet_eimr_wr(st->d, 0);
-    
     // Set interrupt mask register
     ENET_DEBUG("Set interrupt mask register\n");
     enet_eimr_wr(st->d, 0x0);
@@ -651,10 +658,9 @@ static void enet_reg_setup(struct enet_driver_state* st)
     uint64_t reg; 
     // TODO see if other fields are required, not in dump
     reg = enet_rcr_rd(st->d);
-    //reg = enet_rcr_mii_mode_insert(reg, 0x1);
-    //reg = enet_rcr_fce_insert(reg, 0x1);
+    reg = enet_rcr_mii_mode_insert(reg, 0x1);
+    reg = enet_rcr_fce_insert(reg, 0x1);
     reg = enet_rcr_max_fl_insert(reg, 1522);
-    //reg = enet_rcr_rmii_mode_insert(reg, 0x1);
     enet_rcr_wr(st->d, reg);   
 }
 
@@ -748,7 +754,7 @@ static errval_t enet_open(struct enet_driver_state *st)
     uint8_t speed = enet_ecr_speed_rdf(st->d);
     
     if (!speed) {
-        enet_rcr_rmii_10t_wrf(st->d, 0x1);
+        enet_rcr_rmii_10t_wrf(st->d, 0x0);
     }
 
     enet_activate_rx_ring(st);
@@ -854,6 +860,9 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     st->txq = calloc(1, sizeof(struct enet_queue));
     st->rxq->size = RX_RING_SIZE;
     st->txq->size = TX_RING_SIZE;
+    st->txq->d = st->d;
+    st->rxq->d = st->d;
+
     assert(st->rxq);
     assert(st->txq);
 
@@ -872,7 +881,7 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     ENET_DEBUG("Mapping RX/TX descriptor ring\n");
     err = vspace_map_one_frame_attr((void**) &(st->rxq->desc_mem.vbase), tot_size, 
                                     st->rxq->desc_mem.mem, 
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     if (err_is_fail(err)) {
         cap_destroy(st->rxq->desc_mem.mem);
         DEBUG_ERR(err, "vspace_map_one_frame failed");
@@ -886,7 +895,6 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     }
 
     st->rxq->desc_mem.devaddr = id.base;
-    assert((st->rxq->desc_mem.devaddr & st->rxq->align) == 0);
 
     /*
     err = driverkit_iommu_mmap_cl(NULL, st->rxq->size + st->txq->size*
@@ -899,7 +907,9 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     */
     st->rxq->ring = (void*) st->rxq->desc_mem.vbase;
     assert(st->rxq->ring);
-    memset(st->rxq->ring, 0, tot_size);
+    assert((st->rxq->desc_mem.devaddr & st->rxq->align) == 0);
+
+    memset(st->rxq->ring, 0, st->rxq->size*sizeof(enet_bufdesc_t));
 
     st->txq->desc_mem.vbase = (st->rxq->desc_mem.vbase + (st->rxq->size*sizeof(enet_bufdesc_t)));
     st->txq->desc_mem.devaddr = (st->rxq->desc_mem.devaddr + (st->rxq->size*sizeof(enet_bufdesc_t)));
@@ -907,8 +917,9 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     st->txq->desc_mem.size = st->rxq->desc_mem.size;
 
     assert(st->txq->ring);
+    assert((st->txq->desc_mem.devaddr & st->txq->align) == 0);
 
-
+    memset(st->txq->ring, 0, st->txq->size*sizeof(enet_bufdesc_t));
     /*
     // Disable RX
     uint32_t reg_val = enet_eimr_rd(st->d);
@@ -1031,7 +1042,6 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         // TODO cleanup
         return err;
     }
-
 
     struct devq_buf buf;
     while(true) {
