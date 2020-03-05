@@ -128,15 +128,23 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
 
     uint16_t status = enet_bufdesc_sc_extract(desc);
 
+    if (q->head == q->tail) {
+        return DEVQ_ERR_QUEUE_EMPTY;
+    }
+    /*
     ENET_DEBUG("Try dequeue %d RADR %d ENABLED %d STATUS %lx \n", q->head, 
                enet_rdar_rdar_rdf(q->d), enet_ecr_etheren_rdf(q->d), status);
-    
+    */
     if (!(status & ENET_RX_EMPTY)) {
         // TODO error handling!
         *valid_length = enet_bufdesc_len_extract(desc);
-        ENET_DEBUG("Received Packet %lu \n", *valid_length);
+        ENET_DEBUG("Received Packet len=%lu entry=%zu \n", *valid_length,
+                   q->head);
+        ENET_DEBUG("offset=%lu length=%lu valid_data=%lu rid=%lu \n",
+                   buf->offset, buf->length, 0, buf->rid);
         *offset = buf->offset;
         *valid_data = 0;
+        *length = 2048;
         *rid = buf->rid;
         *flags = buf->flags;
     } else {
@@ -284,17 +292,20 @@ static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
     assert(entry);    
     
     // TODO SEE IF THERE IS SPACE!
-   
+    if (enet_full_slots(q) == q->size) {
+        return DEVQ_ERR_QUEUE_FULL;
+    }
+  
     lpaddr_t addr = 0;
     addr = (lpaddr_t) entry->mem.devaddr + offset;
  
-    struct devq_buf buf= q->ring_bufs[q->tail];
-    buf.offset = offset;
-    buf.length = length;
-    buf.valid_length = valid_length;
-    buf.valid_data = valid_data;
-    buf.rid = rid;
-    buf.flags = flags;
+    struct devq_buf* buf= &q->ring_bufs[q->tail];
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_length = valid_length;
+    buf->valid_data = valid_data;
+    buf->rid = rid;
+    buf->flags = flags;
    
     enet_bufdesc_t desc = q->ring[q->tail];
     enet_bufdesc_addr_insert(desc, addr);
@@ -772,6 +783,7 @@ static void enet_reg_setup(struct enet_driver_state* st)
     reg = enet_rcr_mii_mode_insert(reg, 0x1);
     reg = enet_rcr_fce_insert(reg, 0x1);
     reg = enet_rcr_max_fl_insert(reg, 1522);
+    reg = enet_rcr_prom_insert(reg, 1);
     enet_rcr_wr(st->d, reg);   
 }
 
@@ -908,10 +920,7 @@ static errval_t enet_init(struct enet_driver_state* st)
     enet_galr_wr(st->d, 0);
 
     // Max pkt size rewrite ...
-    reg = enet_rcr_rd(st->d);
-    reg = enet_rcr_max_fl_insert(reg, ENET_MAX_PKT_SIZE);
-    reg = enet_rcr_prom_insert(reg, 1);
-    enet_rcr_wr(st->d, reg);   
+    enet_mrbr_wr(st->d, 0x600);
 
     // Tell card beginning of rx/tx rings
     enet_rdsr_wr(st->d, st->rxq->desc_mem.devaddr);
@@ -1048,6 +1057,7 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     return SYS_ERR_OK;
 }
 
+/*
 uint16_t packet[21] = { 0xffff, 0xffff, 0xffff, 0x507b,
                         0x9d2b, 0x1cbe, 0x0806, 0x0001,
                         0x0800, 0x0604, 0x0001, 0x507b,
@@ -1104,7 +1114,7 @@ static errval_t send_pkt(struct enet_driver_state* st, regionid_t rid)
     debug_printf("Finished sending packet \n");
     return err;
 }
-
+*/
 /**
  * Driver initialization function. This function is called by the driver domain
  * (see also 'create_handler' in ddomain_service.c).
@@ -1229,13 +1239,13 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
                            &buf.length, &buf.valid_data, &buf.valid_length,
                            &buf.flags);
         if (err_is_ok(err)) {
-            
-        } else {
-
+            err = devq_enqueue((struct devq*) st->rxq, buf.rid, buf.offset,
+                               buf.length, buf.valid_data, buf.valid_length,
+                               buf.flags);
+            assert(err_is_ok(err));
         }
 
-        some_sleep(1000);
-        err = send_pkt(st, rid);
+        //err = send_pkt(st, rid);
     }
     *dev = 0x00;
 
