@@ -100,9 +100,19 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
    * 14.6.5.3/3638
    ***************************************************************************/
     
-  register radr rw addr(base, 0x0010) "Receive Descriptor Active Register ring0" {
+  register rdar rw addr(base, 0x0010) "Receive Descriptor Active Register ring0" {
     _                24 rsvd;
-    radr              1 "Receive Descriptor Active";
+    rdar              1 "Receive Descriptor Active";
+    _                 7 rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.3/3638
+   ***************************************************************************/
+    
+  register tdar rw addr(base, 0x0014) "Transmit Descriptor Active Register ring0" {
+    _                24 rsvd;
+    tdar              1 "Transmit Descriptor Active";
     _                 7 rsvd;
   };
 
@@ -328,6 +338,79 @@ device enet lsbfirst ( addr base ) "Imx8x enet controller" {
     _                22 rsvd;
   };
 
+
+  /****************************************************************************
+   * 14.6.5.49/3679 Tx Packet Count Statistic Register
+   ***************************************************************************/
+  register rmon_t_packets rw addr(base, 0x00204) "Tx Packet Count Statistic Register" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.50/3680 Tx Broadcast Packet Count Statistic Register
+   ***************************************************************************/
+  register rmon_t_bc_pkt rw addr(base, 0x00208) "Tx Broadcast Packet Count Statistic Register" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.51/3680 Tx Multicast Packet Count Statistic Register
+   ***************************************************************************/
+  register rmon_t_mc_pkt rw addr(base, 0x0020C) "Tx Multicast Packet Count Statistic Register" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.52/3681 Tx Packets with CRC/Align Error Statistic Register
+   ***************************************************************************/
+  register rmon_t_crc_align rw addr(base, 0x00210) "Tx Packets with CRC/Align Error Statistic Register" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.53/3681 Tx Packets Less Than Bytes and Good CRC Statistics
+   ***************************************************************************/
+  register rmon_t_undersize rw addr(base, 0x00214) "Tx Packets Less Than Bytes and Good CRC Statistics" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.54/3681 Tx Packets GT MAX_FL bytes and Good CRC Statistics
+   ***************************************************************************/
+  register rmon_t_oversize rw addr(base, 0x00218) "Tx Packets GT MAX_FL bytes and Good CRC Statistics" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+
+  /****************************************************************************
+   * 14.6.5.55/3681 Tx Packets Less Than Bytes and bad CRC Statistics
+   ***************************************************************************/
+  register rmon_t_frag rw addr(base, 0x0021C) "Tx Packets Less Than Bytes and bad CRC Statistics" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.54/3682 Tx Packets GT MAX_FL bytes and bad CRC Statistics
+   ***************************************************************************/
+  register rmon_t_jab rw addr(base, 0x00220) "Tx Packets GT MAX_FL bytes and bad CRC Statistics" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
+
+  /****************************************************************************
+   * 14.6.5.55/3683 Tx Collision Count Statistic Register
+   ***************************************************************************/
+  register rmon_t_col rw addr(base, 0x00224) "Tx Collision Count Statistic Register" {
+    count            16  "Number of packets sent";
+    _                16  rsvd;
+  };
 
   /****************************************************************************
    * 14.6.5.79/3766 Rx Packet Count Statistic Register

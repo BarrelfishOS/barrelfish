@@ -100,6 +100,19 @@ static errval_t enet_register(struct devq* q, struct capref cap, regionid_t rid)
     return SYS_ERR_OK;
 }
 
+static inline size_t enet_full_slots(struct enet_queue* q)
+{
+    size_t head = q->head;
+    size_t tail = q->tail;
+    size_t size = q->size;
+
+    if (tail >= head) {
+        return (tail - head);
+    } else {
+        return (tail + size - head);
+    }
+}
+
 static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
                                 genoffset_t* offset,
                                 genoffset_t* length,
@@ -109,27 +122,23 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
 {
     struct enet_queue* q = (struct enet_queue*) que;      
     enet_bufdesc_t desc = q->ring[q->head];
-    struct devq_buf buf = q->ring_bufs[q->head];
+    struct devq_buf* buf = &q->ring_bufs[q->head];
 
     __builtin___clear_cache(desc, desc+sizeof(enet_bufdesc_t));
 
     uint16_t status = enet_bufdesc_sc_extract(desc);
 
     ENET_DEBUG("Try dequeue %d RADR %d ENABLED %d STATUS %lx \n", q->head, 
-               enet_radr_radr_rdf(q->d), enet_ecr_etheren_rdf(q->d), status);
-    //ENET_DEBUG("RX packets %d \n", enet_rmon_r_packets_rd(q->d));
-    //ENET_DEBUG("RX packets CRC/Align %d \n", enet_rmon_r_packets_crc_align_rd(q->d));
-    //ENET_DEBUG("RX num octet %d \n", enet_rmon_r_octets_rd(q->d));
-    //ENET_DEBUG("RX drop %d \n", enet_iee_r_drop_rd(q->d));
+               enet_rdar_rdar_rdf(q->d), enet_ecr_etheren_rdf(q->d), status);
     
     if (!(status & ENET_RX_EMPTY)) {
         // TODO error handling!
         *valid_length = enet_bufdesc_len_extract(desc);
         ENET_DEBUG("Received Packet %lu \n", *valid_length);
-        *offset = buf.offset;
+        *offset = buf->offset;
         *valid_data = 0;
-        *rid = buf.rid;
-        *flags = buf.flags;
+        *rid = buf->rid;
+        *flags = buf->flags;
     } else {
         return DEVQ_ERR_QUEUE_EMPTY;
     }
@@ -141,7 +150,7 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
     
     __builtin___clear_cache(q->ring[q->head], q->ring[q->head+1]);
 
-    q->head = q->head & (q->size -1);
+    q->head = (q->head+1) & (q->size -1);
 
     return  SYS_ERR_OK;
 }
@@ -153,15 +162,115 @@ static errval_t enet_tx_dequeue(struct devq* que, regionid_t* rid,
                                 genoffset_t* valid_length,
                                 uint64_t* flags)
 {
-    //struct enet_queue* q = (struct enet_queue*) que;      
-    //enet_bufdesc_t desc = q->ring[q->head];
-    return  SYS_ERR_OK;
+    struct enet_queue* q = (struct enet_queue*) que;      
+
+    if (enet_full_slots(q)) {
+        enet_bufdesc_t desc = q->ring[q->head];
+        __builtin___clear_cache(q->ring[q->head], q->ring[q->head+1]);
+        desc = q->ring[q->head];
+        struct devq_buf* buf= &q->ring_bufs[q->head];
+
+        if (!(enet_bufdesc_sc_extract(desc) & ENET_TX_READY)) {
+            ENET_DEBUG("We sent something!! \n");
+            *valid_length = buf->valid_length;
+            *offset = buf->offset;
+            *length = 2048;
+            *valid_data = 0;
+            *rid = buf->rid;
+            *flags = buf->flags;
+        } else {
+            return DEVQ_ERR_QUEUE_EMPTY;
+        }
+    } else {
+        return DEVQ_ERR_QUEUE_EMPTY;
+    }
+
+    ENET_DEBUG("Deq TX head=%zu \n", q->head);
+    q->head = (q->head + 1) & (q->size -1);
+    return SYS_ERR_OK;
+}
+
+
+static void enet_activate_tx_ring(enet_t * d)
+{
+    ENET_DEBUG("Activating TX ring \n");
+    // bit is always set to 1 only when ring is empty then it is set to 0
+    enet_tdar_tdar_wrf(d, 1); 
 }
 
 static errval_t enet_tx_enqueue(struct devq* que, regionid_t rid, genoffset_t offset,
                                 genoffset_t length, genoffset_t valid_data,
                                 genoffset_t valid_length, uint64_t flags)
 {
+    
+    struct enet_queue* q = (struct enet_queue*) que;   
+
+    assert(valid_length > 0 && valid_length < ENET_MAX_PKT_SIZE);
+
+    lpaddr_t addr = 0;
+    lvaddr_t vaddr = 0;
+    struct region_entry *entry = get_region(q, rid);
+    assert(entry);    
+    addr = (lpaddr_t) entry->mem.devaddr + offset + valid_data;
+    vaddr = (lvaddr_t) entry->mem.vbase + offset + valid_data;
+    
+    struct devq_buf* buf= &q->ring_bufs[q->tail];
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_length = valid_length;
+    buf->valid_data = valid_data;
+    buf->rid = rid;
+    buf->flags = flags;
+ 
+    // TODO alignment
+    
+    enet_bufdesc_t desc = q->ring[q->tail];
+    enet_bufdesc_addr_insert(desc, addr);
+    enet_bufdesc_len_insert(desc, valid_length);
+
+    __builtin___clear_cache((void*) vaddr, (void*) vaddr+valid_length);
+
+    if (q->tail == (q->size -1)) {
+        enet_bufdesc_sc_insert(desc, ENET_TX_READY | ENET_TX_CRC | 
+                               ENET_TX_LAST | ENET_TX_WRAP);
+    } else {
+        enet_bufdesc_sc_insert(desc, ENET_TX_READY | ENET_TX_CRC | ENET_TX_LAST);
+    }
+
+    __builtin___clear_cache(q->ring[q->tail], q->ring[q->tail+1]);
+    // activate TX
+    enet_activate_tx_ring(q->d);
+
+    // wait until sent
+    int timeout = 5000;
+    while(timeout--) {
+        if (!(enet_tdar_tdar_rdf(q->d))) {
+            break;
+        }
+    }
+ 
+    if (timeout == 0) {
+        debug_printf("Failed sending!! \n");
+        return NIC_ERR_TX_PKT;
+    }
+
+    timeout = 5000;
+    // make sure it is really sent!!
+    while(timeout--) {
+        __builtin___clear_cache(q->ring[q->tail], q->ring[q->tail+1]);
+        desc = q->ring[q->tail];
+        if (!(enet_bufdesc_sc_extract(desc) & ENET_TX_READY)) {
+            break;
+        }
+    }
+
+    debug_printf("Descriptor %lx \n", desc);
+    if (timeout == 0) {
+        debug_printf("Failed sending!! \n");
+        return NIC_ERR_TX_PKT;
+    } else {
+        q->tail = (q->tail + 1) & (q->size -1);
+    }
 
     return SYS_ERR_OK;
 }
@@ -589,7 +698,7 @@ static void enet_activate_rx_ring(struct enet_driver_state* st)
 {
     ENET_DEBUG("Activating RX ring \n");
     // bit is always set to 1 only when ring is empty then it is set to 0
-    enet_radr_radr_wrf(st->d, 1); 
+    enet_rdar_rdar_wrf(st->d, 1); 
     some_sleep(1000);
 }
 
@@ -717,14 +826,13 @@ static errval_t enet_open(struct enet_driver_state *st)
 
     // Invalidate rx descriptors
     st->rxq->tail = 0;
-    struct capref mem;
-    err = frame_alloc(&mem, 512*2048, NULL);
+    err = frame_alloc(&st->rx_mem, 512*2048, NULL);
     if (err_is_fail(err)) {
         return err;
     }
 
     regionid_t rid;
-    err = devq_register((struct devq*) st->rxq, mem, &rid);
+    err = devq_register((struct devq*) st->rxq, st->rx_mem, &rid);
     if (err_is_fail(err)) {
         return err;
     }
@@ -739,6 +847,7 @@ static errval_t enet_open(struct enet_driver_state *st)
 
     // Enable HW endian swap
     enet_ecr_dbswp_wrf(st->d, 0x1);
+    enet_ecr_en1588_wrf(st->d, 0x0);
     // Enable store and forward mode
     enet_tfwr_strfwd_wrf(st->d, 0x1);
     // Enable controler
@@ -799,6 +908,7 @@ static errval_t enet_init(struct enet_driver_state* st)
     // Max pkt size rewrite ...
     reg = enet_rcr_rd(st->d);
     reg = enet_rcr_max_fl_insert(reg, ENET_MAX_PKT_SIZE);
+    reg = enet_rcr_prom_insert(reg, 1);
     enet_rcr_wr(st->d, reg);   
 
     // Tell card beginning of rx/tx rings
@@ -936,6 +1046,63 @@ static errval_t enet_alloc_queues(struct enet_driver_state* st)
     return SYS_ERR_OK;
 }
 
+uint16_t packet[21] = { 0xffff, 0xffff, 0xffff, 0x507b,
+                        0x9d2b, 0x1cbe, 0x0806, 0x0001,
+                        0x0800, 0x0604, 0x0001, 0x507b,
+                        0x9d2b, 0x1cbe, 0x0a05, 0x29d6,
+                        0x0000, 0x0000, 0x0000, 0x0a6e,
+                        0x0404};
+
+static void print_tx_stats(struct enet_driver_state* st)
+{
+    debug_printf("TX PKT %d \n", enet_rmon_t_packets_rd(st->txq->d));
+    debug_printf("TX PKT BC %d \n", enet_rmon_t_bc_pkt_rd(st->txq->d));
+    debug_printf("TX PKT MC %d \n", enet_rmon_t_mc_pkt_rd(st->txq->d));
+    debug_printf("TX PKT CRC/Align %d \n", enet_rmon_t_crc_align_rd(st->txq->d));
+    debug_printf("TX PKT Undersized %d \n", enet_rmon_t_undersize_rd(st->txq->d));
+    debug_printf("TX PKT Oversized %d \n", enet_rmon_t_oversize_rd(st->txq->d));
+    debug_printf("TX PKT Undersized bad CRC %d \n", enet_rmon_t_frag_rd(st->txq->d));
+    debug_printf("TX PKT Oversized bad CRC %d \n", enet_rmon_t_jab_rd(st->txq->d));
+    debug_printf("TX PKT Collision %d \n", enet_rmon_t_col_rd(st->txq->d));
+
+}
+
+static errval_t send_pkt(struct enet_driver_state* st, regionid_t rid) 
+{
+    struct region_entry *entry = get_region(st->txq, rid);
+    assert(entry);    
+    memcpy((void*) entry->mem.vbase, (void *) packet, 21*sizeof(uint16_t));
+
+    // try sending buffer 0
+    
+    struct devq_buf buf;
+    buf.rid = rid;
+    buf.offset = 0;
+    buf.valid_data = 0;
+    buf.length = 2048;
+    buf.valid_length = 21*sizeof(uint16_t);
+    buf.flags = 0;
+
+    errval_t err;
+    err = devq_enqueue((struct devq*) st->txq, buf.rid, buf.offset,
+                       buf.length, buf.valid_data, buf.valid_length,
+                       buf.flags);
+    if (err_is_ok(err)) {
+        // cleanup
+        while(true) {
+            err = devq_dequeue((struct devq*) st->txq, &buf.rid, &buf.offset,
+                               &buf.length, &buf.valid_data, &buf.valid_length,
+                               &buf.flags);
+            if (err_is_ok(err)) {
+                break;
+            }
+        }
+    }
+    print_tx_stats(st);
+    debug_printf("Finished sending packet \n");
+    return err;
+}
+
 /**
  * Driver initialization function. This function is called by the driver domain
  * (see also 'create_handler' in ddomain_service.c).
@@ -1043,6 +1210,17 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         return err;
     }
 
+    err = frame_alloc(&st->tx_mem, 512*2048, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    regionid_t rid;
+    err = devq_register((struct devq*) st->txq, st->tx_mem, &rid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
     struct devq_buf buf;
     while(true) {
         err = devq_dequeue((struct devq*) st->rxq, &buf.rid, &buf.offset,
@@ -1053,7 +1231,10 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         } else {
 
         }
+
         some_sleep(1000);
+        err = send_pkt(st, rid);
+        
     }
     *dev = 0x00;
 
