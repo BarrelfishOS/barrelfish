@@ -37,6 +37,11 @@
 #define ENET_RX_CL ((ushort) 0x0001)
 #define ENET_RX_STATS ((ushort) 0x013f)
 
+#define ENET_TX_READY 0x8000
+#define ENET_TX_WRAP 0x2000
+#define ENET_TX_LAST 0x0800
+#define ENET_TX_CRC 0x0400
+
 struct region_entry {
     uint32_t rid;
     struct dmem mem;
@@ -80,6 +85,9 @@ struct enet_driver_state {
     uint64_t mac;
 
     uint32_t phy_id;
+
+    struct capref rx_mem;
+    struct capref tx_mem;
 };
 
 #define ENET_HASH_BITS 6
