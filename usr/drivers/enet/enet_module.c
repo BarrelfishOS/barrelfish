@@ -767,6 +767,8 @@ static void enet_reg_setup(struct enet_driver_state* st)
     uint64_t reg; 
     // TODO see if other fields are required, not in dump
     reg = enet_rcr_rd(st->d);
+    reg = enet_rcr_loop_insert(reg, 0x0);
+    reg = enet_rcr_rmii_mode_insert(reg, 0x1);
     reg = enet_rcr_mii_mode_insert(reg, 0x1);
     reg = enet_rcr_fce_insert(reg, 0x1);
     reg = enet_rcr_max_fl_insert(reg, 1522);
@@ -837,7 +839,7 @@ static errval_t enet_open(struct enet_driver_state *st)
         return err;
     }
 
-    for (int i = 0; i < st->rxq->size; i++) {
+    for (int i = 0; i < st->rxq->size-1; i++) {
         err = devq_enqueue((struct devq*) st->rxq, rid, i*(2048), 2048,
                             0, 2048, 0);
         if (err_is_fail(err)) {
@@ -896,9 +898,9 @@ static errval_t enet_init(struct enet_driver_state* st)
     reg = enet_mscr_mii_speed_insert(reg, 0x18);
     reg = enet_mscr_hold_time_insert(reg, 0x1);
     enet_mscr_wr(st->d, reg);
-    
+
     // Set Opcode and Pause duration
-    enet_opd_wr(st->d, 0x000100200);
+    enet_opd_wr(st->d, 0x00010020);
     enet_tfwr_tfwr_wrf(st->d, 0x2);
 
     // Set multicast addr filter
@@ -1234,7 +1236,6 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
 
         some_sleep(1000);
         err = send_pkt(st, rid);
-        
     }
     *dev = 0x00;
 
