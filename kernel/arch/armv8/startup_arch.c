@@ -544,6 +544,8 @@ static struct dcb *spawn_init_common(const char *name,
     /* Tell init the vspace addr of its dispatcher. */
     disp->udisp = INIT_DISPATCHER_VBASE;
 
+    disp->systime_frequency = systime_frequency;
+
     /* TODO: write the contet ID for init */
 
     /* Set the thread ID register to point to the shared structure. */
