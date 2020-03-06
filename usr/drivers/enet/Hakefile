@@ -12,11 +12,20 @@
 
 
 [
+  build library {
+        target = "devif_backend_enet",
+        cFiles = ["enet_devq.c"],
+                   mackerelDevices = ["enet"],
+                   addLibraries = libDeps ["driverkit_iommu"],
+                   architectures = ["armv8"]
+  },
+
   -- Builds a driver module: this is identical to building a
   -- library, the only difference is in how this is linked with the domain
   build drivermodule {
     target = "enet_module",
-    addLibraries = [ "driverkit", "driverkit_iommu", "devif_internal", "devif"],
+    addLibraries = [ "driverkit", "driverkit_iommu", "devif_internal", "devif",
+                     "devif_backend_enet"],
     mackerelDevices = [ "enet" ],
     cFiles = [ "enet_module.c"]
   },
