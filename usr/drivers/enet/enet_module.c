@@ -95,7 +95,7 @@ static errval_t enet_read_mdio(struct enet_driver_state* st, int8_t phyaddr,
 
     uint16_t tries = 1000;
     while (!(enet_eir_mii_rdf(st->d) & 0x1)) {
-        barrelfish_usleep(10);
+        some_sleep(10);
         tries--;
         if (tries == 0) {
             return ENET_ERR_MDIO_WRITE;
@@ -162,7 +162,7 @@ static errval_t enet_reset_phy(struct enet_driver_state* st)
             return err;
         }   
     
-        barrelfish_usleep(1000);
+        some_sleep(1000);
         timeout--;
     }
 
@@ -340,7 +340,8 @@ static errval_t enet_phy_startup(struct enet_driver_state* st)
     }
     
     if (!(mii_reg & PHY_STATUS_ANEG_COMP)) {
-        ENET_DEBUG("Staring autonegotiation \n");
+
+        debug_printf("[enet] Staring autonegotiation \n");
         while(!(mii_reg & PHY_STATUS_ANEG_COMP))  {
             err = enet_read_mdio(st, PHY_ID, PHY_STATUS_CMD, &mii_reg);
             assert(err_is_ok(err));
@@ -574,12 +575,14 @@ static errval_t enet_probe(struct enet_driver_state* st)
     return SYS_ERR_OK;
 }
 
+/*
 uint16_t packet[21] = { 0xffff, 0xffff, 0xffff, 0x7b50,
                         0x2b9d, 0xbe1c, 0x0608, 0x0100,
                         0x0008, 0x0406, 0x0100, 0x7b50,
                         0x2b9d, 0xbe1c, 0x050a, 0xd629,
                         0x0000, 0x0000, 0x0000, 0x6e0a,
                         0x0404};
+*/
 /*
 static void print_tx_stats(struct enet_driver_state* st)
 {
@@ -595,6 +598,7 @@ static void print_tx_stats(struct enet_driver_state* st)
 
 }
 */
+/*
 static void* tx_vbase = NULL;
 static errval_t send_pkt(struct enet_driver_state* st, regionid_t rid) 
 {
@@ -636,6 +640,7 @@ static errval_t send_pkt(struct enet_driver_state* st, regionid_t rid)
     //print_tx_stats(st);
     return err;
 }
+*/
 /**
  * Driver initialization function. This function is called by the driver domain
  * (see also 'create_handler' in ddomain_service.c).
@@ -742,6 +747,7 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
     }
 
 
+    /*
     struct devq_buf buf;
     while(true) {
         err = devq_dequeue((struct devq*) st->rxq, &buf.rid, &buf.offset,
@@ -758,6 +764,7 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t* dev)
         }
 
     }
+    */
     *dev = 0x00;
 
     return SYS_ERR_OK;
