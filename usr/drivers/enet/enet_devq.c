@@ -253,7 +253,7 @@ static errval_t enet_tx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
     }
 
     if (timeout == 0) {
-        debug_printf("Failed sending!! \n");
+        ENET_DEBUG("Failed sending!! \n");
         return NIC_ERR_TX_PKT;
     } else {
         q->tail = (q->tail + 1) & (q->size -1);
@@ -312,7 +312,7 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, struct capref* ep,
                               struct capref* regs, void(*int_handler)(void*))
 {
     errval_t err;
-    debug_printf("Allocating rx device queue \n");
+    ENET_DEBUG("Allocating rx device queue \n");
     struct enet_queue* rxq;
     rxq = calloc(1, sizeof(struct enet_queue));
     assert(rxq);
@@ -370,7 +370,7 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, struct capref* ep,
     assert(rxq->ring_bufs);
 
     enet_bufdesc_t desc;
-    debug_printf("RX %p ring init to default values \n", rxq->ring);
+    ENET_DEBUG("RX %p ring init to default values \n", rxq->ring);
     for (int i = 0; i < rxq->size; i++) {
         desc = rxq->ring[i];
         enet_bufdesc_sc_insert(desc, 0);
@@ -387,7 +387,7 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, struct capref* ep,
 
     err = devq_init(&rxq->q, false);
     if (err_is_fail(err)) {
-        debug_printf("enet devq_init error\n");
+        ENET_DEBUG("enet devq_init error\n");
         return err;
     }
 
@@ -405,7 +405,7 @@ errval_t enet_tx_queue_create(struct enet_queue ** q, struct capref* ep,
                               struct capref* regs, void(*int_handler)(void*))
 {
     errval_t err;
-    debug_printf("Allocating rx device queue \n");
+    ENET_DEBUG("Allocating rx device queue \n");
     struct enet_queue* txq;
     txq = calloc(1, sizeof(struct enet_queue));
     txq->size = TX_RING_SIZE;
@@ -423,14 +423,14 @@ errval_t enet_tx_queue_create(struct enet_queue ** q, struct capref* ep,
 
     txq->align = 0x3f;
 
-    debug_printf("Allocating TX descriptor ring \n");
+    ENET_DEBUG("Allocating TX descriptor ring \n");
     size_t tot_size = (txq->size)*sizeof(enet_bufdesc_t);
     err = frame_alloc(&(txq->desc_mem.mem), tot_size, (size_t *)&(txq->desc_mem.size));
     if (err_is_fail(err)) {
         return err;
     }
 
-    debug_printf("Mapping RX/TX descriptor ring\n");
+    ENET_DEBUG("Mapping RX/TX descriptor ring\n");
     err = vspace_map_one_frame_attr((void**) &(txq->desc_mem.vbase), tot_size, 
                                     txq->desc_mem.mem, VREGION_FLAGS_READ_WRITE_NOCACHE, 
                                     NULL, NULL);
@@ -459,7 +459,7 @@ errval_t enet_tx_queue_create(struct enet_queue ** q, struct capref* ep,
     txq->ring_bufs = calloc(txq->size, sizeof(struct devq_buf));
     assert(txq->ring_bufs);
 
-    debug_printf("TX %p ring init to default values \n", txq->ring);
+    ENET_DEBUG("TX %p ring init to default values \n", txq->ring);
 
     enet_bufdesc_t desc;
     // init send buffer descriptors

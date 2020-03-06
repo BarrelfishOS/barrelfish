@@ -10,7 +10,15 @@
 #ifndef ENET_H_
 #define ENET_H_
 
+
+//#define ENET_DEBUG_OPTION 1
+
+#if defined(ENET_DEBUG_OPTION)
 #define ENET_DEBUG(x...) debug_printf("[enet] " x);
+#else
+#define ENET_DEBUG(fmt, ...) ((void)0)
+#endif
+
 
 #define ENET_PROMISC
 
