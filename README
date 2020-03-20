@@ -28,6 +28,7 @@ Barrelfish currently runs on:
    - ARMv7: The ARM VExpress EMM board as simulated by GEM5
    - ARMv8: Cavium ThunderX2
    - ARMv8: Applied Micro X-Gene
+   - ARMv8: NXP i.MX 8 SoC on a Toradex iMX8X Colibri board
    - There is also limited support for the Netronome i8000 card, incorporating
      a single Intel iXP2800 processor
 
