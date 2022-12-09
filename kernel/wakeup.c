@@ -50,6 +50,7 @@ void wakeup_remove(struct dcb *dcb)
             dcb->wakeup_next->wakeup_prev = dcb->wakeup_prev;
         }
         dcb->wakeup_prev = dcb->wakeup_next = NULL;
+        dcb->wakeup_time = 0;
     }
 
     // No-Op if not in queue...
